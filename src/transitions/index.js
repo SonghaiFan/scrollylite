@@ -42,80 +42,50 @@ export function withSceneTransitionDefaults(viewSpec, sceneTransition) {
 
 export function compileSceneViewSpec(viewSpec, sceneTransition) {
   const mark = String(viewSpec.mark || "").toLowerCase();
-  if (mark === "scatter") return compileScatterSceneViewSpec(viewSpec, sceneTransition);
-  if (mark === "line") return compileLineSceneViewSpec(viewSpec, sceneTransition);
-  if (mark !== "bar") return viewSpec;
+  const compiler = CHART_TRANSITION_COMPILERS[mark];
+  if (!compiler) return viewSpec;
 
-  let compiled = withDefaultBarSemanticKey(cloneViewSpec(viewSpec));
-
-  if (hasScene(sceneTransition, "focus")) {
-    compiled = applyBarFocus(compiled, sceneTransition.focus);
-  }
-
-  if (hasScene(sceneTransition, "guide")) {
-    compiled = applyBarGuide(compiled, sceneTransition.guide);
-  }
-
-  if (hasScene(sceneTransition, "granularity")) {
-    compiled = applyBarGranularity(compiled, sceneTransition.granularity);
-  }
-
-  if (hasScene(sceneTransition, "observation")) {
-    compiled = applyBarObservation(compiled, sceneTransition.observation);
-  }
-
-  return compiled;
-}
-
-function compileLineSceneViewSpec(viewSpec, sceneTransition) {
-  let compiled = cloneViewSpec(viewSpec);
-
-  if (hasScene(sceneTransition, "focus")) {
-    compiled = applyLineFocus(compiled, sceneTransition.focus);
-  }
-
-  if (hasScene(sceneTransition, "guide")) {
-    compiled = applyScatterGuide(compiled, sceneTransition.guide);
-  }
-
-  if (hasScene(sceneTransition, "observation")) {
-    compiled = applyScatterObservation(compiled, sceneTransition.observation);
-  }
-
-  if (hasScene(sceneTransition, "granularity")) {
-    compiled = applyLineGranularity(compiled, sceneTransition.granularity);
-  }
-
-  return compiled;
-}
-
-function compileScatterSceneViewSpec(viewSpec, sceneTransition) {
-  let compiled = cloneViewSpec(viewSpec);
-
-  if (hasScene(sceneTransition, "focus")) {
-    compiled = applyScatterFocus(compiled, sceneTransition.focus);
-  }
-
-  if (hasScene(sceneTransition, "guide")) {
-    compiled = applyScatterGuide(compiled, sceneTransition.guide);
-  }
-
-  if (hasScene(sceneTransition, "granularity")) {
-    compiled = applyScatterGranularity(compiled, sceneTransition.granularity);
-  }
-
-  if (hasScene(sceneTransition, "observation")) {
-    compiled = applyScatterObservation(compiled, sceneTransition.observation);
-  }
-
-  return compiled;
+  return sceneTransition.scene.reduce((compiled, sceneType) => {
+    const handler = compiler.scenes[sceneType];
+    return handler ? handler(compiled, sceneTransition[sceneType] || {}) : compiled;
+  }, compiler.base(cloneViewSpec(viewSpec)));
 }
 
 export function hasScene(sceneTransition, type) {
   return sceneTransition?.scene?.includes(type);
 }
 
-function applyBarFocus(spec, focusSpec = {}) {
+const CHART_TRANSITION_COMPILERS = {
+  bar: {
+    base: withDefaultBarSemanticKey,
+    scenes: {
+      focus: applyFilterFocus,
+      guide: applyBarGuide,
+      granularity: applyBarGranularity,
+      observation: applyBarObservation
+    }
+  },
+  scatter: {
+    base: identitySpec,
+    scenes: {
+      focus: applyFilterFocus,
+      guide: applyXYGuide,
+      granularity: applyScatterGranularity,
+      observation: applyXYObservation
+    }
+  },
+  line: {
+    base: identitySpec,
+    scenes: {
+      focus: applyLineFocus,
+      guide: applyXYGuide,
+      granularity: applyLineGranularity,
+      observation: applyXYObservation
+    }
+  }
+};
+
+function applyFilterFocus(spec, focusSpec = {}) {
   const filter = focusSpec.filter || selectorToFilter(focusSpec);
   if (!filter) return spec;
 
@@ -280,16 +250,12 @@ function applyBarObservation(spec, observationSpec = {}) {
   };
 }
 
-function applyScatterFocus(spec, focusSpec = {}) {
-  return applyBarFocus(spec, focusSpec);
-}
-
 function applyLineFocus(spec, focusSpec = {}) {
   const filter = focusSpec.filter || selectorToFilter(focusSpec);
   if (!filter) return spec;
 
   if (focusSpec.mode === "filter") {
-    return applyBarFocus(spec, focusSpec);
+    return applyFilterFocus(spec, focusSpec);
   }
 
   return {
@@ -305,15 +271,15 @@ function applyLineFocus(spec, focusSpec = {}) {
   };
 }
 
-function applyScatterGuide(spec, guideSpec = {}) {
+function applyXYGuide(spec, guideSpec = {}) {
   const encoding = cloneEncoding(spec.encoding);
 
   if (guideSpec.swap) {
     [encoding.x, encoding.y] = [encoding.y, encoding.x];
   }
 
-  if (guideSpec.x) encoding.x = mergeScatterChannel(encoding.x, guideSpec.x, "quantitative");
-  if (guideSpec.y) encoding.y = mergeScatterChannel(encoding.y, guideSpec.y, "quantitative");
+  if (guideSpec.x) encoding.x = mergeXYChannel(encoding.x, guideSpec.x, "quantitative");
+  if (guideSpec.y) encoding.y = mergeXYChannel(encoding.y, guideSpec.y, "quantitative");
 
   return {
     ...spec,
@@ -331,10 +297,10 @@ function applyScatterGuide(spec, guideSpec = {}) {
   };
 }
 
-function applyScatterObservation(spec, observationSpec = {}) {
+function applyXYObservation(spec, observationSpec = {}) {
   const encoding = cloneEncoding(spec.encoding);
-  if (observationSpec.x) encoding.x = mergeScatterChannel(encoding.x, observationSpec.x, "quantitative");
-  if (observationSpec.y) encoding.y = mergeScatterChannel(encoding.y, observationSpec.y, "quantitative");
+  if (observationSpec.x) encoding.x = mergeXYChannel(encoding.x, observationSpec.x, "quantitative");
+  if (observationSpec.y) encoding.y = mergeXYChannel(encoding.y, observationSpec.y, "quantitative");
 
   return {
     ...spec,
@@ -356,8 +322,8 @@ function applyScatterGranularity(spec, granularitySpec = {}) {
 
   if (mode === "aggregate") {
     const groupby = granularitySpec.groupby || [parentField].filter(Boolean);
-    const x = mergeScatterChannel(spec.encoding?.x, granularitySpec.x || spec.encoding?.x, "quantitative");
-    const y = mergeScatterChannel(spec.encoding?.y, granularitySpec.y || spec.encoding?.y, "quantitative");
+    const x = mergeXYChannel(spec.encoding?.x, granularitySpec.x || spec.encoding?.x, "quantitative");
+    const y = mergeXYChannel(spec.encoding?.y, granularitySpec.y || spec.encoding?.y, "quantitative");
     const xAs = granularitySpec.x?.as || x.field;
     const yAs = granularitySpec.y?.as || y.field;
     const countAs = granularitySpec.countAs || "count";
@@ -451,6 +417,10 @@ function applyLineGranularity(spec, granularitySpec = {}) {
   };
 }
 
+function identitySpec(spec) {
+  return spec;
+}
+
 function withDefaultBarSemanticKey(spec) {
   if (spec.semanticKey) return spec;
   const semanticKey = semanticKeyFromEncoding(spec.encoding || {});
@@ -521,7 +491,7 @@ function channelFromField(fieldOrChannel, title, fallbackType) {
   };
 }
 
-function mergeScatterChannel(base = {}, override = {}, fallbackType) {
+function mergeXYChannel(base = {}, override = {}, fallbackType) {
   if (typeof override === "string") return channelFromField(override, base?.title, fallbackType);
   const channel = { ...base, ...override };
   if (!channel.type) channel.type = fallbackType;

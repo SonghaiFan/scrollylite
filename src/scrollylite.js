@@ -340,6 +340,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     `translate(${chart.margin.left},${chart.margin.top})`
   );
   chart.g = activeMarkLayer(scene, chartType, chart.transition);
+  applyPlotClip(chart, true);
 
   if (chartType !== "unit") {
     scene.unitLabel.transition(chart.transition.base).style("opacity", 0);
@@ -520,7 +521,6 @@ function drawLine(chart, rows, spec, tooltip, d3) {
     .curve(curveFor(spec, d3));
 
   fadeNonLineShapes(chart);
-  applyPlotClip(chart, Boolean(focus?.crop));
   chart.scales = { x, y, color, orientation: "cartesian" };
   chart.channels = enc;
   chart.position = {
@@ -547,6 +547,8 @@ function drawLine(chart, rows, spec, tooltip, d3) {
           .call((selection) => drawPath(selection, t)),
       (update) =>
         update
+          .attr("stroke-dasharray", null)
+          .attr("stroke-dashoffset", null)
           .transition(t)
           .style("opacity", 1)
           .attr("stroke", (d) => color(d.rows[0]))
@@ -554,6 +556,8 @@ function drawLine(chart, rows, spec, tooltip, d3) {
           .attr("d", (d) => line(d.rows)),
       (exit) =>
         exit
+          .attr("stroke-dasharray", null)
+          .attr("stroke-dashoffset", null)
           .transition(t)
           .style("opacity", 0)
           .remove()
@@ -894,7 +898,13 @@ function drawPath(selection, transition) {
       .attr("stroke-dashoffset", total)
       .style("opacity", 1)
       .transition(transition)
-      .attr("stroke-dashoffset", 0);
+      .attr("stroke-dashoffset", 0)
+      .on("end", function () {
+        getD3()
+          .select(this)
+          .attr("stroke-dasharray", null)
+          .attr("stroke-dashoffset", null);
+      });
   });
 }
 
@@ -973,9 +983,32 @@ function applyPlotClip(chart, enabled) {
     return;
   }
 
-  const id = `sl-clip-${chart.scene.node.dataset.viewId || "main"}`;
-  let defs = chart.scene.svg.select("defs");
-  if (defs.empty()) defs = chart.scene.svg.append("defs");
+  const id = `sl-mark-clip-${chart.scene.node.dataset.viewId || "main"}`;
+  ensureClipRect(chart.scene, id, {
+    x: 0,
+    y: 0,
+    width: chart.innerWidth,
+    height: chart.innerHeight
+  });
+
+  chart.g.attr("clip-path", `url(#${id})`);
+}
+
+function applyXAxisClip(chart) {
+  const id = `sl-x-axis-clip-${chart.scene.node.dataset.viewId || "main"}`;
+  ensureClipRect(chart.scene, id, {
+    x: 0,
+    y: -8,
+    width: chart.innerWidth,
+    height: 72
+  });
+
+  chart.scene.xAxis.attr("clip-path", `url(#${id})`);
+}
+
+function ensureClipRect(scene, id, rect) {
+  let defs = scene.svg.select("defs");
+  if (defs.empty()) defs = scene.svg.append("defs");
 
   defs
     .selectAll(`#${id}`)
@@ -985,12 +1018,10 @@ function applyPlotClip(chart, enabled) {
     .selectAll("rect")
     .data([null])
     .join("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", chart.innerWidth)
-    .attr("height", chart.innerHeight);
-
-  chart.g.attr("clip-path", `url(#${id})`);
+    .attr("x", rect.x)
+    .attr("y", rect.y)
+    .attr("width", rect.width)
+    .attr("height", rect.height);
 }
 
 function rowMatchesFilter(row, filter = {}) {
@@ -1355,6 +1386,7 @@ function drawXAxis(chart, scale, title, d3) {
     return;
   }
 
+  applyXAxisClip(chart);
   const axis = typeof scale.bandwidth === "function" ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(6);
   chart.scene.xAxis
     .interrupt()

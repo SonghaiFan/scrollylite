@@ -53,9 +53,8 @@ types and layout modes are managed as registries:
 - `src/charts/index.js` normalizes chart aliases and exposes a registry pattern.
 - `src/layouts/index.js` resolves layout presets such as `floatToText` and
   `textOverVis`.
-- `src/transitions/index.js` resolves scene transition tokens and compiles the
-  first bar-chart scene states for `focus`, `guide`, `granularity`, and
-  `observation`.
+- `src/transitions/index.js` resolves scene transition tokens and compiles chart
+  scene states through a small adapter registry.
 - `src/scrollylite.js` owns story flow, data loading, scenes, actions, and
   transitions; it delegates chart rendering and layout selection.
 
@@ -142,13 +141,13 @@ export default {
 - Keyed enter/update/exit transitions
 - Pairwise transition planning from previous scene state to next scene state
 - Declarative transition timing: `duration`, `ease`, and `stagger`
-- First bar-chart scene transition compiler:
-  - `focus` adds a filter transform for a specific data subset
-  - `guide` can re-orient bars and change scale with staged x/y transitions;
-    visual guide cues are opt-in through `guide.cue`
-  - `granularity` folds/aggregates wide fields into stacked segmented bars
-  - `observation` changes the encoded quantitative variable for the same
-    categories
+- Scene transition compiler for `bar`, `scatter`, and `line`:
+  - `focus` filters bar/scatter views and range-crops line views by default
+  - `guide` changes orientation, scale, axis mapping, or segmented-bar layout
+  - `granularity` changes aggregation, segmentation, split/merge, or line series
+  - `observation` changes encoded variables while preserving semantic identity
+- Global plot-area clipping for mark layers
+- Phase 1 grammar notes in `docs/phase-1-scene-transitions.md`
 - Layout registry starting with `floatToText` and `textOverVis`
 - Generated progress/nav UI
 
@@ -157,8 +156,8 @@ export default {
 - Keep Structure out of v0 implementation until branch/merge/path orchestration
   is designed separately
 - Add a JSON Schema for validation and editor autocomplete
-- Move built-in chart renderers into separate modules:
-  `charts/scatter.js`, `charts/line.js`, `charts/bar.js`
+- Move remaining built-in chart renderers into separate modules:
+  `charts/scatter.js` and `charts/line.js`
 - Add plugin renderers such as `@scrolly-lite/chart-sankey`,
   `@scrolly-lite/chart-unit`, and `@scrolly-lite/chart-map`
 - Add control grammar for station/date/type selectors
