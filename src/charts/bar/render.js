@@ -234,7 +234,12 @@ export function createBarRenderer(deps) {
 
   function barGuideStage(chart, spec, orientation, d3) {
     const staging = chart.transitionPlan?.barStage;
-    if (!staging || staging.toOrientation !== orientation) return null;
+    if (!staging) return null;
+    const matchesOrientation = staging.toOrientation === orientation;
+    const matchesSegmentLayout =
+      staging.toLayout &&
+      (orientation === `${staging.toLayout}-vertical` || orientation === staging.toLayout);
+    if (!matchesOrientation && !matchesSegmentLayout) return null;
 
     const order = Array.isArray(staging.order)
       ? staging.order.filter((axis) => axis === "x" || axis === "y")
@@ -314,6 +319,7 @@ export function createBarRenderer(deps) {
       drawXAxis(chart, x, enc.x?.title, d3);
       drawYAxis(chart, y, enc.y?.title, d3);
 
+      const guideStage = barGuideStage(chart, spec, "grouped-vertical", d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(rows, key)
@@ -336,11 +342,35 @@ export function createBarRenderer(deps) {
               .style("opacity", 1)
               .attr("y", (d) => y(d[valueField]))
               .attr("height", (d) => chart.innerHeight - y(d[valueField])),
-          (update) =>
-            update
+          (update) => {
+            const prepared = update
               .attr("class", "sl-bar sl-bar-segment sl-bar-grouped")
               .call(applyBarIdentity, spec, key, (d) => d[categoryField])
-              .call(bindTooltip, spec, tooltip)
+              .call(bindTooltip, spec, tooltip);
+
+            if (guideStage) {
+              return stagedBarUpdate(
+                prepared,
+                guideStage,
+                spec,
+                {
+                  x: (selection) =>
+                    selection
+                      .attr("x", (d) => x(d[categoryField]) + x1(d[segmentField]))
+                      .attr("width", Math.max(1, x1.bandwidth())),
+                  y: (selection) =>
+                    selection
+                      .attr("y", (d) => y(d[valueField]))
+                      .attr("height", (d) => chart.innerHeight - y(d[valueField]))
+                },
+                (selection) =>
+                  selection
+                    .style("opacity", 1)
+                    .attr("fill", (d) => color(d))
+              );
+            }
+
+            return prepared
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
               .style("opacity", 1)
@@ -348,7 +378,8 @@ export function createBarRenderer(deps) {
               .attr("width", Math.max(1, x1.bandwidth()))
               .attr("y", (d) => y(d[valueField]))
               .attr("height", (d) => chart.innerHeight - y(d[valueField]))
-              .attr("fill", (d) => color(d)),
+              .attr("fill", (d) => color(d));
+          },
           (exit) =>
             exit
               .transition(t)
@@ -376,6 +407,7 @@ export function createBarRenderer(deps) {
       drawXAxis(chart, x, enc.x?.title, d3);
       drawYAxis(chart, y, enc.y?.title, d3);
 
+      const guideStage = barGuideStage(chart, spec, "stacked-vertical", d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(stackedRows, key)
@@ -398,11 +430,35 @@ export function createBarRenderer(deps) {
               .style("opacity", 1)
               .attr("y", (d) => y(d.__stack1))
               .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1))),
-          (update) =>
-            update
+          (update) => {
+            const prepared = update
               .attr("class", "sl-bar sl-bar-segment sl-bar-stacked")
               .call(applyBarIdentity, spec, key, (d) => d[categoryField])
-              .call(bindTooltip, spec, tooltip)
+              .call(bindTooltip, spec, tooltip);
+
+            if (guideStage) {
+              return stagedBarUpdate(
+                prepared,
+                guideStage,
+                spec,
+                {
+                  x: (selection) =>
+                    selection
+                      .attr("x", (d) => x(d[categoryField]))
+                      .attr("width", Math.max(1, x.bandwidth())),
+                  y: (selection) =>
+                    selection
+                      .attr("y", (d) => y(d.__stack1))
+                      .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)))
+                },
+                (selection) =>
+                  selection
+                    .style("opacity", 1)
+                    .attr("fill", (d) => color(d))
+              );
+            }
+
+            return prepared
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
               .style("opacity", 1)
@@ -410,7 +466,8 @@ export function createBarRenderer(deps) {
               .attr("width", Math.max(1, x.bandwidth()))
               .attr("y", (d) => y(d.__stack1))
               .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)))
-              .attr("fill", (d) => color(d)),
+              .attr("fill", (d) => color(d));
+          },
           (exit) =>
             exit
               .transition(t)

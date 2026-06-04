@@ -507,14 +507,12 @@ function sceneRowKey(row, spec = {}) {
 function drawLine(chart, rows, spec, tooltip, d3) {
   const enc = spec.encoding || {};
   const t = chart.transition.base;
-  const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
-  const y = d3
-    .scaleLinear()
-    .domain(niceExtent(rows, enc.y.field))
-    .range([chart.innerHeight, 0])
-    .nice();
+  const focus = spec.sceneState?.focus;
+  const x = focusedLineXScale(rows, enc.x, chart, focus, d3);
+  const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
   const color = colorScale(rows, enc.color, d3);
   const key = keyAccessor(spec, enc.x?.field);
+  const series = lineSeries(rows, spec, enc);
   const line = d3
     .line()
     .x((d) => position(x, d[enc.x.field]))
@@ -522,6 +520,7 @@ function drawLine(chart, rows, spec, tooltip, d3) {
     .curve(curveFor(spec, d3));
 
   fadeNonLineShapes(chart);
+  applyPlotClip(chart, Boolean(focus?.crop));
   chart.scales = { x, y, color, orientation: "cartesian" };
   chart.channels = enc;
   chart.position = {
@@ -534,25 +533,30 @@ function drawLine(chart, rows, spec, tooltip, d3) {
 
   chart.g
     .selectAll("path.sl-line")
-    .data([rows])
+    .data(series, (d) => d.key)
     .join(
       (enter) =>
         enter
           .append("path")
           .attr("class", "sl-line")
           .attr("fill", "none")
-          .attr("stroke", color(rows[0]))
+          .attr("stroke", (d) => color(d.rows[0]))
           .attr("stroke-width", spec.strokeWidth || 3)
-          .attr("d", line)
+          .attr("d", (d) => line(d.rows))
           .style("opacity", 0)
           .call((selection) => drawPath(selection, t)),
       (update) =>
         update
           .transition(t)
           .style("opacity", 1)
-          .attr("stroke", color(rows[0]))
+          .attr("stroke", (d) => color(d.rows[0]))
           .attr("stroke-width", spec.strokeWidth || 3)
-          .attr("d", line)
+          .attr("d", (d) => line(d.rows)),
+      (exit) =>
+        exit
+          .transition(t)
+          .style("opacity", 0)
+          .remove()
     );
 
   chart.g
@@ -566,22 +570,22 @@ function drawLine(chart, rows, spec, tooltip, d3) {
           .attr("cx", (d) => position(x, d[enc.x.field]))
           .attr("cy", (d) => y(d[enc.y.field]))
           .attr("r", 0)
-          .attr("fill", color(rows[0]))
+          .attr("fill", (d) => color(d))
           .attr("stroke", "white")
           .attr("stroke-width", 1.5)
           .call(bindTooltip, spec, tooltip)
           .transition(t)
           .delay((d, i) => 260 + staggerDelay(spec, d, i))
+          .style("opacity", 1)
           .attr("r", spec.pointSize || 4.5),
       (update) =>
         update
           .call(bindTooltip, spec, tooltip)
           .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
           .style("opacity", 1)
           .attr("cx", (d) => position(x, d[enc.x.field]))
           .attr("cy", (d) => y(d[enc.y.field]))
-          .attr("fill", color(rows[0]))
+          .attr("fill", (d) => color(d))
           .attr("r", spec.pointSize || 4.5),
       (exit) =>
         exit
@@ -590,19 +594,22 @@ function drawLine(chart, rows, spec, tooltip, d3) {
           .attr("r", 0)
           .remove()
     );
+
+  drawLegend(chart, rows, enc.color, d3);
 }
 
 function drawScatter(chart, rows, spec, tooltip, d3) {
   const enc = spec.encoding || {};
   const t = chart.transition.base;
   const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
-  const y = d3
-    .scaleLinear()
-    .domain(niceExtent(rows, enc.y.field))
-    .range([chart.innerHeight, 0])
-    .nice();
+  const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
   const color = colorScale(rows, enc.color, d3);
-  const key = keyAccessor(spec, enc.x?.field);
+  const rawKey = keyAccessor(spec, enc.x?.field);
+  const key = scatterKeyAccessor(spec, rawKey);
+  const radius = radiusScale(rows, enc.size, spec.size || 7, d3);
+  const parentField = spec.sceneState?.granularity?.parentField || spec.granularity?.parentField || enc.color?.field;
+  const previousAnchors = chart.scene.scatterAnchors || { byParent: new Map() };
+  const nextParentAnchors = parentAnchors(rows, parentField, chartPosition);
 
   fadeNonPointShapes(chart);
   chart.scales = { x, y, color, orientation: "cartesian" };
@@ -617,42 +624,76 @@ function drawScatter(chart, rows, spec, tooltip, d3) {
 
   chart.g
     .selectAll("circle.sl-point")
-    .data(rows, key)
+    .data(rows, function (d, i) {
+      return d?.__slScatterJoinKey || key(d, i);
+    })
     .join(
       (enter) =>
         enter
           .append("circle")
           .attr("class", "sl-point")
-          .attr("cx", (d) => position(x, d[enc.x.field]))
-          .attr("cy", (d) => y(d[enc.y.field]))
+          .attr("cx", (d) => enterAnchor(d).x)
+          .attr("cy", (d) => enterAnchor(d).y)
           .attr("r", 0)
           .attr("fill", (d) => color(d))
           .attr("fill-opacity", 0.86)
           .attr("stroke", "white")
           .attr("stroke-width", 1.5)
+          .each((d, i) => {
+            d.__slScatterJoinKey = key(d, i);
+          })
           .call(bindTooltip, spec, tooltip)
           .transition(t)
           .delay((d, i) => staggerDelay(spec, d, i))
-          .attr("r", spec.size || 7),
+          .attr("cx", (d) => chartPosition(d).x)
+          .attr("cy", (d) => chartPosition(d).y)
+          .attr("r", (d) => radius(d)),
       (update) =>
         update
+          .each((d, i) => {
+            d.__slScatterJoinKey = key(d, i);
+          })
           .call(bindTooltip, spec, tooltip)
           .transition(t)
           .delay((d, i) => staggerDelay(spec, d, i))
           .style("opacity", 1)
-          .attr("cx", (d) => position(x, d[enc.x.field]))
-          .attr("cy", (d) => y(d[enc.y.field]))
+          .attr("cx", (d) => chartPosition(d).x)
+          .attr("cy", (d) => chartPosition(d).y)
           .attr("fill", (d) => color(d))
-          .attr("r", spec.size || 7),
+          .attr("r", (d) => radius(d)),
       (exit) =>
         exit
           .transition(t)
+          .delay((d, i) => staggerDelay(spec, d, i))
           .style("opacity", 0)
+          .attr("cx", (d) => exitAnchor(d).x)
+          .attr("cy", (d) => exitAnchor(d).y)
           .attr("r", 0)
           .remove()
     );
 
   drawLegend(chart, rows, enc.color, d3);
+  chart.scene.scatterAnchors = {
+    byKey: new Map(rows.map((row, index) => [String(key(row, index)), chartPosition(row)])),
+    byParent: nextParentAnchors
+  };
+
+  function chartPosition(row) {
+    return {
+      x: position(x, row[enc.x.field]),
+      y: y(row[enc.y.field])
+    };
+  }
+
+  function enterAnchor(row) {
+    const parent = parentKey(row, parentField);
+    return previousAnchors.byParent?.get(parent) || chartPosition(row);
+  }
+
+  function exitAnchor(row) {
+    const parent = parentKey(row, parentField);
+    return nextParentAnchors.get(parent) || chartPosition(row);
+  }
 }
 
 function drawUnit(chart, rows, spec, tooltip, d3) {
@@ -871,6 +912,98 @@ function fadeNonPointShapes(chart) {
 
 function fadeNonUnitShapes(chart) {
   chart.g.selectAll("rect.sl-bar,path.sl-line,circle.sl-line-point,circle.sl-point").transition(chart.transition.base).style("opacity", 0);
+}
+
+function lineSeries(rows, spec, enc = {}) {
+  const seriesField = spec.lineSeries || spec.series || enc.series?.field;
+  if (!seriesField) return [{ key: "__line", rows }];
+
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const key = row[seriesField] ?? "__missing";
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+  return Array.from(grouped, ([key, values]) => ({
+    key: String(key),
+    rows: values
+  }));
+}
+
+function focusedLineXScale(rows, channel, chart, focus, d3) {
+  const baseRange = [0, chart.innerWidth];
+  if (!focus?.filter || focus.mode !== "rangeCrop") return bandOrLinear(rows, channel, baseRange, d3);
+
+  const focusedRows = rows.filter((row) => rowMatchesFilter(row, focus.filter));
+  if (focusedRows.length < 2) return bandOrLinear(rows, channel, baseRange, d3);
+
+  if (channel?.type === "quantitative" || channel?.type === "temporal") {
+    return bandOrLinear(rows, { ...channel, domain: focusedDomain(focusedRows, channel) }, baseRange, d3);
+  }
+
+  const base = bandOrLinear(rows, channel, baseRange, d3);
+  const positions = focusedRows
+    .map((row) => position(base, row[channel.field]))
+    .filter(Number.isFinite);
+  if (positions.length < 2) return base;
+
+  const min = Math.min(...positions);
+  const max = Math.max(...positions);
+  if (min === max) return base;
+
+  const inset = Math.min(chart.innerWidth * 0.08, 44);
+  const factor = (chart.innerWidth - inset * 2) / (max - min);
+  return bandOrLinear(
+    rows,
+    channel,
+    [inset - min * factor, inset + (chart.innerWidth - min) * factor],
+    d3
+  );
+}
+
+function focusedDomain(rows, channel = {}) {
+  if (channel.type === "temporal") return getD3().extent(rows, (d) => new Date(d[channel.field]));
+  return niceExtent(rows, channel.field);
+}
+
+function applyPlotClip(chart, enabled) {
+  if (!enabled) {
+    chart.g.attr("clip-path", null);
+    return;
+  }
+
+  const id = `sl-clip-${chart.scene.node.dataset.viewId || "main"}`;
+  let defs = chart.scene.svg.select("defs");
+  if (defs.empty()) defs = chart.scene.svg.append("defs");
+
+  defs
+    .selectAll(`#${id}`)
+    .data([null])
+    .join("clipPath")
+    .attr("id", id)
+    .selectAll("rect")
+    .data([null])
+    .join("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", chart.innerWidth)
+    .attr("height", chart.innerHeight);
+
+  chart.g.attr("clip-path", `url(#${id})`);
+}
+
+function rowMatchesFilter(row, filter = {}) {
+  if (!filter?.field) return true;
+  const value = row[filter.field];
+  if ("equal" in filter) return value === filter.equal;
+  if ("notEqual" in filter) return value !== filter.notEqual;
+  if ("oneOf" in filter) return filter.oneOf.includes(value);
+  if ("gte" in filter && value < filter.gte) return false;
+  if ("gt" in filter && value <= filter.gt) return false;
+  if ("lte" in filter && value > filter.lte) return false;
+  if ("lt" in filter && value >= filter.lt) return false;
+  return Boolean(value);
 }
 
 function expandUnits(rows, spec, d3) {
@@ -1110,7 +1243,7 @@ function drawUnsupported(chart, spec, availableTypes = []) {
 function bandOrLinear(rows, channel, range, d3) {
   if (!channel) return d3.scaleLinear().domain([0, 1]).range(range);
   if (channel.type === "quantitative") {
-    return d3.scaleLinear().domain(quantitativeDomain(rows, channel)).range(range).nice();
+    return quantitativeScale(rows, channel, range, d3);
   }
   if (channel.type === "temporal") {
     return d3
@@ -1123,6 +1256,17 @@ function bandOrLinear(rows, channel, range, d3) {
     .domain(channelDomain(rows, channel))
     .range(range)
     .padding(0.24);
+}
+
+function quantitativeScale(rows, channel = {}, range, d3) {
+  const scaleType = channel.scale?.type || channel.scaleType || "linear";
+  const domain = quantitativeDomain(rows, channel, scaleType === "log" ? 1 : undefined);
+  if (scaleType === "log") {
+    const safeDomain = domain.map((value) => Math.max(Number(value) || 1, 0.1));
+    return d3.scaleLog().domain(safeDomain).range(range).nice();
+  }
+  if (scaleType === "sqrt") return d3.scaleSqrt().domain(domain).range(range).nice();
+  return d3.scaleLinear().domain(domain).range(range).nice();
 }
 
 function position(scale, value) {
@@ -1142,6 +1286,51 @@ function niceExtent(rows, field, floor) {
 function quantitativeDomain(rows, channel = {}, floor) {
   if (Array.isArray(channel.domain)) return channel.domain;
   return niceExtent(rows, channel.field, floor);
+}
+
+function radiusScale(rows, channel, fallback, d3) {
+  if (!channel?.field) return () => fallback;
+  const range = channel.range || [4, 16];
+  const scale = d3
+    .scaleSqrt()
+    .domain(quantitativeDomain(rows, channel, 0))
+    .range(range);
+  return (row) => scale(Number(row[channel.field]) || 0);
+}
+
+function scatterKeyAccessor(spec, rawKey) {
+  const mode = spec.sceneState?.granularity?.mode;
+  if (!mode) return rawKey;
+  return (row, index) => `${mode}:${rawKey(row, index)}`;
+}
+
+function parentAnchors(rows, parentField, positionForRow) {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const key = parentKey(row, parentField);
+    const point = positionForRow(row);
+    if (!grouped.has(key)) grouped.set(key, { x: 0, y: 0, count: 0 });
+    const anchor = grouped.get(key);
+    anchor.x += point.x;
+    anchor.y += point.y;
+    anchor.count += 1;
+  });
+
+  return new Map(
+    Array.from(grouped, ([key, anchor]) => [
+      key,
+      {
+        x: anchor.x / anchor.count,
+        y: anchor.y / anchor.count
+      }
+    ])
+  );
+}
+
+function parentKey(row, parentField) {
+  if (!row || !parentField) return "__all";
+  if (Array.isArray(parentField)) return parentField.map((field) => row[field]).join("|");
+  return String(row[parentField] ?? "__all");
 }
 
 function channelDomain(rows, channel = {}) {

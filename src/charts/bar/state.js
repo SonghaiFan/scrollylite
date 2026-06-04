@@ -15,6 +15,30 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     };
   }
 
+  const layoutChanged = previous.barLayout !== next.barLayout;
+  const changesSegmentLayout =
+    layoutChanged &&
+    isSegmentLayout(previous.barLayout) &&
+    isSegmentLayout(next.barLayout);
+  if (changesSegmentLayout && (previous.hasGuide || next.hasGuide)) {
+    const guideStaging = next.guideStaging || previous.guideStaging || {};
+    const order = next.hasGuide
+      ? segmentLayoutStageOrder(guideStaging, next.barLayout)
+      : segmentLayoutStageOrder(guideStaging, next.barLayout).reverse();
+
+    plan.barStage = {
+      reason: "guide-segment-layout",
+      fromLayout: previous.barLayout,
+      toLayout: next.barLayout,
+      order,
+      duration: guideStaging.duration,
+      ease: guideStaging.ease,
+      stagger: guideStaging.stagger
+    };
+
+    return plan;
+  }
+
   const crossesGuide = previous.hasGuide || next.hasGuide;
   const orientationChanged = previous.orientation !== next.orientation;
   if (!crossesGuide || !orientationChanged) return plan;
@@ -50,6 +74,7 @@ export function barState(spec) {
 
   return {
     orientation,
+    barLayout,
     categoryField: horizontal ? enc.y?.field : enc.x?.field,
     measureField: horizontal ? enc.x?.field : enc.y?.field,
     hasGuide: Boolean(spec.sceneState?.guide),
@@ -63,4 +88,15 @@ function stageOrder(staging = {}, orientation) {
     return staging.order.filter((axis) => axis === "x" || axis === "y");
   }
   return orientation === "horizontal" ? ["y", "x"] : ["x", "y"];
+}
+
+function segmentLayoutStageOrder(staging = {}, layout) {
+  if (Array.isArray(staging.order) && staging.order.length) {
+    return staging.order.filter((axis) => axis === "x" || axis === "y");
+  }
+  return layout === "stacked" ? ["y", "x"] : ["x", "y"];
+}
+
+function isSegmentLayout(layout) {
+  return layout === "grouped" || layout === "stacked";
 }
