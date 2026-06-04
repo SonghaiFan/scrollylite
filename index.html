@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scrolly Grammar Template</title>
+    <link rel="stylesheet" href="./src/styles.css?v=arquero-transforms-1" />
+  </head>
+  <body>
+    <header class="demo-toolbar" aria-label="Demo controls">
+      <div>
+        <p class="demo-toolbar-kicker">Layout preset</p>
+        <h1>ScrollyLite demo</h1>
+      </div>
+      <nav class="demo-layout-switcher" aria-label="Choose layout preset">
+        <a href="?layout=floatToText" data-layout-link="floatToText">Float to Text</a>
+        <a href="?layout=textOverVis" data-layout-link="textOverVis">Text over Vis</a>
+      </nav>
+    </header>
+    <main id="app"></main>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/arquero@8"></script>
+    <script src="https://unpkg.com/scrollama"></script>
+    <script type="module">
+      import { createStory } from "./src/scrollylite.js?v=arquero-transforms-1";
+      import { createDemoSpec } from "./src/specs/weather-demo.js?v=arquero-transforms-1";
+
+      const params = new URLSearchParams(window.location.search);
+      const requestedLayout = params.get("layout");
+      const layoutPreset = requestedLayout === "floatToText" ? "floatToText" : "textOverVis";
+
+      document
+        .querySelectorAll("[data-layout-link]")
+        .forEach((link) => {
+          link.classList.toggle("is-active", link.dataset.layoutLink === layoutPreset);
+        });
+
+      createStory(createDemoSpec({ layoutPreset }), {
+        target: "#app"
+      });
+    </script>
+  </body>
+</html>
