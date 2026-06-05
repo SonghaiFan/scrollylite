@@ -1,5 +1,5 @@
 import { defaultTransition } from "../timing.js";
-import { authoredSteps, bar } from "../grammar/index.js";
+import { bar, story } from "../grammar/index.js?v=story-builder-2";
 
 const sharedTiming = defaultTransition();
 
@@ -266,7 +266,7 @@ function createBarDemo() {
   const base = bar("weatherDays")
     .x("decade", { title: "Decade" })
     .y("days", { title: "Hot days" })
-    .where({ field: "temperature_kind", equal: "Hot days" })
+    .where({ temperature_kind: "Hot days" })
     .color(HOT_COLOR)
     .key("decade")
     .transition(sharedTiming)
@@ -286,67 +286,60 @@ function createBarDemo() {
     color: TEMPERATURE_HUE
   });
 
-  return {
-    ...createBaseDemo(),
-    description:
-      "This demo keeps the chart type fixed as bar chart and demonstrates Focus, Guide, Observation, and Granularity as scene-state changes.",
-    steps: authoredSteps([
-      {
-        title: "Baseline: vertical bar chart",
-        body:
-          "Start with one vertical bar per decade, using bar height to encode hot days.",
-        view: base
-      },
-      {
-        title: "Focus: filter to a subset",
-        body:
-          "The focus scene keeps the bar chart form but filters the data to the recent period.",
-        view: base.filter({ field: "period", equal: "recent" })
-      },
-      {
-        title: "Guide: re-orient and rescale",
-        body:
-          "The guide scene turns vertical bars into horizontal bars with a two-stage y-then-x transition.",
-        view: base.guide({
-          orientation: "horizontal",
-          category: { field: "decade", type: "nominal", title: "Decade" },
-          measure: { field: "days", type: "quantitative", title: "Hot days" },
-          scale: { domain: [0, 30] },
-          staging: {
-            order: ["y", "x"]
-          }
-        })
-      },
-      {
-        title: "Observation: change encoded variable",
-        body:
-          "The observation scene keeps the same decade categories but changes the value encoded by bar height.",
-        view: base.observeWhere({ field: "temperature_kind", equal: "Cold days" }, {
-          title: "Cold days",
-          domain: [0, 30],
-          color: { value: COLD_COLOR },
-          tooltip: [
-            { field: "decade", title: "Decade" },
-            { field: "period", title: "Period" },
-            { field: "temperature_kind", title: "Kind" },
-            { field: "days", title: "Days" }
-          ]
-        })
-      },
-      {
-        title: "Granularity: aggregate to segmented bar",
-        body:
-          "The granularity scene changes one aggregate bar into hot/cold segments for each decade.",
-        view: segmented
-      },
-      {
-        title: "Guide: stacked to grouped segments",
-        body:
-          "The guide scene keeps the same hot/cold segments but changes their position and scale from stacked to grouped.",
-        view: segmented.layout("grouped").stage(["x", "y"])
-      }
-    ])
-  };
+  return story(createBaseDemo())
+    .layout("floatToText")
+    .description(
+      "This demo keeps the chart type fixed as bar chart and demonstrates Focus, Guide, Observation, and Granularity as scene-state changes."
+    )
+    .step(
+      "Baseline: vertical bar chart",
+      base,
+      "Start with one vertical bar per decade, using bar height to encode hot days."
+    )
+    .step(
+      "Focus: filter to a subset",
+      base.filter({ period: "recent" }),
+      "The focus scene keeps the bar chart form but filters the data to the recent period."
+    )
+    .step(
+      "Guide: re-orient and rescale",
+      base.guide({
+        orientation: "horizontal",
+        category: { field: "decade", type: "nominal", title: "Decade" },
+        measure: { field: "days", type: "quantitative", title: "Hot days" },
+        scale: { domain: [0, 30] },
+        staging: {
+          order: ["y", "x"]
+        }
+      }),
+      "The guide scene turns vertical bars into horizontal bars with a two-stage y-then-x transition."
+    )
+    .step(
+      "Observation: change encoded variable",
+      base.observeWhere({ temperature_kind: "Cold days" }, {
+        title: "Cold days",
+        domain: [0, 30],
+        color: { value: COLD_COLOR },
+        tooltip: [
+          { field: "decade", title: "Decade" },
+          { field: "period", title: "Period" },
+          { field: "temperature_kind", title: "Kind" },
+          { field: "days", title: "Days" }
+        ]
+      }),
+      "The observation scene keeps the same decade categories but changes the value encoded by bar height."
+    )
+    .step(
+      "Granularity: aggregate to segmented bar",
+      segmented,
+      "The granularity scene changes one aggregate bar into hot/cold segments for each decade."
+    )
+    .step(
+      "Guide: stacked to grouped segments",
+      segmented.layout("grouped").stage(["x", "y"]),
+      "The guide scene keeps the same hot/cold segments but changes their position and scale from stacked to grouped."
+    )
+    .toSpec();
 }
 
 function createScatterDemo() {

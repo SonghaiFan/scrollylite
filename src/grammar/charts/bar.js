@@ -87,24 +87,26 @@ export class BarState extends ViewState {
   }
 
   filter(selector) {
-    return this.with({ filter: cloneState(selector) }, "focus");
+    return this.with({ filter: normalizeSelector(selector) }, "focus");
   }
 
   where(selector) {
+    const constraint = normalizeSelector(selector);
     return this.with({
-      where: setConstraint(this.state.where || [], selector)
+      where: setConstraint(this.state.where || [], constraint)
     });
   }
 
   observeWhere(selector, options = {}) {
     const y = this.state.encoding?.y || {};
+    const constraint = normalizeSelector(selector);
     return this.with({
-      where: setConstraint(this.state.where || [], selector),
+      where: setConstraint(this.state.where || [], constraint),
       observation: {
         measure: y.field,
         title: options.title || y.title,
         domain: options.domain || y.domain,
-        category: cloneState(selector)
+        category: constraint
       },
       encoding: {
         ...(options.color ? { color: cloneState(options.color) } : {}),
@@ -209,6 +211,16 @@ function channelFrom(field, options = {}) {
     field,
     ...options
   };
+}
+
+function normalizeSelector(selector = {}) {
+  if (selector.field) return cloneState(selector);
+  const entries = Object.entries(selector);
+  if (entries.length === 1) {
+    const [field, equal] = entries[0];
+    return { field, equal };
+  }
+  return cloneState(selector);
 }
 
 function setConstraint(constraints, selector) {

@@ -163,21 +163,38 @@ Unit chart does not implement observation. Its observation is count.
 
 ## Authoring API Prototype
 
-Phase 2 introduces a small grammar layer for bar chart authoring:
+Phase 2 introduces a small grammar layer for chart and story authoring:
 
 ```js
+import { bar, story } from "./src/grammar/index.js";
+
 const base = bar("weatherDays")
   .x("decade")
   .y("days")
-  .where({ field: "temperature_kind", equal: "Hot days" })
+  .where({ temperature_kind: "Hot days" })
   .key("decade");
 
-authoredSteps([
-  { title: "Baseline", view: base },
-  { title: "Focus recent", view: base.filter({ field: "period", equal: "recent" }) },
-  { title: "Cold days", view: base.observeWhere({ field: "temperature_kind", equal: "Cold days" }) },
-  { title: "Split", view: base.segment("temperature_kind", { value: "days" }) }
-]);
+const segmented = base.segment("temperature_kind", { value: "days" });
+
+const spec = story()
+  .data("weatherDays", {
+    url: "./src/data/weather_days_tidy.csv",
+    type: "csv"
+  })
+  .layout("floatToText", {
+    runtime: {
+      offset: 0.58,
+      nav: true,
+      progress: true
+    }
+  })
+  .view("main", { title: "Melbourne weather sample", height: 540 })
+  .step("Baseline", base)
+  .step("Focus recent", base.filter({ period: "recent" }))
+  .step("Cold days", base.observeWhere({ temperature_kind: "Cold days" }))
+  .step("Split", segmented)
+  .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
+  .toSpec();
 ```
 
 This layer compiles to the same executable view specs described above. It is an

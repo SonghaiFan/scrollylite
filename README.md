@@ -65,80 +65,46 @@ types and layout modes are managed as registries:
   transitions; it delegates chart rendering and layout selection.
 
 ```js
+import { bar, story } from "./src/grammar/index.js";
 import { defaultTransition } from "./src/timing.js";
 
 const sharedTransition = defaultTransition();
+const base = bar("weatherDays")
+  .x("decade", { title: "Decade" })
+  .y("days", { title: "Hot days" })
+  .where({ temperature_kind: "Hot days" })
+  .color("#b05d3b")
+  .key("decade")
+  .transition(sharedTransition)
+  .sort("year");
 
-export default {
-  title: "Story title",
-  description: "Short story description",
-  data: {
-    weatherDays: {
-      url: "./src/data/weather_days_tidy.csv",
-      type: "csv"
-    }
-  },
-  layout: {
-    offset: 0.58,
-    nav: true,
-    progress: true,
-    scroll: {
-      progress: "geometry",
-      clamp: true,
-      navigation: {
-        behavior: "auto",
-        progress: 0.98
-      }
-    }
-  },
-  designSpace: {
-    layout: {
-      preset: "textOverVis",
-      axis: "vertical",
-      binding: "floatToText",
-      container: "visContainer",
-      layering: "textOverVis"
-    },
-    action: ["header", "step", "tooltip", "enter"]
-  },
-  views: {
-    main: {
-      height: 520
-    }
-  },
-  steps: [
-    {
-      title: "Narrative state",
-      body: "Text shown beside the sticky chart.",
-      designSpace: {
-        transition: {
-          scene: ["focus"],
-          segue: ["packUnpack"]
-        },
-        action: ["step", "tooltip"]
-      },
-      views: {
-        main: {
-          data: "weatherDays",
-          mark: "bar",
-          key: "decade",
-          focus: { field: "period", equal: "recent" },
-          transition: sharedTransition,
-          transform: [
-            { filter: { field: "temperature_kind", equal: "Hot days" } },
-            { sort: { field: "year", order: "ascending" } }
-          ],
-          encoding: {
-            x: { field: "decade", type: "nominal" },
-            y: { field: "days", type: "quantitative" },
-            color: { field: "period", type: "nominal" },
-            tooltip: [{ field: "decade" }]
-          }
+export default story()
+  .title("Story title")
+  .description("Short story description")
+  .data("weatherDays", {
+    url: "./src/data/weather_days_tidy.csv",
+    type: "csv"
+  })
+  .layout("textOverVis", {
+    runtime: {
+      offset: 0.58,
+      nav: true,
+      progress: true,
+      scroll: {
+        progress: "geometry",
+        clamp: true,
+        navigation: {
+          behavior: "auto",
+          progress: 0.98
         }
       }
     }
-  ]
-};
+  })
+  .view("main", { height: 520 })
+  .step("Narrative state", base.filter({ period: "recent" }), {
+    body: "Text shown beside the sticky chart."
+  })
+  .toSpec();
 ```
 
 ## Implemented In This Template

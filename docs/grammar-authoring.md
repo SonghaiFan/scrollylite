@@ -26,12 +26,12 @@ not a scene grammar operation.
 ## Current Bar API
 
 ```js
-import { authoredSteps, bar } from "../grammar/index.js";
+import { bar, story } from "../grammar/index.js";
 
 const base = bar("weatherDays")
   .x("decade", { title: "Decade" })
   .y("days", { title: "Hot days" })
-  .where({ field: "temperature_kind", equal: "Hot days" })
+  .where({ temperature_kind: "Hot days" })
   .color("#b05d3b")
   .key("decade")
   .sort("year")
@@ -45,9 +45,9 @@ const base = bar("weatherDays")
 State transforms:
 
 ```js
-base.filter({ field: "period", equal: "recent" })
+base.filter({ period: "recent" })
 base.guide({ orientation: "horizontal", staging: { order: ["y", "x"] } })
-base.observeWhere({ field: "temperature_kind", equal: "Cold days" })
+base.observeWhere({ temperature_kind: "Cold days" })
 base.segment("temperature_kind", { value: "days", layout: "stacked" })
 base.segment(...).layout("grouped").stage(["x", "y"])
 ```
@@ -65,8 +65,9 @@ called:
 - `.segment()` records `granularity`
 - `.layout()` and `.stage()` record `guide`
 
-`authoredSteps()` converts those operations into the current design-space step
-shape:
+`story().step()` converts those operations into the current design-space step
+shape. `authoredSteps()` remains available as the lower-level helper behind the
+builder:
 
 ```js
 {
@@ -100,25 +101,38 @@ label remains only `guide`.
 const base = bar("weatherDays")
   .x("decade")
   .y("days")
-  .where({ field: "temperature_kind", equal: "Hot days" })
+  .where({ temperature_kind: "Hot days" })
   .key("decade");
 
 const segmented = base.segment("temperature_kind", { value: "days" });
 
-steps: authoredSteps([
-  { title: "Baseline", view: base },
-  { title: "Focus", view: base.filter(...) },
-  { title: "Observation", view: base.observeWhere(...) },
-  { title: "Split", view: segmented },
-  { title: "Grouped", view: segmented.layout("grouped").stage(["x", "y"]) }
-])
+return story()
+  .data("weatherDays", {
+    url: "./src/data/weather_days_tidy.csv",
+    type: "csv"
+  })
+  .layout("floatToText", {
+    runtime: {
+      offset: 0.58,
+      nav: true,
+      progress: true
+    }
+  })
+  .view("main", {
+    title: "Melbourne weather sample",
+    height: 540
+  })
+  .step("Baseline", base)
+  .step("Focus", base.filter({ period: "recent" }))
+  .step("Observation", base.observeWhere({ temperature_kind: "Cold days" }))
+  .step("Split", segmented)
+  .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
+  .toSpec();
 ```
 
 ## Next Work
 
-- Add a story builder API so authors do not write object arrays manually.
+- Add richer validation and better author-facing error messages.
 - Generalize `ViewState` operations for scatter, line, and unit.
-- Add validation and helpful errors for missing `x`, `y`, `key`, and segment
-  fields.
 - Decide whether operation inference should be explicit, automatic, or mixed:
   operation log first, structural diff as fallback.
