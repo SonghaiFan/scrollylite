@@ -21,12 +21,17 @@ to the native controller.
 
 ```js
 data: {
-  weather: {
-    url: "./src/data/weather_sample.csv",
+  weatherDays: {
+    url: "./src/data/weather_days_tidy.csv",
     type: "csv"
   }
 }
 ```
+
+ScrollyLite authoring assumes tidy data. Related observations should live in
+rows, not separate measure columns: for example `temperature_kind = "Hot days"`
+and `days = 16`, rather than separate `hot_days` and `cold_days` fields. If a
+source arrives wide, fold it before authoring the story.
 
 `layout` controls story mechanics:
 
@@ -76,12 +81,15 @@ Each step can declare a transition type and a view state:
   views: {
     main: {
       mark: "bar",
-      data: "weather",
+      data: "weatherDays",
       key: "decade",
       guide: { orientation: "horizontal" },
+      transform: [
+        { filter: { field: "temperature_kind", equal: "Hot days" } }
+      ],
       encoding: {
         x: { field: "decade", type: "nominal" },
-        y: { field: "hot_days", type: "quantitative" }
+        y: { field: "days", type: "quantitative" }
       }
     }
   }
@@ -135,6 +143,11 @@ color: {
 
 ## Scene Semantics
 
+Scene-state fields and transition labels are related but separate. A step can
+carry `granularity` state because the final chart is segmented while declaring
+only `scene: ["guide"]` because the authored delta is stacked-to-grouped
+repositioning.
+
 `focus`: change the subset or visible range.
 
 `guide`: change orientation, scale, axis mapping, or unit/bar layout while
@@ -153,16 +166,17 @@ Unit chart does not implement observation. Its observation is count.
 Phase 2 introduces a small grammar layer for bar chart authoring:
 
 ```js
-const base = bar("weather")
+const base = bar("weatherDays")
   .x("decade")
-  .y("hot_days")
+  .y("days")
+  .where({ field: "temperature_kind", equal: "Hot days" })
   .key("decade");
 
 authoredSteps([
   { title: "Baseline", view: base },
   { title: "Focus recent", view: base.filter({ field: "period", equal: "recent" }) },
-  { title: "Cold days", view: base.y("cold_days") },
-  { title: "Split", view: base.segment({ fields: ["hot_days", "cold_days"] }) }
+  { title: "Cold days", view: base.observeWhere({ field: "temperature_kind", equal: "Cold days" }) },
+  { title: "Split", view: base.segment("temperature_kind", { value: "days" }) }
 ]);
 ```
 

@@ -1,6 +1,7 @@
 import { DEFAULT_TIMING } from "../timing.js";
 
 export const SCENE_TRANSITIONS = ["focus", "guide", "granularity", "observation"];
+const STATE_APPLICATION_ORDER = ["focus", "observation", "granularity", "guide"];
 
 const ALIASES = new Map(
   Object.entries({
@@ -49,9 +50,9 @@ export function compileSceneViewSpec(viewSpec, sceneTransition) {
   const compiler = CHART_TRANSITION_COMPILERS[mark];
   if (!compiler) return viewSpec;
 
-  return sceneTransition.scene.reduce((compiled, sceneType) => {
+  return stateApplicationOrder(viewSpec, sceneTransition, compiler).reduce((compiled, sceneType) => {
     const handler = compiler.scenes[sceneType];
-    return handler ? handler(compiled, sceneTransition[sceneType] || {}) : compiled;
+    return handler ? handler(compiled, viewSpec[sceneType] || sceneTransition[sceneType] || {}) : compiled;
   }, compiler.base(cloneViewSpec(viewSpec)));
 }
 
@@ -62,6 +63,14 @@ export function hasScene(sceneTransition, type) {
 function supportedSceneTypes(mark) {
   const compiler = CHART_TRANSITION_COMPILERS[mark];
   return compiler ? Object.keys(compiler.scenes) : SCENE_TRANSITIONS;
+}
+
+function stateApplicationOrder(viewSpec, sceneTransition, compiler) {
+  const supported = Object.keys(compiler.scenes);
+  return STATE_APPLICATION_ORDER.filter((type) =>
+    supported.includes(type) &&
+    (viewSpec[type] != null || sceneTransition.scene.includes(type))
+  );
 }
 
 const CHART_TRANSITION_COMPILERS = {
@@ -178,6 +187,10 @@ function applyBarGranularity(spec, granularitySpec = {}) {
   const sourceField = granularitySpec.source || granularitySpec.sourceAs || "__measure";
   const fields = granularitySpec.fields || [];
   const labels = granularitySpec.labels || {};
+  const segmentDomain =
+    granularitySpec.domain ||
+    granularitySpec.color?.domain ||
+    fields.map((field) => labels[field] || field);
   const groupby = granularitySpec.groupby || [categoryField, sourceField, segmentField];
   const transform = [...(spec.transform || [])];
 
@@ -220,7 +233,7 @@ function applyBarGranularity(spec, granularitySpec = {}) {
         granularitySpec.color || {
           field: segmentField,
           type: "nominal",
-          domain: granularitySpec.domain || fields.map((field) => labels[field] || field),
+          domain: segmentDomain,
           range: granularitySpec.range || ["#b05d3b", "#536a9e"]
         }
     },
@@ -231,7 +244,7 @@ function applyBarGranularity(spec, granularitySpec = {}) {
         fields,
         segmentField,
         sourceField,
-        segments: granularitySpec.domain || fields.map((field) => labels[field] || field),
+        segments: segmentDomain.length ? segmentDomain : null,
         valueField
       }
     }
@@ -256,15 +269,27 @@ function applyBarObservation(spec, observationSpec = {}) {
   if (orientation === "horizontal") encoding.x = measure;
   else encoding.y = measure;
 
+  const categoryKey = observationSpec.category
+    ? semanticCategoryPart(observationSpec.category)
+    : null;
+
   return {
     ...spec,
     semanticKey:
       observationSpec.semanticKey ||
-      semanticKeyFromEncoding(encoding, spec.semanticKey),
+      (categoryKey
+        ? semanticKeyFromParts(
+            spec.semanticKey?.entity || spec.semanticKey?.entities || categoryChannel(encoding),
+            categoryKey
+          )
+        : semanticKeyFromEncoding(encoding, spec.semanticKey)),
     encoding,
     sceneState: {
       ...(spec.sceneState || {}),
-      observation: { measure: measure.field }
+      observation: {
+        measure: measure.field,
+        category: observationSpec.category || null
+      }
     }
   };
 }
@@ -504,6 +529,15 @@ function semanticKeyFromParts(entity, measure) {
     entity,
     measure
   };
+}
+
+function semanticCategoryPart(category) {
+  if (!category) return null;
+  if (Object.prototype.hasOwnProperty.call(category, "equal")) {
+    return { value: category.equal };
+  }
+  if (category.field) return { field: category.field };
+  return null;
 }
 
 function categoryChannel(encoding = {}) {

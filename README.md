@@ -73,8 +73,8 @@ export default {
   title: "Story title",
   description: "Short story description",
   data: {
-    weather: {
-      url: "./src/data/weather_sample.csv",
+    weatherDays: {
+      url: "./src/data/weather_days_tidy.csv",
       type: "csv"
     }
   },
@@ -119,15 +119,18 @@ export default {
       },
       views: {
         main: {
-          data: "weather",
+          data: "weatherDays",
           mark: "bar",
           key: "decade",
           focus: { field: "period", equal: "recent" },
           transition: sharedTransition,
-          transform: [{ sort: { field: "year", order: "ascending" } }],
+          transform: [
+            { filter: { field: "temperature_kind", equal: "Hot days" } },
+            { sort: { field: "year", order: "ascending" } }
+          ],
           encoding: {
             x: { field: "decade", type: "nominal" },
-            y: { field: "hot_days", type: "quantitative" },
+            y: { field: "days", type: "quantitative" },
             color: { field: "period", type: "nominal" },
             tooltip: [{ field: "decade" }]
           }
@@ -146,6 +149,9 @@ export default {
 - Native scroll-progress controller; no external scroll driver dependency
 - CSV loading through D3
 - Structured transforms: `filter`, `fold`, `aggregate`, `bin`, `sort`, `limit`
+- Tidy-data authoring convention: scene grammar uses category fields such as
+  `temperature_kind` plus value fields such as `days`; wide-to-long conversion
+  belongs in data preparation
 - Chart registry for `bar`, `scatter`, `line`, and `unit`
 - Chart modules under `src/charts/<type>/` with `BaseChart` inheritance,
   renderer, state, and key helpers

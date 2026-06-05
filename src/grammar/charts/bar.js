@@ -9,6 +9,18 @@ export function bar(data) {
 }
 
 export class BarState extends ViewState {
+  toSpec() {
+    const spec = super.toSpec();
+    if (spec.where?.length) {
+      spec.transform = [
+        ...spec.where.map((filter) => ({ filter })),
+        ...(spec.transform || [])
+      ];
+      delete spec.where;
+    }
+    return spec;
+  }
+
   x(field, options = {}) {
     return this.channel("x", field, { type: "nominal", ...options });
   }
@@ -78,6 +90,29 @@ export class BarState extends ViewState {
     return this.with({ filter: cloneState(selector) }, "focus");
   }
 
+  where(selector) {
+    return this.with({
+      where: setConstraint(this.state.where || [], selector)
+    });
+  }
+
+  observeWhere(selector, options = {}) {
+    const y = this.state.encoding?.y || {};
+    return this.with({
+      where: setConstraint(this.state.where || [], selector),
+      observation: {
+        measure: y.field,
+        title: options.title || y.title,
+        domain: options.domain || y.domain,
+        category: cloneState(selector)
+      },
+      encoding: {
+        ...(options.color ? { color: cloneState(options.color) } : {}),
+        ...(options.tooltip ? { tooltip: cloneState(options.tooltip) } : {})
+      }
+    }, "observation");
+  }
+
   guide(config = {}) {
     return this.with({ guide: cloneState(config) }, "guide");
   }
@@ -96,17 +131,22 @@ export class BarState extends ViewState {
     }, "observation");
   }
 
-  segment(config = {}) {
+  segment(fieldOrConfig = {}, maybeConfig = {}) {
+    const config = typeof fieldOrConfig === "string"
+      ? { ...maybeConfig, segment: fieldOrConfig }
+      : fieldOrConfig;
     const category = config.category || this.state.encoding?.x?.field;
     const value = config.value || config.as?.[1] || "value";
     const segment = config.segment || config.as?.[0] || "segment";
     const fields = config.fields || [];
+    const tidy = !fields.length && Boolean(config.segment);
     const labels = config.labels || Object.fromEntries(
       fields.map((field) => [field, titleize(field)])
     );
 
     return this.with({
       key: config.key || [category, segment],
+      where: tidy ? clearConstraint(this.state.where || [], segment) : this.state.where,
       granularity: {
         category,
         categoryTitle: config.categoryTitle || this.state.encoding?.x?.title,
@@ -118,7 +158,9 @@ export class BarState extends ViewState {
         layout: config.layout || "stacked",
         color: cloneState(config.color),
         domain: config.domain,
-        range: config.range
+        range: config.range,
+        source: tidy ? segment : config.source,
+        groupby: tidy ? [category, segment] : config.groupby
       },
       encoding: {
         tooltip: cloneState(config.tooltip || [
@@ -167,6 +209,15 @@ function channelFrom(field, options = {}) {
     field,
     ...options
   };
+}
+
+function setConstraint(constraints, selector) {
+  const next = clearConstraint(constraints, selector.field);
+  return [...next, cloneState(selector)];
+}
+
+function clearConstraint(constraints, field) {
+  return constraints.filter((constraint) => constraint.field !== field);
 }
 
 function titleize(value) {

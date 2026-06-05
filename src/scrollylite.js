@@ -27,7 +27,7 @@ import {
   hasScene,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "./transitions/index.js";
+} from "./transitions/index.js?v=tidy-bar-3";
 
 const DEFAULT_PALETTE = [
   "#2f7d7e",

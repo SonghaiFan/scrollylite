@@ -1,0 +1,25 @@
+year,decade,tmax,tmin,period,temperature_kind,days
+1910,1910s,19.8,9.6,early,Hot days,7
+1910,1910s,19.8,9.6,early,Cold days,16
+1920,1920s,20.1,9.9,early,Hot days,8
+1920,1920s,20.1,9.9,early,Cold days,14
+1930,1930s,20.4,10.1,early,Hot days,9
+1930,1930s,20.4,10.1,early,Cold days,13
+1940,1940s,20.2,10.0,early,Hot days,10
+1940,1940s,20.2,10.0,early,Cold days,12
+1950,1950s,20.7,10.4,middle,Hot days,11
+1950,1950s,20.7,10.4,middle,Cold days,10
+1960,1960s,20.9,10.5,middle,Hot days,12
+1960,1960s,20.9,10.5,middle,Cold days,9
+1970,1970s,21.0,10.7,middle,Hot days,13
+1970,1970s,21.0,10.7,middle,Cold days,8
+1980,1980s,21.4,11.0,middle,Hot days,15
+1980,1980s,21.4,11.0,middle,Cold days,7
+1990,1990s,21.8,11.3,recent,Hot days,17
+1990,1990s,21.8,11.3,recent,Cold days,6
+2000,2000s,22.1,11.7,recent,Hot days,20
+2000,2000s,22.1,11.7,recent,Cold days,5
+2010,2010s,22.6,12.1,recent,Hot days,24
+2010,2010s,22.6,12.1,recent,Cold days,4
+2020,2020s,23.0,12.4,recent,Hot days,27
+2020,2020s,23.0,12.4,recent,Cold days,3

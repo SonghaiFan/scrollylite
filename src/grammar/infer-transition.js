@@ -3,7 +3,11 @@ import { diffViewStates } from "./diff.js";
 export function inferTransition(previous, next) {
   if (!previous) return [];
   const operations = next?.operations?.() || [];
-  if (operations.length) return unique(operations);
+  if (operations.length) {
+    const previousOperations = previous?.operations?.() || [];
+    const delta = operationDelta(previousOperations, operations);
+    if (delta.length) return unique(delta);
+  }
 
   const diff = diffViewStates(previous, next);
   const scenes = [];
@@ -14,6 +18,18 @@ export function inferTransition(previous, next) {
   if (diff.has("guide")) scenes.push("guide");
 
   return unique(scenes);
+}
+
+function operationDelta(previousOperations, nextOperations) {
+  let index = 0;
+  while (
+    index < previousOperations.length &&
+    index < nextOperations.length &&
+    previousOperations[index] === nextOperations[index]
+  ) {
+    index += 1;
+  }
+  return nextOperations.slice(index);
 }
 
 function unique(values) {

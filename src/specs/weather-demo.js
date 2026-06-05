@@ -239,6 +239,10 @@ function createBaseDemo() {
       weather: {
         url: "./src/data/weather_sample.csv",
         type: "csv"
+      },
+      weatherDays: {
+        url: "./src/data/weather_days_tidy.csv",
+        type: "csv"
       }
     },
     layout: {
@@ -259,9 +263,10 @@ function createBaseDemo() {
 }
 
 function createBarDemo() {
-  const base = bar("weather")
+  const base = bar("weatherDays")
     .x("decade", { title: "Decade" })
-    .y("hot_days", { title: "Hot days" })
+    .y("days", { title: "Hot days" })
+    .where({ field: "temperature_kind", equal: "Hot days" })
     .color(HOT_COLOR)
     .key("decade")
     .transition(sharedTiming)
@@ -269,17 +274,12 @@ function createBarDemo() {
     .tooltip([
       { field: "decade", title: "Decade" },
       { field: "period", title: "Period" },
-      { field: "hot_days", title: "Hot days" },
-      { field: "cold_days", title: "Cold days" }
+      { field: "temperature_kind", title: "Kind" },
+      { field: "days", title: "Days" }
     ]);
 
-  const segmented = base.segment({
-    fields: ["hot_days", "cold_days"],
-    labels: {
-      hot_days: "Hot days",
-      cold_days: "Cold days"
-    },
-    as: ["temperature_kind", "days"],
+  const segmented = base.segment("temperature_kind", {
+    value: "days",
     categoryTitle: "Decade",
     valueTitle: "Days",
     layout: "stacked",
@@ -310,7 +310,7 @@ function createBarDemo() {
         view: base.guide({
           orientation: "horizontal",
           category: { field: "decade", type: "nominal", title: "Decade" },
-          measure: { field: "hot_days", type: "quantitative", title: "Hot days" },
+          measure: { field: "days", type: "quantitative", title: "Hot days" },
           scale: { domain: [0, 30] },
           staging: {
             order: ["y", "x"]
@@ -321,15 +321,15 @@ function createBarDemo() {
         title: "Observation: change encoded variable",
         body:
           "The observation scene keeps the same decade categories but changes the value encoded by bar height.",
-        view: base.y("cold_days", {
+        view: base.observeWhere({ field: "temperature_kind", equal: "Cold days" }, {
           title: "Cold days",
           domain: [0, 30],
           color: { value: COLD_COLOR },
           tooltip: [
             { field: "decade", title: "Decade" },
             { field: "period", title: "Period" },
-            { field: "cold_days", title: "Cold days" },
-            { field: "hot_days", title: "Hot days" }
+            { field: "temperature_kind", title: "Kind" },
+            { field: "days", title: "Days" }
           ]
         })
       },
