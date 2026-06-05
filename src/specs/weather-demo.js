@@ -1,4 +1,5 @@
 import { defaultTransition } from "../timing.js";
+import { authoredSteps, bar } from "../grammar/index.js";
 
 const sharedTiming = defaultTransition();
 
@@ -41,18 +42,6 @@ const COLD_PERIOD_COLOR = {
   luminance: PERIOD_LUMINANCE
 };
 
-const hotDaysEncoding = {
-  x: { field: "decade", type: "nominal", title: "Decade" },
-  y: { field: "hot_days", type: "quantitative", title: "Hot days" },
-  color: { value: HOT_COLOR },
-  tooltip: [
-    { field: "decade", title: "Decade" },
-    { field: "period", title: "Period" },
-    { field: "hot_days", title: "Hot days" },
-    { field: "cold_days", title: "Cold days" }
-  ]
-};
-
 const layoutCopy = {
   floatToText: {
     label: "Float to Text",
@@ -79,22 +68,6 @@ const layoutCopy = {
     }
   }
 };
-
-function barView(overrides = {}) {
-  return {
-    data: "weather",
-    mark: "bar",
-    key: "decade",
-    transition: sharedTiming,
-    transform: sortByYear,
-    encoding: hotDaysEncoding,
-    ...overrides,
-    encoding: {
-      ...hotDaysEncoding,
-      ...(overrides.encoding || {})
-    }
-  };
-}
 
 const scatterEncoding = {
   x: { field: "tmin", type: "quantitative", title: "Min temperature" },
@@ -286,175 +259,93 @@ function createBaseDemo() {
 }
 
 function createBarDemo() {
+  const base = bar("weather")
+    .x("decade", { title: "Decade" })
+    .y("hot_days", { title: "Hot days" })
+    .color(HOT_COLOR)
+    .key("decade")
+    .transition(sharedTiming)
+    .sort("year")
+    .tooltip([
+      { field: "decade", title: "Decade" },
+      { field: "period", title: "Period" },
+      { field: "hot_days", title: "Hot days" },
+      { field: "cold_days", title: "Cold days" }
+    ]);
+
+  const segmented = base.segment({
+    fields: ["hot_days", "cold_days"],
+    labels: {
+      hot_days: "Hot days",
+      cold_days: "Cold days"
+    },
+    as: ["temperature_kind", "days"],
+    categoryTitle: "Decade",
+    valueTitle: "Days",
+    layout: "stacked",
+    color: TEMPERATURE_HUE
+  });
+
   return {
     ...createBaseDemo(),
     description:
       "This demo keeps the chart type fixed as bar chart and demonstrates Focus, Guide, Observation, and Granularity as scene-state changes.",
-    steps: [
+    steps: authoredSteps([
       {
         title: "Baseline: vertical bar chart",
         body:
           "Start with one vertical bar per decade, using bar height to encode hot days.",
-        designSpace: {
-          action: ["step", "tooltip", "enter"]
-        },
-        views: {
-          main: barView()
-        }
+        view: base
       },
       {
         title: "Focus: filter to a subset",
         body:
           "The focus scene keeps the bar chart form but filters the data to the recent period.",
-        designSpace: {
-          transition: {
-            scene: ["focus"]
-          },
-          action: ["step", "tooltip"]
-        },
-        views: {
-          main: barView({
-            focus: {
-              field: "period",
-              equal: "recent"
-            }
-          })
-        }
+        view: base.filter({ field: "period", equal: "recent" })
       },
       {
         title: "Guide: re-orient and rescale",
         body:
           "The guide scene turns vertical bars into horizontal bars with a two-stage y-then-x transition.",
-        designSpace: {
-          transition: {
-            scene: ["guide"]
-          },
-          action: ["step", "tooltip"]
-        },
-        views: {
-          main: barView({
-            guide: {
-              orientation: "horizontal",
-              category: { field: "decade", type: "nominal", title: "Decade" },
-              measure: { field: "hot_days", type: "quantitative", title: "Hot days" },
-              scale: { domain: [0, 30] },
-              staging: {
-                order: ["y", "x"]
-              }
-            }
-          })
-        }
+        view: base.guide({
+          orientation: "horizontal",
+          category: { field: "decade", type: "nominal", title: "Decade" },
+          measure: { field: "hot_days", type: "quantitative", title: "Hot days" },
+          scale: { domain: [0, 30] },
+          staging: {
+            order: ["y", "x"]
+          }
+        })
       },
       {
         title: "Observation: change encoded variable",
         body:
           "The observation scene keeps the same decade categories but changes the value encoded by bar height.",
-        designSpace: {
-          transition: {
-            scene: ["observation"]
-          },
-          action: ["step", "tooltip"]
-        },
-        views: {
-          main: barView({
-            observation: {
-              measure: "cold_days",
-              title: "Cold days",
-              domain: [0, 30]
-            },
-            encoding: {
-              color: { value: COLD_COLOR },
-              tooltip: [
-                { field: "decade", title: "Decade" },
-                { field: "period", title: "Period" },
-                { field: "cold_days", title: "Cold days" },
-                { field: "hot_days", title: "Hot days" }
-              ]
-            }
-          })
-        }
+        view: base.observe("cold_days", {
+          title: "Cold days",
+          domain: [0, 30],
+          color: { value: COLD_COLOR },
+          tooltip: [
+            { field: "decade", title: "Decade" },
+            { field: "period", title: "Period" },
+            { field: "cold_days", title: "Cold days" },
+            { field: "hot_days", title: "Hot days" }
+          ]
+        })
       },
       {
         title: "Granularity: aggregate to segmented bar",
         body:
           "The granularity scene changes one aggregate bar into hot/cold segments for each decade.",
-        designSpace: {
-          transition: {
-            scene: ["granularity"]
-          },
-          action: ["step", "tooltip"]
-        },
-        views: {
-          main: barView({
-            key: ["decade", "temperature_kind"],
-            granularity: {
-              category: "decade",
-              categoryTitle: "Decade",
-              fields: ["hot_days", "cold_days"],
-              labels: {
-                hot_days: "Hot days",
-                cold_days: "Cold days"
-              },
-              segment: "temperature_kind",
-              value: "days",
-              valueTitle: "Days",
-              layout: "stacked",
-              color: TEMPERATURE_HUE
-            },
-            encoding: {
-              tooltip: [
-                { field: "decade", title: "Decade" },
-                { field: "temperature_kind", title: "Segment" },
-                { field: "days", title: "Days" }
-              ]
-            }
-          })
-        }
+        view: segmented
       },
       {
         title: "Guide: stacked to grouped segments",
         body:
           "The guide scene keeps the same hot/cold segments but changes their position and scale from stacked to grouped.",
-        designSpace: {
-          transition: {
-            scene: ["granularity", "guide"]
-          },
-          action: ["step", "tooltip"]
-        },
-        views: {
-          main: barView({
-            key: ["decade", "temperature_kind"],
-            guide: {
-              layout: "grouped",
-              staging: {
-                order: ["x", "y"]
-              }
-            },
-            granularity: {
-              category: "decade",
-              categoryTitle: "Decade",
-              fields: ["hot_days", "cold_days"],
-              labels: {
-                hot_days: "Hot days",
-                cold_days: "Cold days"
-              },
-              segment: "temperature_kind",
-              value: "days",
-              valueTitle: "Days",
-              layout: "grouped",
-              color: TEMPERATURE_HUE
-            },
-            encoding: {
-              tooltip: [
-                { field: "decade", title: "Decade" },
-                { field: "temperature_kind", title: "Segment" },
-                { field: "days", title: "Days" }
-              ]
-            }
-          })
-        }
+        view: segmented.layout("grouped").stage(["x", "y"])
       }
-    ]
+    ])
   };
 }
 

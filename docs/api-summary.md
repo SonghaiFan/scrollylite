@@ -148,6 +148,27 @@ entity key.
 
 Unit chart does not implement observation. Its observation is count.
 
+## Authoring API Prototype
+
+Phase 2 introduces a small grammar layer for bar chart authoring:
+
+```js
+const base = bar("weather")
+  .x("decade")
+  .y("hot_days")
+  .key("decade");
+
+authoredSteps([
+  { title: "Baseline", view: base },
+  { title: "Focus recent", view: base.filter({ field: "period", equal: "recent" }) },
+  { title: "Cold days", view: base.observe("cold_days") },
+  { title: "Split", view: base.segment({ fields: ["hot_days", "cold_days"] }) }
+]);
+```
+
+This layer compiles to the same executable view specs described above. It is an
+authoring convenience, not a second renderer.
+
 ## Runtime API
 
 ```js

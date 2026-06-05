@@ -47,7 +47,9 @@ The grammar has two layers:
 - `views`: executable visual grammar for data, marks, encodings, transforms,
   keyed joins, and animation timing.
 
-See `docs/api-summary.md` for the current phase-1 API surface.
+See `docs/api-summary.md` for the current phase-1 API surface and
+`docs/grammar-authoring.md` for the phase-2 state-transform authoring
+prototype.
 
 The core runtime should not grow one `if/else` branch per chart or layout. Chart
 types and layout modes are managed as registries:
