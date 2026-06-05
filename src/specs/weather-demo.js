@@ -321,7 +321,7 @@ function createBarDemo() {
         title: "Observation: change encoded variable",
         body:
           "The observation scene keeps the same decade categories but changes the value encoded by bar height.",
-        view: base.observe("cold_days", {
+        view: base.y("cold_days", {
           title: "Cold days",
           domain: [0, 30],
           color: { value: COLD_COLOR },

@@ -40,7 +40,8 @@ State transforms:
 ```js
 base.filter({ field: "period", equal: "recent" })
 base.guide({ orientation: "horizontal", staging: { order: ["y", "x"] } })
-base.observe("cold_days", { title: "Cold days" })
+base.y("cold_days", { title: "Cold days" })
+base.observe("cold_days", { title: "Cold days" }) // explicit equivalent
 base.segment({
   fields: ["hot_days", "cold_days"],
   as: ["temperature_kind", "days"],
@@ -56,7 +57,8 @@ called:
 
 - `.filter()` records `focus`
 - `.guide()` records `guide`
-- `.observe()` records `observation`
+- `.y()` records `observation` when it changes an existing y measure
+- `.observe()` records `observation` explicitly
 - `.segment()` records `granularity`
 - `.layout()` and `.stage()` record `guide`
 
@@ -95,7 +97,7 @@ const segmented = base.segment(...);
 steps: authoredSteps([
   { title: "Baseline", view: base },
   { title: "Focus", view: base.filter(...) },
-  { title: "Observation", view: base.observe("cold_days") },
+  { title: "Observation", view: base.y("cold_days") },
   { title: "Split", view: segmented },
   { title: "Grouped", view: segmented.layout("grouped").stage(["x", "y"]) }
 ])
@@ -103,7 +105,6 @@ steps: authoredSteps([
 
 ## Next Work
 
-- Make `.y()` infer observation when changing an existing measure.
 - Add a story builder API so authors do not write object arrays manually.
 - Generalize `ViewState` operations for scatter, line, and unit.
 - Add validation and helpful errors for missing `x`, `y`, `key`, and segment

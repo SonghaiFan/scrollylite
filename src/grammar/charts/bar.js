@@ -14,7 +14,27 @@ export class BarState extends ViewState {
   }
 
   y(field, options = {}) {
-    return this.channel("y", field, { type: "quantitative", ...options });
+    const { color, tooltip, ...channelOptions } = options;
+    const channel = channelFrom(field, { type: "quantitative", ...channelOptions });
+    const previous = this.state.encoding?.y;
+    const patch = {
+      encoding: {
+        y: channel,
+        ...(color ? { color: cloneState(color) } : {}),
+        ...(tooltip ? { tooltip: cloneState(tooltip) } : {})
+      }
+    };
+
+    if (!previous || previous.field === channel.field) return this.with(patch);
+
+    return this.with({
+      ...patch,
+      observation: {
+        measure: channel.field,
+        title: channel.title,
+        domain: channel.domain
+      }
+    }, "observation");
   }
 
   channel(name, field, options = {}) {

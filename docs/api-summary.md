@@ -161,7 +161,7 @@ const base = bar("weather")
 authoredSteps([
   { title: "Baseline", view: base },
   { title: "Focus recent", view: base.filter({ field: "period", equal: "recent" }) },
-  { title: "Cold days", view: base.observe("cold_days") },
+  { title: "Cold days", view: base.y("cold_days") },
   { title: "Split", view: base.segment({ fields: ["hot_days", "cold_days"] }) }
 ]);
 ```
