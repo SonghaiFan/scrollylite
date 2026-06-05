@@ -1,5 +1,5 @@
 import { cloneState } from "./view-state.js";
-import { inferTransition } from "./infer-transition.js?v=story-builder-2";
+import { inferTransition } from "./infer-transition.js?v=story-split-1";
 
 export function story(initialSpec = {}) {
   return new StoryBuilder(initialSpec);

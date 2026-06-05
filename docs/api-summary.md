@@ -163,7 +163,9 @@ Unit chart does not implement observation. Its observation is count.
 
 ## Authoring API Prototype
 
-Phase 2 introduces a small grammar layer for chart and story authoring:
+Phase 2 introduces a small grammar layer for story authoring. A story may use
+one chart idiom or several; the current weather demo simply uses one chart idiom
+per story.
 
 ```js
 import { bar, story } from "./src/grammar/index.js";

@@ -95,7 +95,7 @@ label remains only `guide`.
 
 ## Current Use
 
-`createBarDemo()` in `src/specs/weather-demo.js` now uses this API:
+The bar weather story in `src/specs/weather/bar-story.js` now uses this API:
 
 ```js
 const base = bar("weatherDays")

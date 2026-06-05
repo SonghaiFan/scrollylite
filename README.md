@@ -51,9 +51,12 @@ See `docs/api-summary.md` for the current phase-1 API surface and
 `docs/grammar-authoring.md` for the phase-2 state-transform authoring
 prototype.
 
-The core runtime should not grow one `if/else` branch per chart or layout. Chart
-types and layout modes are managed as registries:
+The authoring entry point is a story. In this demo each story happens to focus
+on one chart idiom, but the selection model is story-first rather than
+chart-first. The core runtime should not grow one `if/else` branch per chart or
+layout. Story modules, chart types, and layout modes are managed as registries:
 
+- `src/specs/weather/` contains one story module per weather demo story.
 - `src/charts/index.js` normalizes chart aliases and exposes a registry pattern.
 - `src/layouts/index.js` resolves layout presets such as `floatToText` and
   `textOverVis`.
