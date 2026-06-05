@@ -4,7 +4,11 @@ const CHART_ALIASES = new Map([
   ["dot", "scatter"],
   ["dots", "scatter"],
   ["lineChart", "line"],
-  ["barChart", "bar"]
+  ["barChart", "bar"],
+  ["unitChart", "unit"],
+  ["unitplot", "unit"],
+  ["unitPlot", "unit"],
+  ["units", "unit"]
 ]);
 
 export function createChartRegistry() {

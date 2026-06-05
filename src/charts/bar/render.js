@@ -1,6 +1,23 @@
+import { BaseChart } from "../base.js";
+import { stagedDuration } from "../../timing.js";
 import { applyBarIdentity, barKeyAccessor } from "./keys.js";
 
 export function createBarRenderer(deps) {
+  return new BarChart(deps, createLegacyBarRenderer(deps)).renderer();
+}
+
+class BarChart extends BaseChart {
+  constructor(deps, drawBar) {
+    super(deps);
+    this.drawBar = drawBar;
+  }
+
+  render(chart, rows, spec, tooltip, d3) {
+    return this.drawBar(chart, rows, spec, tooltip, d3);
+  }
+}
+
+function createLegacyBarRenderer(deps) {
   const {
     bandOrLinear,
     bindTooltip,
@@ -28,7 +45,7 @@ export function createBarRenderer(deps) {
 
     fadeNonBarShapes(chart);
 
-    if (["stacked", "grouped"].includes(barLayout) && enc.color?.field) {
+    if (["stacked", "grouped"].includes(barLayout) && barSegmentField(spec)) {
       drawSegmentedBar(chart, rows, spec, tooltip, d3, barLayout);
       return;
     }
@@ -248,7 +265,7 @@ export function createBarRenderer(deps) {
 
     return {
       order,
-      duration: staging.duration || Math.max(180, Math.round((chart.transition.duration || 1000) / order.length)),
+      duration: staging.duration || stagedDuration(chart.transition.duration, order.length),
       ease: easeFor(staging.ease || chart.transition.ease, d3),
       stagger: staging.stagger
     };
@@ -284,9 +301,12 @@ export function createBarRenderer(deps) {
     const t = chart.transition.base;
     const categoryField = enc.x?.field;
     const valueField = enc.y?.field;
-    const segmentField = enc.color?.field;
+    const segmentField = barSegmentField(spec);
     const categories = channelDomain(rows, enc.x);
-    const segments = channelDomain(rows, enc.color);
+    const segments = channelDomain(rows, {
+      field: segmentField,
+      domain: spec.sceneState?.granularity?.segments || spec.segmentDomain
+    });
     const color = colorScale(rows, enc.color, d3);
     const key = barKeyAccessor(chart, spec, [categoryField, segmentField]);
 
@@ -479,6 +499,17 @@ export function createBarRenderer(deps) {
     }
 
     drawLegend(chart, rows, enc.color, d3);
+  }
+
+  function barSegmentField(spec) {
+    return (
+      spec.sceneState?.granularity?.segmentField ||
+      spec.segmentField ||
+      spec.segment ||
+      spec.bar?.segment ||
+      spec.encoding?.color?.field ||
+      null
+    );
   }
 
   return drawBar;

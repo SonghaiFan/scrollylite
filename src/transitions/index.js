@@ -1,3 +1,5 @@
+import { DEFAULT_TIMING } from "../timing.js";
+
 export const SCENE_TRANSITIONS = ["focus", "guide", "granularity", "observation"];
 
 const ALIASES = new Map(
@@ -11,18 +13,20 @@ const ALIASES = new Map(
 );
 
 export function resolveSceneTransition(viewSpec = {}, designSpace = {}) {
+  const mark = String(viewSpec.mark || "").toLowerCase();
+  const supportedScenes = supportedSceneTypes(mark);
   const scene = uniqueTokens([
     ...(designSpace.transition?.scene || []),
     ...asArray(viewSpec.scene),
     ...asArray(viewSpec.transition?.scene)
-  ]).filter((token) => SCENE_TRANSITIONS.includes(token));
+  ]).filter((token) => SCENE_TRANSITIONS.includes(token) && supportedScenes.includes(token));
 
   return {
     scene,
-    focus: viewSpec.focus || null,
-    guide: viewSpec.guide || null,
-    granularity: viewSpec.granularity || null,
-    observation: viewSpec.observation || null
+    focus: scene.includes("focus") ? viewSpec.focus || null : null,
+    guide: scene.includes("guide") ? viewSpec.guide || null : null,
+    granularity: scene.includes("granularity") ? viewSpec.granularity || null : null,
+    observation: scene.includes("observation") ? viewSpec.observation || null : null
   };
 }
 
@@ -30,7 +34,7 @@ export function withSceneTransitionDefaults(viewSpec, sceneTransition) {
   const transition = { ...(viewSpec.transition || {}) };
 
   if ((hasScene(sceneTransition, "observation") || hasScene(sceneTransition, "granularity")) && transition.stagger == null) {
-    transition.stagger = { step: 24, max: 480 };
+    transition.stagger = { ...DEFAULT_TIMING.scene.stagger };
   }
 
   return {
@@ -53,6 +57,11 @@ export function compileSceneViewSpec(viewSpec, sceneTransition) {
 
 export function hasScene(sceneTransition, type) {
   return sceneTransition?.scene?.includes(type);
+}
+
+function supportedSceneTypes(mark) {
+  const compiler = CHART_TRANSITION_COMPILERS[mark];
+  return compiler ? Object.keys(compiler.scenes) : SCENE_TRANSITIONS;
 }
 
 const CHART_TRANSITION_COMPILERS = {
@@ -81,6 +90,13 @@ const CHART_TRANSITION_COMPILERS = {
       guide: applyXYGuide,
       granularity: applyLineGranularity,
       observation: applyXYObservation
+    }
+  },
+  unit: {
+    base: identitySpec,
+    scenes: {
+      focus: applyFilterFocus,
+      guide: applyUnitGuide
     }
   }
 };
@@ -200,12 +216,13 @@ function applyBarGranularity(spec, granularitySpec = {}) {
       ...cloneEncoding(spec.encoding),
       x: channelFromField(categoryField, granularitySpec.categoryTitle || spec.encoding?.x?.title, "nominal"),
       y: channelFromField(valueField, granularitySpec.valueTitle || spec.encoding?.y?.title, "quantitative"),
-      color: {
-        field: segmentField,
-        type: "nominal",
-        domain: granularitySpec.domain || fields.map((field) => labels[field] || field),
-        range: granularitySpec.range || ["#b05d3b", "#536a9e"]
-      }
+      color:
+        granularitySpec.color || {
+          field: segmentField,
+          type: "nominal",
+          domain: granularitySpec.domain || fields.map((field) => labels[field] || field),
+          range: granularitySpec.range || ["#b05d3b", "#536a9e"]
+        }
     },
     sceneState: {
       ...(spec.sceneState || {}),
@@ -213,6 +230,8 @@ function applyBarGranularity(spec, granularitySpec = {}) {
         layout: granularitySpec.layout || "stacked",
         fields,
         segmentField,
+        sourceField,
+        segments: granularitySpec.domain || fields.map((field) => labels[field] || field),
         valueField
       }
     }
@@ -392,11 +411,12 @@ function applyLineGranularity(spec, granularitySpec = {}) {
 
   if (mode === "series" && seriesField) {
     encoding.series = channelFromField(seriesField, granularitySpec.title || "Series", "nominal");
-    encoding.color = {
-      field: seriesField,
-      type: "nominal",
-      range: granularitySpec.range || ["#2f7d7e", "#8d6e3f", "#b05d3b"]
-    };
+    encoding.color =
+      granularitySpec.color || {
+        field: seriesField,
+        type: "nominal",
+        range: granularitySpec.range || ["#2f7d7e", "#8d6e3f", "#b05d3b"]
+      };
   }
 
   if (mode === "single") {
@@ -412,6 +432,47 @@ function applyLineGranularity(spec, granularitySpec = {}) {
       granularity: {
         mode,
         seriesField: mode === "series" ? seriesField : null
+      }
+    }
+  };
+}
+
+function applyUnitGuide(spec, guideSpec = {}) {
+  const unit = {
+    ...(spec.unit || {}),
+    ...copyDefined(guideSpec, [
+      "layout",
+      "columns",
+      "groupColumns",
+      "radius",
+      "xField",
+      "xType",
+      "xTitle",
+      "yField",
+      "yTitle",
+      "groupField",
+      "valueField",
+      "labelField",
+      "maxUnits"
+    ])
+  };
+  const encoding = cloneEncoding(spec.encoding);
+  if (guideSpec.color) encoding.color = guideSpec.color;
+
+  return {
+    ...spec,
+    unit,
+    key: guideSpec.key || spec.key,
+    encoding,
+    sceneState: {
+      ...(spec.sceneState || {}),
+      guide: {
+        layout: unit.layout || "grid",
+        xField: unit.xField || null,
+        yField: unit.yField || null,
+        groupField: unit.groupField || null,
+        valueField: unit.valueField || null,
+        staging: resolveGuideStaging(guideSpec, "unit")
       }
     }
   };

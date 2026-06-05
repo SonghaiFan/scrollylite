@@ -47,6 +47,8 @@ The grammar has two layers:
 - `views`: executable visual grammar for data, marks, encodings, transforms,
   keyed joins, and animation timing.
 
+See `docs/api-summary.md` for the current phase-1 API surface.
+
 The core runtime should not grow one `if/else` branch per chart or layout. Chart
 types and layout modes are managed as registries:
 
@@ -55,15 +57,15 @@ types and layout modes are managed as registries:
   `textOverVis`.
 - `src/transitions/index.js` resolves scene transition tokens and compiles chart
   scene states through a small adapter registry.
+- `src/scroll-drivers/native.js` owns the native scroll-progress controller used
+  for continuous transition control.
 - `src/scrollylite.js` owns story flow, data loading, scenes, actions, and
   transitions; it delegates chart rendering and layout selection.
 
 ```js
-const sharedTransition = {
-  duration: 1200,
-  ease: "cubicInOut",
-  stagger: { step: 18, max: 360 }
-};
+import { defaultTransition } from "./src/timing.js";
+
+const sharedTransition = defaultTransition();
 
 export default {
   title: "Story title",
@@ -77,7 +79,15 @@ export default {
   layout: {
     offset: 0.58,
     nav: true,
-    progress: true
+    progress: true,
+    scroll: {
+      progress: "geometry",
+      clamp: true,
+      navigation: {
+        behavior: "auto",
+        progress: 0.98
+      }
+    }
   },
   designSpace: {
     layout: {
@@ -131,21 +141,27 @@ export default {
 - Static ES-module runtime, no build step
 - Thesis-aligned `designSpace` annotations for `Layout`, `Transition`, and
   `Action`
-- Scrollama-driven active steps
+- Native scroll-progress controller; no external scroll driver dependency
 - CSV loading through D3
 - Structured transforms: `filter`, `fold`, `aggregate`, `bin`, `sort`, `limit`
-- Chart registry starting with `scatter`, `line`, and `bar`
+- Chart registry for `bar`, `scatter`, `line`, and `unit`
+- Chart modules under `src/charts/<type>/` with `BaseChart` inheritance,
+  renderer, state, and key helpers
 - Chart aliases such as `point`, `dot`, and `barChart`
 - Encoding channels: `x`, `y`, `color`, `tooltip`
 - Persistent SVG scene layers instead of clearing and redrawing
 - Keyed enter/update/exit transitions
 - Pairwise transition planning from previous scene state to next scene state
 - Declarative transition timing: `duration`, `ease`, and `stagger`
-- Scene transition compiler for `bar`, `scatter`, and `line`:
+- Scroll-controlled transition mode using D3 transition schedule scrubbing
+- Scene transition compiler for `bar`, `scatter`, `line`, and `unit`:
   - `focus` filters bar/scatter views and range-crops line views by default
   - `guide` changes orientation, scale, axis mapping, or segmented-bar layout
   - `granularity` changes aggregation, segmentation, split/merge, or line series
   - `observation` changes encoded variables while preserving semantic identity
+  - `unit` supports `focus` and `guide`; grouping units by category is a guide
+    layout change, and unit intentionally has no `observation` transition
+    because its observation is the unit count itself
 - Global plot-area clipping for mark layers
 - Phase 1 grammar notes in `docs/phase-1-scene-transitions.md`
 - Layout registry starting with `floatToText` and `textOverVis`
@@ -156,8 +172,6 @@ export default {
 - Keep Structure out of v0 implementation until branch/merge/path orchestration
   is designed separately
 - Add a JSON Schema for validation and editor autocomplete
-- Move remaining built-in chart renderers into separate modules:
-  `charts/scatter.js` and `charts/line.js`
 - Add plugin renderers such as `@scrolly-lite/chart-sankey`,
   `@scrolly-lite/chart-unit`, and `@scrolly-lite/chart-map`
 - Add control grammar for station/date/type selectors

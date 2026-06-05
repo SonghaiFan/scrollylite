@@ -7,8 +7,21 @@ import { applyTransforms } from "./data/transforms.js";
 import { keyAccessor } from "./identity/semantic-key.js";
 import { createBarRenderer } from "./charts/bar/render.js";
 import { resolveBarTransitionPlan } from "./charts/bar/state.js";
+import { createLineRenderer } from "./charts/line/render.js";
+import { createScatterRenderer } from "./charts/scatter/render.js";
+import { createUnitRenderer } from "./charts/unit/render.js";
 import { createChartRegistry, normalizeChartType } from "./charts/index.js";
 import { layoutClasses } from "./layouts/index.js";
+import {
+  createScrollDriver,
+  normalizeScrollDriverConfig
+} from "./scroll-drivers/index.js";
+import { DEFAULT_TIMING, defaultTransition } from "./timing.js";
+import {
+  clearSceneTransitionProgress,
+  createSceneTransitionProgress,
+  installTransitionProgress
+} from "./transition-progress.js";
 import {
   compileSceneViewSpec,
   hasScene,
@@ -39,6 +52,7 @@ export function availableChartTypes() {
 
 export async function createStory(spec, options = {}) {
   const d3 = getD3();
+  installTransitionProgress(d3);
   const target = resolveTarget(options.target || "#app");
   const compiled = compileSpec(spec);
 
@@ -55,17 +69,23 @@ export async function createStory(spec, options = {}) {
   const renderer = createRenderer(shell, compiled, data, d3);
 
   renderer.renderStep(0);
-  setupScroll(compiled, shell, renderer);
-  setupNav(compiled, shell, renderer);
-  setupResize(renderer);
-  restoreHashPosition(renderer);
+  const scrollDriver = setupScroll(compiled, shell, renderer);
+  setupNav(shell, renderer, scrollDriver);
+  const disposeResize = setupResize(renderer, scrollDriver);
+  restoreHashPosition(shell, renderer, scrollDriver);
 
   return {
     spec: compiled,
     data,
     signature: designSpaceSignature(compiled),
     renderStep: renderer.renderStep,
-    destroy: renderer.destroy
+    renderScrollProgress: renderer.renderScrollProgress,
+    scrollDriver,
+    destroy() {
+      disposeResize();
+      scrollDriver?.destroy?.();
+      renderer.destroy();
+    }
   };
 }
 
@@ -81,18 +101,22 @@ function compileSpec(spec) {
 
   const baseDesignSpace = normalizeDesignSpace(spec.designSpace || {});
 
+  const layout = {
+    offset: 0.55,
+    nav: true,
+    progress: true,
+    scroll: {},
+    ...(spec.layout || {})
+  };
+  layout.scroll = normalizeScrollDriverConfig(layout.scroll);
+
   return {
     ...spec,
     data: spec.data || {},
     designSpace: baseDesignSpace,
     views: spec.views || { main: {} },
     theme: spec.theme || {},
-    layout: {
-      offset: 0.55,
-      nav: true,
-      progress: true,
-      ...(spec.layout || {})
-    },
+    layout,
     steps: steps.map((step, index) => ({
       ...step,
       id: step.id || `step-${index + 1}`,
@@ -233,6 +257,8 @@ function renderShell(target, spec) {
 function createRenderer(shell, spec, datasets, d3) {
   let activeIndex = -1;
   let resizeFrame = null;
+  let progressFrame = null;
+  let pendingProgress = null;
 
   const renderStep = (index, options = {}) => {
     const bounded = clamp(index, 0, spec.steps.length - 1);
@@ -254,15 +280,53 @@ function createRenderer(shell, spec, datasets, d3) {
 
     const firstViewSpec = Object.values(step.views)[0] || {};
     shell.figureTitle.textContent = spec.views.main?.title || step.title || "";
-    shell.markName.textContent = firstViewSpec.mark
-      ? `chart: ${normalizeChartType(firstViewSpec.mark)}`
-      : "";
+    const chartLabel = firstViewSpec.mark ? `chart: ${normalizeChartType(firstViewSpec.mark)}` : "";
+    shell.markName.dataset.chartLabel = chartLabel;
+    shell.markName.textContent = chartLabel;
 
     Object.entries(shell.views).forEach(([viewId, node]) => {
       const viewConfig = spec.views[viewId] || {};
       const viewSpec = step.views[viewId] || step.views.main || {};
+      node.__scrollyLiteMarkName = shell.markName;
       drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, step.designSpace);
     });
+
+    if (hasScrollAction(step)) {
+      applyStepScrollProgress(shell, spec, bounded, options.scrollProgress ?? defaultScrollProgress(options.direction));
+    }
+  };
+
+  const renderScrollProgress = (index, progress, direction = "down") => {
+    const bounded = clamp(index, 0, spec.steps.length - 1);
+    const step = spec.steps[bounded];
+    if (!hasScrollAction(step)) return;
+
+    pendingProgress = {
+      index: bounded,
+      progress: clamp(progress, 0, 1),
+      direction
+    };
+
+    if (progressFrame) return;
+    progressFrame = window.requestAnimationFrame(() => {
+      progressFrame = null;
+      if (!pendingProgress) return;
+      const next = pendingProgress;
+      pendingProgress = null;
+
+      if (activeIndex !== next.index) return;
+
+      updateStoryProgress(shell, spec, next.index, next.progress);
+      applyStepScrollProgress(shell, spec, next.index, next.progress);
+    });
+  };
+
+  const cancelScrollProgress = () => {
+    pendingProgress = null;
+    if (progressFrame) {
+      window.cancelAnimationFrame(progressFrame);
+      progressFrame = null;
+    }
   };
 
   const resize = () => {
@@ -274,15 +338,22 @@ function createRenderer(shell, spec, datasets, d3) {
 
   return {
     renderStep,
+    renderScrollProgress,
+    cancelScrollProgress,
     resize,
     destroy() {
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      cancelScrollProgress();
     }
   };
 }
 
 function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}) {
   const scene = getScene(node, viewConfig, d3);
+  scene.progressRoots = [
+    node,
+    node.__scrollyLiteMarkName
+  ].filter(Boolean);
 
   if (!viewSpec || !viewSpec.mark) {
     scene.empty.style("display", "grid").text("No view for this step.");
@@ -303,6 +374,8 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     withSceneTransitionDefaults(viewSpec, sceneTransition),
     sceneTransition
   );
+  const scrollDriven = hasScrollActionDesign(designSpace);
+  clearSceneTransitionProgress(scene);
   const source = effectiveViewSpec.data ? datasets[effectiveViewSpec.data] || [] : [];
   const rows = applyTransforms(source, effectiveViewSpec.transform || []);
   if (!rows.length) {
@@ -323,7 +396,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     width,
     height,
     margin: {
-      top: 38,
+      top: 58,
       right: 34,
       bottom: 64,
       left: 68,
@@ -331,7 +404,8 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     },
     transition: transitionSpec(effectiveViewSpec, previousSpec),
     transitionPlan: resolveBarTransitionPlan(previousSpec, effectiveViewSpec),
-    sceneTransition
+    sceneTransition,
+    scrollDriven
   };
   chart.innerWidth = chart.width - chart.margin.left - chart.margin.right;
   chart.innerHeight = chart.height - chart.margin.top - chart.margin.bottom;
@@ -350,8 +424,75 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   if (renderer) renderer(chart, rows, effectiveViewSpec, tooltip, d3);
   else drawUnsupported(chart, effectiveViewSpec, BUILT_IN_CHARTS.types());
 
+  if (chartType === "unit") hideUnitMetaLabel(scene);
+
   applySceneTransitions(chart, rows, effectiveViewSpec);
+  if (scrollDriven) scene.transitionProgress = createSceneTransitionProgress(scene);
   scene.previousSpec = effectiveViewSpec;
+}
+
+function hideUnitMetaLabel(scene) {
+  scene.unitLabel.interrupt().text("").style("opacity", 0);
+}
+
+function updateStoryProgress(shell, spec, index, progress = 0) {
+  if (!shell.progressFill) return;
+  const denominator = Math.max(1, spec.steps.length - 1);
+  const pct = spec.steps.length === 1
+    ? 100
+    : ((index + clamp(progress, 0, 1)) / denominator) * 100;
+  shell.progressFill.style.width = `${Math.min(100, pct)}%`;
+}
+
+function hasScrollAction(step = {}) {
+  return (step.designSpace?.action || []).includes("scroll");
+}
+
+function hasScrollActionDesign(designSpace = {}) {
+  return (designSpace.action || []).includes("scroll");
+}
+
+function defaultScrollProgress(direction) {
+  return direction === "up" ? 1 : 0;
+}
+
+function applyStepScrollProgress(shell, spec, index, progress) {
+  const step = spec.steps[index];
+  if (!step || !hasScrollAction(step)) return;
+
+  Object.entries(shell.views).forEach(([viewId, node]) => {
+    const viewSpec = step.views[viewId] || step.views.main || {};
+    applyScrollAction(node, viewSpec, progress);
+  });
+}
+
+function applyScrollAction(node, viewSpec, progress) {
+  const scene = node.__scrollyLiteScene;
+  if (!scene || !viewSpec?.mark) return;
+
+  const action = normalizeScrollAction(viewSpec.scroll);
+  const eased = easeProgress(progress, action.ease);
+  scene.transitionProgress?.progress(eased);
+}
+
+function normalizeScrollAction(scrollSpec = {}) {
+  if (scrollSpec === true) return {};
+  return {
+    ease: "linear",
+    ...scrollSpec
+  };
+}
+
+function easeProgress(progress, name = "linear") {
+  const d3 = getD3();
+  const eases = {
+    linear: d3.easeLinear,
+    cubic: d3.easeCubic,
+    cubicInOut: d3.easeCubicInOut,
+    cubicOut: d3.easeCubicOut
+  };
+  const ease = eases[name] || d3.easeLinear;
+  return clamp(ease(clamp(progress, 0, 1)), 0, 1);
 }
 
 function applySceneTransitions(chart, rows, spec) {
@@ -505,260 +646,6 @@ function sceneRowKey(row, spec = {}) {
   return String(key(row, 0));
 }
 
-function drawLine(chart, rows, spec, tooltip, d3) {
-  const enc = spec.encoding || {};
-  const t = chart.transition.base;
-  const focus = spec.sceneState?.focus;
-  const x = focusedLineXScale(rows, enc.x, chart, focus, d3);
-  const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
-  const color = colorScale(rows, enc.color, d3);
-  const key = keyAccessor(spec, enc.x?.field);
-  const series = lineSeries(rows, spec, enc);
-  const line = d3
-    .line()
-    .x((d) => position(x, d[enc.x.field]))
-    .y((d) => y(d[enc.y.field]))
-    .curve(curveFor(spec, d3));
-
-  fadeNonLineShapes(chart);
-  chart.scales = { x, y, color, orientation: "cartesian" };
-  chart.channels = enc;
-  chart.position = {
-    x: (d) => position(x, d[enc.x.field]),
-    y: (d) => y(d[enc.y.field])
-  };
-  drawGrid(chart, y, d3);
-  drawXAxis(chart, x, enc.x?.title, d3);
-  drawYAxis(chart, y, enc.y?.title, d3);
-
-  chart.g
-    .selectAll("path.sl-line")
-    .data(series, (d) => d.key)
-    .join(
-      (enter) =>
-        enter
-          .append("path")
-          .attr("class", "sl-line")
-          .attr("fill", "none")
-          .attr("stroke", (d) => color(d.rows[0]))
-          .attr("stroke-width", spec.strokeWidth || 3)
-          .attr("d", (d) => line(d.rows))
-          .style("opacity", 0)
-          .call((selection) => drawPath(selection, t)),
-      (update) =>
-        update
-          .attr("stroke-dasharray", null)
-          .attr("stroke-dashoffset", null)
-          .transition(t)
-          .style("opacity", 1)
-          .attr("stroke", (d) => color(d.rows[0]))
-          .attr("stroke-width", spec.strokeWidth || 3)
-          .attr("d", (d) => line(d.rows)),
-      (exit) =>
-        exit
-          .attr("stroke-dasharray", null)
-          .attr("stroke-dashoffset", null)
-          .transition(t)
-          .style("opacity", 0)
-          .remove()
-    );
-
-  chart.g
-    .selectAll("circle.sl-line-point")
-    .data(rows, key)
-    .join(
-      (enter) =>
-        enter
-          .append("circle")
-          .attr("class", "sl-line-point")
-          .attr("cx", (d) => position(x, d[enc.x.field]))
-          .attr("cy", (d) => y(d[enc.y.field]))
-          .attr("r", 0)
-          .attr("fill", (d) => color(d))
-          .attr("stroke", "white")
-          .attr("stroke-width", 1.5)
-          .call(bindTooltip, spec, tooltip)
-          .transition(t)
-          .delay((d, i) => 260 + staggerDelay(spec, d, i))
-          .style("opacity", 1)
-          .attr("r", spec.pointSize || 4.5),
-      (update) =>
-        update
-          .call(bindTooltip, spec, tooltip)
-          .transition(t)
-          .style("opacity", 1)
-          .attr("cx", (d) => position(x, d[enc.x.field]))
-          .attr("cy", (d) => y(d[enc.y.field]))
-          .attr("fill", (d) => color(d))
-          .attr("r", spec.pointSize || 4.5),
-      (exit) =>
-        exit
-          .transition(t)
-          .style("opacity", 0)
-          .attr("r", 0)
-          .remove()
-    );
-
-  drawLegend(chart, rows, enc.color, d3);
-}
-
-function drawScatter(chart, rows, spec, tooltip, d3) {
-  const enc = spec.encoding || {};
-  const t = chart.transition.base;
-  const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
-  const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
-  const color = colorScale(rows, enc.color, d3);
-  const rawKey = keyAccessor(spec, enc.x?.field);
-  const key = scatterKeyAccessor(spec, rawKey);
-  const radius = radiusScale(rows, enc.size, spec.size || 7, d3);
-  const parentField = spec.sceneState?.granularity?.parentField || spec.granularity?.parentField || enc.color?.field;
-  const previousAnchors = chart.scene.scatterAnchors || { byParent: new Map() };
-  const nextParentAnchors = parentAnchors(rows, parentField, chartPosition);
-
-  fadeNonPointShapes(chart);
-  chart.scales = { x, y, color, orientation: "cartesian" };
-  chart.channels = enc;
-  chart.position = {
-    x: (d) => position(x, d[enc.x.field]),
-    y: (d) => y(d[enc.y.field])
-  };
-  drawGrid(chart, y, d3);
-  drawXAxis(chart, x, enc.x?.title, d3);
-  drawYAxis(chart, y, enc.y?.title, d3);
-
-  chart.g
-    .selectAll("circle.sl-point")
-    .data(rows, function (d, i) {
-      return d?.__slScatterJoinKey || key(d, i);
-    })
-    .join(
-      (enter) =>
-        enter
-          .append("circle")
-          .attr("class", "sl-point")
-          .attr("cx", (d) => enterAnchor(d).x)
-          .attr("cy", (d) => enterAnchor(d).y)
-          .attr("r", 0)
-          .attr("fill", (d) => color(d))
-          .attr("fill-opacity", 0.86)
-          .attr("stroke", "white")
-          .attr("stroke-width", 1.5)
-          .each((d, i) => {
-            d.__slScatterJoinKey = key(d, i);
-          })
-          .call(bindTooltip, spec, tooltip)
-          .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
-          .attr("cx", (d) => chartPosition(d).x)
-          .attr("cy", (d) => chartPosition(d).y)
-          .attr("r", (d) => radius(d)),
-      (update) =>
-        update
-          .each((d, i) => {
-            d.__slScatterJoinKey = key(d, i);
-          })
-          .call(bindTooltip, spec, tooltip)
-          .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
-          .style("opacity", 1)
-          .attr("cx", (d) => chartPosition(d).x)
-          .attr("cy", (d) => chartPosition(d).y)
-          .attr("fill", (d) => color(d))
-          .attr("r", (d) => radius(d)),
-      (exit) =>
-        exit
-          .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
-          .style("opacity", 0)
-          .attr("cx", (d) => exitAnchor(d).x)
-          .attr("cy", (d) => exitAnchor(d).y)
-          .attr("r", 0)
-          .remove()
-    );
-
-  drawLegend(chart, rows, enc.color, d3);
-  chart.scene.scatterAnchors = {
-    byKey: new Map(rows.map((row, index) => [String(key(row, index)), chartPosition(row)])),
-    byParent: nextParentAnchors
-  };
-
-  function chartPosition(row) {
-    return {
-      x: position(x, row[enc.x.field]),
-      y: y(row[enc.y.field])
-    };
-  }
-
-  function enterAnchor(row) {
-    const parent = parentKey(row, parentField);
-    return previousAnchors.byParent?.get(parent) || chartPosition(row);
-  }
-
-  function exitAnchor(row) {
-    const parent = parentKey(row, parentField);
-    return nextParentAnchors.get(parent) || chartPosition(row);
-  }
-}
-
-function drawUnit(chart, rows, spec, tooltip, d3) {
-  const unit = spec.unit || {};
-  const enc = spec.encoding || {};
-  const t = chart.transition.base;
-  const units = expandUnits(rows, spec, d3);
-  const layout = unitLayout(units, chart, spec, d3);
-  const color = colorScale(rows, enc.color, d3);
-
-  hideAxesForUnit(chart, layout.axes, d3);
-  chart.scales = { color, orientation: layout.name };
-  chart.channels = enc;
-  chart.position = {
-    x: (d) => layout.x(d),
-    y: (d) => layout.y(d)
-  };
-  drawLegend(chart, rows, enc.color, d3);
-  fadeNonUnitShapes(chart);
-
-  sceneLabel(chart, `${units.length} keyed units · layout: ${layout.name}`);
-
-  chart.g
-    .selectAll("circle.sl-unit")
-    .data(units, (d) => d.__unitKey)
-    .join(
-      (enter) =>
-        enter
-          .append("circle")
-          .attr("class", "sl-unit")
-          .attr("cx", (d) => layout.x(d))
-          .attr("cy", (d) => layout.y(d))
-          .attr("r", 0)
-          .attr("fill", (d) => color(d.__row))
-          .attr("fill-opacity", 0.9)
-          .attr("stroke", "white")
-          .attr("stroke-width", 1)
-          .call(bindUnitTooltip, spec, tooltip)
-          .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
-          .attr("r", layout.r),
-      (update) =>
-        update
-          .call(bindUnitTooltip, spec, tooltip)
-          .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
-          .style("opacity", 1)
-          .attr("cx", (d) => layout.x(d))
-          .attr("cy", (d) => layout.y(d))
-          .attr("r", layout.r)
-          .attr("fill", (d) => color(d.__row)),
-      (exit) =>
-        exit
-          .transition(t)
-          .delay((d, i) => staggerDelay(spec, d, i))
-          .style("opacity", 0)
-          .attr("r", 0)
-          .remove()
-    );
-}
-
 function getScene(node, viewConfig, d3) {
   if (node.__scrollyLiteScene) return node.__scrollyLiteScene;
 
@@ -772,11 +659,16 @@ function getScene(node, viewConfig, d3) {
     .attr("viewBox", `0 0 ${width} ${height}`)
     .attr("role", "img");
 
+  const frame = svg.append("g").attr("class", "sl-frame");
+  const grid = frame.append("g").attr("class", "sl-grid");
+  const markRoot = frame.append("g").attr("class", "sl-mark-root");
+
   const scene = {
     node,
     svg,
-    frame: svg.append("g").attr("class", "sl-frame"),
-    grid: svg.append("g").attr("class", "sl-grid"),
+    frame,
+    grid,
+    markRoot,
     xAxis: svg.append("g").attr("class", "sl-axis sl-x-axis"),
     yAxis: svg.append("g").attr("class", "sl-axis sl-y-axis"),
     xLabel: svg.append("text").attr("class", "sl-axis-label sl-x-label"),
@@ -790,10 +682,10 @@ function getScene(node, viewConfig, d3) {
     height
   };
 
-  scene.granularityLayer = scene.frame
+  scene.granularityLayer = markRoot
     .append("g")
     .attr("class", "sl-scene-layer sl-granularity-layer");
-  scene.guideLayer = scene.frame.append("g").attr("class", "sl-scene-layer sl-guide-layer");
+  scene.guideLayer = frame.append("g").attr("class", "sl-scene-layer sl-guide-layer");
 
   scene.empty = d3
     .select(node)
@@ -815,8 +707,7 @@ function transitionSpec(spec, previousSpec) {
   const local = spec.transition || {};
   const previous = previousSpec?.transition || {};
   const transition = {
-    duration: 1000,
-    ease: "cubicInOut",
+    ...defaultTransition(),
     ...previous,
     ...local
   };
@@ -844,7 +735,7 @@ function activeMarkLayer(scene, mark, transition) {
   if (!scene.markLayers.has(mark)) {
     scene.markLayers.set(
       mark,
-      scene.frame.append("g").attr("class", `sl-mark-layer sl-${mark}-layer`)
+      scene.markRoot.append("g").attr("class", `sl-mark-layer sl-${mark}-layer`)
     );
   }
 
@@ -870,8 +761,8 @@ function staggerDelay(spec, datum, index, override) {
   if (!stagger) return 0;
   if (typeof stagger === "number") return index * stagger;
 
-  const step = stagger.step ?? stagger.ms ?? 8;
-  const max = stagger.max ?? 900;
+  const step = stagger.step ?? stagger.ms ?? DEFAULT_TIMING.transition.stagger.step;
+  const max = stagger.max ?? DEFAULT_TIMING.transition.stagger.max;
   if (stagger.by) {
     const value = Number(datum[stagger.by] ?? datum.__row?.[stagger.by] ?? index);
     if (Number.isFinite(value)) return Math.min(value * step, max);
@@ -924,59 +815,6 @@ function fadeNonUnitShapes(chart) {
   chart.g.selectAll("rect.sl-bar,path.sl-line,circle.sl-line-point,circle.sl-point").transition(chart.transition.base).style("opacity", 0);
 }
 
-function lineSeries(rows, spec, enc = {}) {
-  const seriesField = spec.lineSeries || spec.series || enc.series?.field;
-  if (!seriesField) return [{ key: "__line", rows }];
-
-  const grouped = new Map();
-  rows.forEach((row) => {
-    const key = row[seriesField] ?? "__missing";
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(row);
-  });
-
-  return Array.from(grouped, ([key, values]) => ({
-    key: String(key),
-    rows: values
-  }));
-}
-
-function focusedLineXScale(rows, channel, chart, focus, d3) {
-  const baseRange = [0, chart.innerWidth];
-  if (!focus?.filter || focus.mode !== "rangeCrop") return bandOrLinear(rows, channel, baseRange, d3);
-
-  const focusedRows = rows.filter((row) => rowMatchesFilter(row, focus.filter));
-  if (focusedRows.length < 2) return bandOrLinear(rows, channel, baseRange, d3);
-
-  if (channel?.type === "quantitative" || channel?.type === "temporal") {
-    return bandOrLinear(rows, { ...channel, domain: focusedDomain(focusedRows, channel) }, baseRange, d3);
-  }
-
-  const base = bandOrLinear(rows, channel, baseRange, d3);
-  const positions = focusedRows
-    .map((row) => position(base, row[channel.field]))
-    .filter(Number.isFinite);
-  if (positions.length < 2) return base;
-
-  const min = Math.min(...positions);
-  const max = Math.max(...positions);
-  if (min === max) return base;
-
-  const inset = Math.min(chart.innerWidth * 0.08, 44);
-  const factor = (chart.innerWidth - inset * 2) / (max - min);
-  return bandOrLinear(
-    rows,
-    channel,
-    [inset - min * factor, inset + (chart.innerWidth - min) * factor],
-    d3
-  );
-}
-
-function focusedDomain(rows, channel = {}) {
-  if (channel.type === "temporal") return getD3().extent(rows, (d) => new Date(d[channel.field]));
-  return niceExtent(rows, channel.field);
-}
-
 function applyPlotClip(chart, enabled) {
   if (!enabled) {
     chart.g.attr("clip-path", null);
@@ -1022,223 +860,6 @@ function ensureClipRect(scene, id, rect) {
     .attr("y", rect.y)
     .attr("width", rect.width)
     .attr("height", rect.height);
-}
-
-function rowMatchesFilter(row, filter = {}) {
-  if (!filter?.field) return true;
-  const value = row[filter.field];
-  if ("equal" in filter) return value === filter.equal;
-  if ("notEqual" in filter) return value !== filter.notEqual;
-  if ("oneOf" in filter) return filter.oneOf.includes(value);
-  if ("gte" in filter && value < filter.gte) return false;
-  if ("gt" in filter && value <= filter.gt) return false;
-  if ("lte" in filter && value > filter.lte) return false;
-  if ("lt" in filter && value >= filter.lt) return false;
-  return Boolean(value);
-}
-
-function expandUnits(rows, spec, d3) {
-  const unit = spec.unit || {};
-  const valueField = unit.valueField;
-  const rowKey = unit.key || spec.key || "id";
-  const maxUnits = unit.maxUnits || 240;
-  const units = [];
-
-  rows.forEach((row, rowIndex) => {
-    const count = Math.max(0, Math.round(Number(valueField ? row[valueField] : 1) || 1));
-    d3.range(count).forEach((unitIndex) => {
-      units.push({
-        ...row,
-        __row: row,
-        __unitIndex: unitIndex,
-        __rowIndex: rowIndex,
-        __unitKey: `${row[rowKey] ?? rowIndex}-${unitIndex}`
-      });
-    });
-  });
-
-  return units.slice(0, maxUnits);
-}
-
-function unitLayout(units, chart, spec, d3) {
-  const unit = spec.unit || {};
-  const layout = unit.layout || "grid";
-  const columns = unit.columns || Math.max(8, Math.floor(Math.sqrt(units.length) * 1.4));
-  const radius = unit.radius || Math.max(4, Math.min(12, chart.innerWidth / Math.max(columns * 2.4, 1)));
-  const cell = radius * 2.45;
-  const rowsNeeded = Math.ceil(units.length / columns);
-  const groupField = unit.groupField || spec.encoding?.color?.field;
-  const xField = unit.xField || spec.encoding?.x?.field;
-  const yField = unit.yField || spec.encoding?.y?.field;
-
-  if (layout === "timeline" && xField) {
-    const x = bandOrLinear(units.map((d) => d.__row), { field: xField, type: unit.xType || "quantitative" }, [0, chart.innerWidth], d3);
-    const base = chart.innerHeight - radius;
-    const stackByX = stackIndex(units, (d) => d.__row[xField]);
-    drawXAxis(chart, x, unit.xTitle || xField, d3);
-    drawYAxis(chart, null, null, d3);
-    updateGrid(chart, null, d3);
-    return {
-      name: "timeline",
-      axes: true,
-      r: radius,
-      x: (d) => position(x, d.__row[xField]),
-      y: (d) => base - stackByX(d) * cell
-    };
-  }
-
-  if (layout === "dodge" && xField) {
-    const x = bandOrLinear(units.map((d) => d.__row), { field: xField, type: unit.xType || "quantitative" }, [radius, chart.innerWidth - radius], d3);
-    const centers = units.map((d) => position(x, d.__row[xField]));
-    const yOffsets = dodge(centers, radius * 2.15, chart.innerHeight - radius * 2);
-    const yByKey = new Map(units.map((d, i) => [d.__unitKey, yOffsets[i]]));
-    drawXAxis(chart, x, unit.xTitle || xField, d3);
-    drawYAxis(chart, null, null, d3);
-    updateGrid(chart, null, d3);
-    return {
-      name: "dodge",
-      axes: true,
-      r: radius,
-      x: (d) => position(x, d.__row[xField]),
-      y: (d) => chart.innerHeight - radius - yByKey.get(d.__unitKey)
-    };
-  }
-
-  if (layout === "groupedGrid" && groupField) {
-    const groups = Array.from(new Set(units.map((d) => d.__row[groupField])));
-    const groupScale = d3.scaleBand().domain(groups).range([0, chart.innerWidth]).padding(0.18);
-    const groupColumns = Math.max(3, unit.groupColumns || Math.floor(groupScale.bandwidth() / cell));
-    const stackByGroup = stackIndex(units, (d) => d.__row[groupField]);
-    drawXAxis(chart, groupScale, unit.xTitle || groupField, d3);
-    drawYAxis(chart, null, null, d3);
-    updateGrid(chart, null, d3);
-    return {
-      name: "groupedGrid",
-      axes: true,
-      r: radius,
-      x: (d) => groupScale(d.__row[groupField]) + (stackByGroup(d) % groupColumns) * cell + radius,
-      y: (d) => chart.innerHeight - radius - Math.floor(stackByGroup(d) / groupColumns) * cell
-    };
-  }
-
-  if (layout === "scatter" && xField && yField) {
-    const x = bandOrLinear(units.map((d) => d.__row), { field: xField, type: unit.xType || "quantitative" }, [radius, chart.innerWidth - radius], d3);
-    const y = d3
-      .scaleLinear()
-      .domain(niceExtent(units.map((d) => d.__row), yField))
-      .range([chart.innerHeight - radius, radius])
-      .nice();
-    drawGrid(chart, y, d3);
-    drawXAxis(chart, x, unit.xTitle || xField, d3);
-    drawYAxis(chart, y, unit.yTitle || yField, d3);
-    return {
-      name: "scatter",
-      axes: true,
-      r: radius,
-      x: (d) => position(x, d.__row[xField]),
-      y: (d) => y(d.__row[yField]) + ((d.__unitIndex % 5) - 2) * radius * 0.35
-    };
-  }
-
-  updateGrid(chart, null, d3);
-  drawXAxis(chart, null, null, d3);
-  drawYAxis(chart, null, null, d3);
-  const startX = Math.max(0, (chart.innerWidth - columns * cell) / 2);
-  const startY = Math.max(0, (chart.innerHeight - rowsNeeded * cell) / 2);
-  return {
-    name: "grid",
-    axes: false,
-    r: radius,
-    x: (_, i) => startX + (i % columns) * cell + radius,
-    y: (_, i) => startY + Math.floor(i / columns) * cell + radius
-  };
-}
-
-function stackIndex(values, group) {
-  const counts = new Map();
-  const indexes = new Map();
-  values.forEach((value) => {
-    const key = group(value);
-    const index = counts.get(key) || 0;
-    counts.set(key, index + 1);
-    indexes.set(value.__unitKey, index);
-  });
-  return (value) => indexes.get(value.__unitKey) || 0;
-}
-
-function dodge(X, radius, height) {
-  const Y = new Float64Array(X.length);
-  const radius2 = radius ** 2;
-  const epsilon = 1e-3;
-  let head = null;
-  let tail = null;
-
-  function intersects(x, y) {
-    let a = head;
-    while (a) {
-      const ai = a.index;
-      if (radius2 - epsilon > (X[ai] - x) ** 2 + (Y[ai] - y) ** 2) return true;
-      a = a.next;
-    }
-    return false;
-  }
-
-  for (const bi of getD3().range(X.length).sort((i, j) => X[i] - X[j])) {
-    while (head && X[head.index] < X[bi] - radius2) head = head.next;
-    if (intersects(X[bi], (Y[bi] = 0))) {
-      let a = head;
-      Y[bi] = Infinity;
-      do {
-        const ai = a.index;
-        const y = Y[ai] + Math.sqrt(radius2 - (X[ai] - X[bi]) ** 2);
-        if (y < Y[bi] && !intersects(X[bi], y)) Y[bi] = y;
-        a = a.next;
-      } while (a);
-    }
-    const b = { index: bi, next: null };
-    if (head === null) head = tail = b;
-    else tail = tail.next = b;
-  }
-
-  if (height < getD3().max(Y) && radius > 2) return dodge(X, radius - 1, height);
-  return Y;
-}
-
-function hideAxesForUnit(chart, visible) {
-  if (visible) return;
-  chart.scene.xAxis.transition(chart.transition.base).style("opacity", 0);
-  chart.scene.yAxis.transition(chart.transition.base).style("opacity", 0);
-  chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
-  chart.scene.yLabel.transition(chart.transition.base).style("opacity", 0);
-  chart.scene.grid.transition(chart.transition.base).style("opacity", 0);
-}
-
-function sceneLabel(chart, text) {
-  chart.scene.unitLabel
-    .attr("x", chart.margin.left)
-    .attr("y", chart.margin.top - 14)
-    .attr("fill", "var(--sl-muted)")
-    .attr("font-size", 13)
-    .style("opacity", 0)
-    .text(text)
-    .transition(chart.transition.base)
-    .style("opacity", 1);
-}
-
-function bindUnitTooltip(selection, spec, tooltip) {
-  const unit = spec.unit || {};
-  const valueField = unit.valueField;
-  const labelField = unit.labelField;
-  selection
-    .on("mouseenter", (event, d) => {
-      const bits = [];
-      if (labelField) bits.push(`${escapeHtml(labelField)}: ${escapeHtml(d.__row[labelField])}`);
-      if (valueField) bits.push(`${escapeHtml(valueField)}: ${escapeHtml(d.__row[valueField])}`);
-      bits.push(`unit: ${escapeHtml(d.__unitIndex + 1)}`);
-      showTooltip(tooltip, event, bits.join("<br>"));
-    })
-    .on("mousemove", (event) => moveTooltip(tooltip, event))
-    .on("mouseleave", () => hideTooltip(tooltip));
 }
 
 function drawTextBoard(scene, spec) {
@@ -1319,51 +940,6 @@ function quantitativeDomain(rows, channel = {}, floor) {
   return niceExtent(rows, channel.field, floor);
 }
 
-function radiusScale(rows, channel, fallback, d3) {
-  if (!channel?.field) return () => fallback;
-  const range = channel.range || [4, 16];
-  const scale = d3
-    .scaleSqrt()
-    .domain(quantitativeDomain(rows, channel, 0))
-    .range(range);
-  return (row) => scale(Number(row[channel.field]) || 0);
-}
-
-function scatterKeyAccessor(spec, rawKey) {
-  const mode = spec.sceneState?.granularity?.mode;
-  if (!mode) return rawKey;
-  return (row, index) => `${mode}:${rawKey(row, index)}`;
-}
-
-function parentAnchors(rows, parentField, positionForRow) {
-  const grouped = new Map();
-  rows.forEach((row) => {
-    const key = parentKey(row, parentField);
-    const point = positionForRow(row);
-    if (!grouped.has(key)) grouped.set(key, { x: 0, y: 0, count: 0 });
-    const anchor = grouped.get(key);
-    anchor.x += point.x;
-    anchor.y += point.y;
-    anchor.count += 1;
-  });
-
-  return new Map(
-    Array.from(grouped, ([key, anchor]) => [
-      key,
-      {
-        x: anchor.x / anchor.count,
-        y: anchor.y / anchor.count
-      }
-    ])
-  );
-}
-
-function parentKey(row, parentField) {
-  if (!row || !parentField) return "__all";
-  if (Array.isArray(parentField)) return parentField.map((field) => row[field]).join("|");
-  return String(row[parentField] ?? "__all");
-}
-
 function channelDomain(rows, channel = {}) {
   if (Array.isArray(channel.domain)) return channel.domain;
   return Array.from(new Set(rows.map((row) => row[channel.field])));
@@ -1372,11 +948,41 @@ function channelDomain(rows, channel = {}) {
 function colorScale(rows, channel, d3) {
   if (!channel) return () => "var(--sl-accent)";
   if (channel.value) return () => channel.value;
+  if (channel.hue || channel.luminance) return compositeColorScale(channel, d3);
   if (!channel.field) return () => "var(--sl-accent)";
 
   const domain = channelDomain(rows, channel);
   const scale = d3.scaleOrdinal(channel.range || DEFAULT_PALETTE).domain(domain);
   return (row) => scale(row[channel.field]);
+}
+
+function compositeColorScale(channel, d3) {
+  const hue = channel.hue || {};
+  const luminance = channel.luminance || {};
+  const hueDomain = hue.domain || [];
+  const hueScale = d3.scaleOrdinal(hue.range || DEFAULT_PALETTE).domain(hueDomain);
+  const luminanceDomain = luminance.domain || [];
+  const lightness = luminance.lightness || [18, 0, -18];
+  const lightnessScale = d3
+    .scaleOrdinal(lightness)
+    .domain(luminanceDomain);
+
+  return (row = {}) => {
+    const base = hue.value || hueScale(row[hue.field]);
+    const luminanceValue = row[luminance.field];
+    const offset =
+      luminance.field && luminanceDomain.includes(luminanceValue)
+        ? Number(lightnessScale(luminanceValue)) || 0
+        : 0;
+    return adjustLightness(base, offset, d3);
+  };
+}
+
+function adjustLightness(color, offset, d3) {
+  const hcl = d3.hcl(color || "var(--sl-accent)");
+  if (!Number.isFinite(hcl.l)) return color || "var(--sl-accent)";
+  hcl.l = clamp(hcl.l + offset, 0, 100);
+  return hcl.formatHex();
 }
 
 function drawXAxis(chart, scale, title, d3) {
@@ -1453,24 +1059,28 @@ function updateGrid(chart, y, d3) {
     .interrupt()
     .style("opacity", 1)
     .transition(chart.transition.base)
-    .attr("transform", `translate(${chart.margin.left},${chart.margin.top})`)
+    .attr("transform", null)
     .call(d3.axisLeft(y).ticks(6).tickSize(-chart.innerWidth).tickFormat(""));
 }
 
 function drawLegend(chart, rows, channel, d3) {
-  if (!channel || channel.value || !channel.field) {
+  if (!channel || channel.value || (!channel.field && !channel.hue && !channel.luminance)) {
     chart.scene.legend.transition(chart.transition.base).style("opacity", 0);
     return;
   }
 
-  const domain = Array.from(new Set(rows.map((row) => row[channel.field])));
-  const scale = d3.scaleOrdinal(channel.range || DEFAULT_PALETTE).domain(domain);
+  const legendChannel = channel.hue?.field ? channel.hue : channel.luminance?.field ? channel.luminance : channel;
+  const domain = channelDomain(rows, legendChannel);
+  const scale = channel.hue || channel.luminance
+    ? compositeColorScale(channel, d3)
+    : d3.scaleOrdinal(channel.range || DEFAULT_PALETTE).domain(domain);
+  const legendRow = (value) => ({ [legendChannel.field]: value });
   const legend = chart.scene.legend
     .interrupt()
     .style("opacity", 1)
     .attr(
       "transform",
-      `translate(${chart.margin.left + Math.max(0, chart.innerWidth - 150)},${chart.margin.top})`
+      `translate(${chart.margin.left},${Math.max(18, chart.margin.top - 32)})`
     );
 
   const items = legend.selectAll("g.sl-legend-item").data(domain, (d) => d);
@@ -1480,20 +1090,20 @@ function drawLegend(chart, rows, channel, d3) {
     .attr("class", "sl-legend-item")
     .style("opacity", 0);
 
-  entered.append("rect").attr("width", 10).attr("height", 10).attr("rx", 2);
-  entered.append("text").attr("x", 16).attr("y", 9);
+  entered.append("rect").attr("width", 9).attr("height", 9).attr("rx", 1.5);
+  entered.append("text").attr("x", 15).attr("y", 8.5);
 
   items
     .merge(entered)
     .transition(chart.transition.base)
     .style("opacity", 1)
-    .attr("transform", (_, index) => `translate(0,${index * 20})`);
+    .attr("transform", (_, index) => `translate(${legendItemX(domain, index)},0)`);
 
   items
     .merge(entered)
     .select("rect")
     .transition(chart.transition.base)
-    .attr("fill", (d) => scale(d));
+    .attr("fill", (d) => channel.hue || channel.luminance ? scale(legendRow(d)) : scale(d));
 
   items
     .merge(entered)
@@ -1501,6 +1111,10 @@ function drawLegend(chart, rows, channel, d3) {
     .text((d) => d);
 
   items.exit().transition(chart.transition.base).style("opacity", 0).remove();
+}
+
+function legendItemX(domain, index) {
+  return domain.slice(0, index).reduce((x, value) => x + String(value).length * 7 + 30, 0);
 }
 
 function bindTooltip(selection, spec, tooltip) {
@@ -1536,52 +1150,115 @@ function hideTooltip(tooltip) {
 }
 
 function setupScroll(spec, shell, renderer) {
-  if (typeof globalThis.scrollama !== "function") {
-    shell.steps.forEach((node, index) => {
-      node.addEventListener("click", () => renderer.renderStep(index));
-    });
-    return;
-  }
-
-  const scroller = globalThis
-    .scrollama()
-    .setup({
-      step: ".sl-step",
-      offset: spec.layout.offset
-    })
-    .onStepEnter((response) => {
-      const index = Number(response.element.dataset.stepIndex);
-      renderer.renderStep(index);
-    });
-
-  window.addEventListener("resize", () => {
-    scroller.resize();
-    renderer.resize();
+  const driver = createScrollDriver({
+    steps: shell.steps,
+    offset: spec.layout.offset,
+    threshold: spec.layout.threshold || 4,
+    config: spec.layout.scroll,
+    isLocked: () => isNavigationLocked(shell),
+    onEnter: ({ index, direction }) => {
+      if (!shouldAcceptScrollEvent(shell, index)) return;
+      renderer.renderStep(index, { direction });
+    },
+    onExit: ({ index, direction }) => {
+      if (!shouldAcceptScrollEvent(shell, index)) return;
+      renderer.renderScrollProgress(index, direction === "down" ? 1 : 0, direction);
+    },
+    onProgress: ({ index, progress, direction }) => {
+      if (!shouldAcceptScrollEvent(shell, index)) return;
+      renderer.renderScrollProgress(index, progress, direction);
+    }
   });
+
+  shell.story.dataset.scrollDriver = "native";
+  shell.story.__scrollyLiteScrollDriver = driver;
+  return driver;
 }
 
-function setupNav(spec, shell, renderer) {
+function shouldAcceptScrollEvent(shell, index) {
+  const navTargetIndex = shell.story.dataset.navTargetIndex;
+  return !navTargetIndex || Number(navTargetIndex) === index;
+}
+
+function setupNav(shell, renderer, scrollDriver) {
   shell.navButtons.forEach((button, index) => {
     button.addEventListener("click", () => {
-      shell.steps[index].scrollIntoView({ behavior: "smooth", block: "center" });
-      renderer.renderStep(index);
+      lockRenderStep(shell, renderer, scrollDriver, index);
     });
   });
 }
 
-function setupResize(renderer) {
-  window.addEventListener("resize", renderer.resize);
+function setupResize(renderer, scrollDriver) {
+  const resize = () => {
+    renderer.resize();
+    scrollDriver?.resize?.();
+  };
+  window.addEventListener("resize", resize);
+  return () => window.removeEventListener("resize", resize);
 }
 
-function restoreHashPosition(renderer) {
+function restoreHashPosition(shell, renderer, scrollDriver) {
   if (!window.location.hash) return;
   window.requestAnimationFrame(() => {
     const target = document.querySelector(window.location.hash);
     if (!target) return;
     const index = Number(target.dataset.stepIndex);
-    target.scrollIntoView({ block: "center" });
-    if (Number.isFinite(index)) renderer.renderStep(index);
+    if (Number.isFinite(index)) lockRenderStep(shell, renderer, scrollDriver, index, target);
   });
+}
+
+function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null) {
+  const step = targetStep || shell.steps[index];
+  if (!step || !shell.story) return;
+  const token = beginNavigationLock(shell, renderer, index);
+  if (scrollDriver?.scrollToStep) scrollDriver.scrollToStep(index);
+  else step.scrollIntoView({ behavior: "auto", block: "center" });
+  renderer.renderStep(index, { force: true, scrollProgress: 1 });
+  addNavigationTimer(shell, window.setTimeout(() => {
+    if (!isCurrentNavigation(shell, token)) return;
+    renderer.renderStep(index, { force: true, scrollProgress: 1 });
+  }, 300));
+  addNavigationTimer(shell, window.setTimeout(() => {
+    if (!isCurrentNavigation(shell, token)) return;
+    renderer.renderStep(index, { force: true, scrollProgress: 1 });
+    endNavigationLock(shell, token);
+  }, 900));
+}
+
+function beginNavigationLock(shell, renderer, index) {
+  clearNavigationTimers(shell);
+  renderer.cancelScrollProgress?.();
+  const token = String((Number(shell.story.dataset.navLockToken) || 0) + 1);
+  shell.story.dataset.navLockToken = token;
+  shell.story.dataset.navTargetIndex = String(index);
+  return token;
+}
+
+function endNavigationLock(shell, token) {
+  if (!isCurrentNavigation(shell, token)) return;
+  delete shell.story.dataset.navTargetIndex;
+  delete shell.story.dataset.navLockToken;
+  clearNavigationTimers(shell);
+}
+
+function isNavigationLocked(shell) {
+  return Boolean(shell.story?.dataset.navLockToken);
+}
+
+function isCurrentNavigation(shell, token) {
+  return shell.story?.dataset.navLockToken === token;
+}
+
+function addNavigationTimer(shell, timer) {
+  const timers = shell.story.__scrollyLiteNavTimers || [];
+  timers.push(timer);
+  shell.story.__scrollyLiteNavTimers = timers;
+}
+
+function clearNavigationTimers(shell) {
+  const timers = shell.story.__scrollyLiteNavTimers || [];
+  timers.forEach((timer) => window.clearTimeout(timer));
+  shell.story.__scrollyLiteNavTimers = [];
 }
 
 function applyTheme(theme) {
@@ -1619,8 +1296,42 @@ function clamp(value, min, max) {
 }
 
 BUILT_IN_CHARTS
-  .register("scatter", drawScatter)
-  .register("line", drawLine)
+  .register(
+    "scatter",
+    createScatterRenderer({
+      bandOrLinear,
+      bindTooltip,
+      colorScale,
+      drawGrid,
+      drawLegend,
+      drawXAxis,
+      drawYAxis,
+      fadeNonPointShapes,
+      position,
+      quantitativeDomain,
+      quantitativeScale,
+      staggerDelay
+    })
+  )
+  .register(
+    "line",
+    createLineRenderer({
+      bandOrLinear,
+      bindTooltip,
+      colorScale,
+      curveFor,
+      drawGrid,
+      drawLegend,
+      drawPath,
+      drawXAxis,
+      drawYAxis,
+      fadeNonLineShapes,
+      niceExtent,
+      position,
+      quantitativeScale,
+      staggerDelay
+    })
+  )
   .register(
     "bar",
     createBarRenderer({
@@ -1636,6 +1347,26 @@ BUILT_IN_CHARTS
       fadeNonBarShapes,
       position,
       quantitativeDomain,
+      staggerDelay,
+      updateGrid
+    })
+  )
+  .register(
+    "unit",
+    createUnitRenderer({
+      bandOrLinear,
+      colorScale,
+      drawGrid,
+      drawLegend,
+      drawXAxis,
+      drawYAxis,
+      escapeHtml,
+      fadeNonUnitShapes,
+      hideTooltip,
+      moveTooltip,
+      niceExtent,
+      position,
+      showTooltip,
       staggerDelay,
       updateGrid
     })

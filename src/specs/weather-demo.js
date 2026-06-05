@@ -1,18 +1,50 @@
-const sharedTiming = {
-  duration: 1200,
-  ease: "cubicInOut",
-  stagger: {
-    step: 18,
-    max: 360
-  }
-};
+import { defaultTransition } from "../timing.js";
+
+const sharedTiming = defaultTransition();
 
 const sortByYear = [{ sort: { field: "year", order: "ascending" } }];
+
+const HOT_COLOR = "#b05d3b";
+const COLD_COLOR = "#536a9e";
+
+const PERIOD_LUMINANCE = {
+  field: "period",
+  domain: ["early", "middle", "recent"],
+  lightness: [18, 0, -18]
+};
+
+const PERIOD_LUMINANCE_COLOR = {
+  hue: {
+    value: "#858585"
+  },
+  luminance: PERIOD_LUMINANCE
+};
+
+const TEMPERATURE_HUE = {
+  field: "temperature_kind",
+  type: "nominal",
+  domain: ["Hot days", "Cold days"],
+  range: [HOT_COLOR, COLD_COLOR]
+};
+
+const HOT_PERIOD_COLOR = {
+  hue: {
+    value: HOT_COLOR
+  },
+  luminance: PERIOD_LUMINANCE
+};
+
+const COLD_PERIOD_COLOR = {
+  hue: {
+    value: COLD_COLOR
+  },
+  luminance: PERIOD_LUMINANCE
+};
 
 const hotDaysEncoding = {
   x: { field: "decade", type: "nominal", title: "Decade" },
   y: { field: "hot_days", type: "quantitative", title: "Hot days" },
-  color: { value: "#b05d3b" },
+  color: { value: HOT_COLOR },
   tooltip: [
     { field: "decade", title: "Decade" },
     { field: "period", title: "Period" },
@@ -67,11 +99,7 @@ function barView(overrides = {}) {
 const scatterEncoding = {
   x: { field: "tmin", type: "quantitative", title: "Min temperature" },
   y: { field: "tmax", type: "quantitative", title: "Max temperature" },
-  color: {
-    field: "period",
-    type: "nominal",
-    range: ["#2f7d7e", "#8d6e3f", "#b05d3b"]
-  },
+  color: PERIOD_LUMINANCE_COLOR,
   tooltip: [
     { field: "decade", title: "Decade" },
     { field: "period", title: "Period" },
@@ -102,7 +130,7 @@ function scatterView(overrides = {}) {
 const lineEncoding = {
   x: { field: "decade", type: "nominal", title: "Decade" },
   y: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
-  color: { value: "#2f7d7e" },
+  color: { value: HOT_COLOR },
   tooltip: [
     { field: "decade", title: "Decade" },
     { field: "period", title: "Period" },
@@ -131,19 +159,67 @@ function lineView(overrides = {}) {
   };
 }
 
-export function createDemoSpec({ layoutPreset = "textOverVis", chartType = "bar" } = {}) {
+const unitEncoding = {
+  x: { field: "year", type: "quantitative", title: "Year" },
+  y: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
+  color: HOT_PERIOD_COLOR,
+  tooltip: [
+    { field: "decade", title: "Decade" },
+    { field: "period", title: "Period" },
+    { field: "hot_days", title: "Hot days" },
+    { field: "cold_days", title: "Cold days" }
+  ]
+};
+
+const unitDefaults = {
+  key: "decade",
+  labelField: "decade",
+  valueField: "hot_days",
+  layout: "grid",
+  columns: 22,
+  maxUnits: 240
+};
+
+function unitView(overrides = {}) {
+  return {
+    data: "weather",
+    mark: "unit",
+    key: "decade",
+    transition: sharedTiming,
+    transform: sortByYear,
+    unit: unitDefaults,
+    encoding: unitEncoding,
+    ...overrides,
+    unit: {
+      ...unitDefaults,
+      ...(overrides.unit || {})
+    },
+    encoding: {
+      ...unitEncoding,
+      ...(overrides.encoding || {})
+    }
+  };
+}
+
+export function createDemoSpec({
+  layoutPreset = "textOverVis",
+  chartType = "bar",
+  actionMode = "step"
+} = {}) {
   const layout = layoutCopy[layoutPreset] || layoutCopy.textOverVis;
-  const normalizedChart = ["bar", "scatter", "line"].includes(chartType) ? chartType : "bar";
+  const normalizedChart = ["bar", "scatter", "line", "unit"].includes(chartType) ? chartType : "bar";
   const chartDemo = {
     bar: createBarDemo,
     scatter: createScatterDemo,
-    line: createLineDemo
+    line: createLineDemo,
+    unit: createUnitDemo
   }[normalizedChart]();
+  const preparedDemo = actionMode === "scroll" ? withScrollActionMode(chartDemo) : chartDemo;
 
   return {
-    ...chartDemo,
+    ...preparedDemo,
     title: `${layout.label}: ${normalizedChart} scene transitions`,
-    description: `${layout.description} ${chartDemo.description}`,
+    description: `${layout.description} ${preparedDemo.description}`,
     designSpace: {
       layout: layout.designSpace,
       action: ["header", "step", "tooltip", "enter"]
@@ -151,14 +227,41 @@ export function createDemoSpec({ layoutPreset = "textOverVis", chartType = "bar"
   };
 }
 
+function withScrollActionMode(demo) {
+  return {
+    ...demo,
+    description: `${demo.description} Continuous mode maps scene transitions to scroll progress.`,
+    steps: demo.steps.map((step) => {
+      if (!hasTransitionStep(step)) return step;
+      return {
+        ...step,
+        designSpace: {
+          ...(step.designSpace || {}),
+          action: ["scroll", "tooltip"]
+        },
+        views: Object.fromEntries(
+          Object.entries(step.views || {}).map(([viewId, viewSpec]) => [
+            viewId,
+            {
+              ...viewSpec,
+              scroll: viewSpec.scroll || { ease: "linear" }
+            }
+          ])
+        )
+      };
+    })
+  };
+}
+
+function hasTransitionStep(step) {
+  const scene = step.designSpace?.transition?.scene || [];
+  const segue = step.designSpace?.transition?.segue || [];
+  return scene.length > 0 || segue.length > 0;
+}
+
 function createBaseDemo() {
   return {
     $schema: "https://example.local/scrolly-lite/v0.json",
-    theme: {
-      accent: "#2f7d7e",
-      background: "#f8f5ef",
-      foreground: "#1f2933"
-    },
     data: {
       weather: {
         url: "./src/data/weather_sample.csv",
@@ -168,7 +271,10 @@ function createBaseDemo() {
     layout: {
       offset: 0.58,
       nav: true,
-      progress: true
+      progress: true,
+      scroll: {
+        progress: "geometry"
+      }
     },
     views: {
       main: {
@@ -233,8 +339,7 @@ function createBarDemo() {
               measure: { field: "hot_days", type: "quantitative", title: "Hot days" },
               scale: { domain: [0, 30] },
               staging: {
-                order: ["y", "x"],
-                stagger: { step: 24, max: 360 }
+                order: ["y", "x"]
               }
             }
           })
@@ -258,7 +363,7 @@ function createBarDemo() {
               domain: [0, 30]
             },
             encoding: {
-              color: { value: "#536a9e" },
+              color: { value: COLD_COLOR },
               tooltip: [
                 { field: "decade", title: "Decade" },
                 { field: "period", title: "Period" },
@@ -294,7 +399,7 @@ function createBarDemo() {
               value: "days",
               valueTitle: "Days",
               layout: "stacked",
-              range: ["#b05d3b", "#536a9e"]
+              color: TEMPERATURE_HUE
             },
             encoding: {
               tooltip: [
@@ -322,8 +427,7 @@ function createBarDemo() {
             guide: {
               layout: "grouped",
               staging: {
-                order: ["x", "y"],
-                stagger: { step: 20, max: 360 }
+                order: ["x", "y"]
               }
             },
             granularity: {
@@ -338,7 +442,7 @@ function createBarDemo() {
               value: "days",
               valueTitle: "Days",
               layout: "grouped",
-              range: ["#b05d3b", "#536a9e"]
+              color: TEMPERATURE_HUE
             },
             encoding: {
               tooltip: [
@@ -414,8 +518,7 @@ function createScatterDemo() {
                 title: "Min temperature"
               },
               staging: {
-                order: ["x", "y"],
-                stagger: { step: 24, max: 360 }
+                order: ["x", "y"]
               }
             }
           })
@@ -562,8 +665,7 @@ function createLineDemo() {
                 scale: { type: "log" }
               },
               staging: {
-                order: ["y"],
-                stagger: { step: 20, max: 300 }
+                order: ["y"]
               }
             }
           })
@@ -585,7 +687,7 @@ function createLineDemo() {
               y: { field: "cold_days", title: "Cold days", domain: [0, 30] }
             },
             encoding: {
-              color: { value: "#536a9e" }
+              color: { value: COLD_COLOR }
             }
           })
         }
@@ -605,7 +707,7 @@ function createLineDemo() {
             granularity: {
               mode: "series",
               series: "period",
-              range: ["#2f7d7e", "#8d6e3f", "#b05d3b"]
+              color: COLD_PERIOD_COLOR
             },
             encoding: {
               y: { field: "cold_days", type: "quantitative", title: "Cold days", domain: [0, 30] }
@@ -627,11 +729,95 @@ function createLineDemo() {
           main: lineView({
             granularity: {
               mode: "single",
-              color: { value: "#536a9e" }
+              color: { value: COLD_COLOR }
             },
             encoding: {
               y: { field: "cold_days", type: "quantitative", title: "Cold days", domain: [0, 30] },
-              color: { value: "#536a9e" }
+              color: { value: COLD_COLOR }
+            }
+          })
+        }
+      }
+    ]
+  };
+}
+
+function createUnitDemo() {
+  return {
+    ...createBaseDemo(),
+    description:
+      "This demo registers a unit chart idiom and demonstrates Focus plus Guide layouts for repeated count units.",
+    steps: [
+      {
+        title: "Baseline: one unit per hot day",
+        body:
+          "Start with one keyed circle per hot day. Units inherit semantic identity from decade plus unit index.",
+        designSpace: {
+          action: ["step", "tooltip", "enter"]
+        },
+        views: {
+          main: unitView()
+        }
+      },
+      {
+        title: "Focus: filter to recent decades",
+        body:
+          "The focus scene keeps the unit idiom but filters rows before unit expansion.",
+        designSpace: {
+          transition: {
+            scene: ["focus"]
+          },
+          action: ["step", "tooltip"]
+        },
+        views: {
+          main: unitView({
+            focus: {
+              field: "period",
+              equal: "recent"
+            }
+          })
+        }
+      },
+      {
+        title: "Guide: group units by period",
+        body:
+          "The guide scene changes position and scale to group the same repeated units by period.",
+        designSpace: {
+          transition: {
+            scene: ["guide"]
+          },
+          action: ["step", "tooltip"]
+        },
+        views: {
+          main: unitView({
+            guide: {
+              layout: "groupedGrid",
+              groupField: "period",
+              color: HOT_PERIOD_COLOR
+            }
+          })
+        }
+      },
+      {
+        title: "Guide: dodge units along the timeline",
+        body:
+          "The guide scene keeps the hot-day units but changes their reading guide to a collision-dodged timeline.",
+        designSpace: {
+          transition: {
+            scene: ["guide"]
+          },
+          action: ["step", "tooltip"]
+        },
+        views: {
+          main: unitView({
+            guide: {
+              layout: "dodge",
+              xField: "year",
+              xType: "quantitative",
+              xTitle: "Year",
+              staging: {
+                order: ["x", "y"]
+              }
             }
           })
         }
