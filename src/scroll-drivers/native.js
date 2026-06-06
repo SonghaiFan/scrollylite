@@ -43,7 +43,6 @@ export function createNativeScrollDriver({
       onEnter({
         element: steps[state.index],
         index: state.index,
-        progress: state.progress,
         direction
       });
     }
@@ -68,9 +67,9 @@ export function createNativeScrollDriver({
     refresh: schedule,
     scrollToStep(index, options = {}) {
       const step = steps[index];
-      if (!step) return null;
+      if (!step) return;
       const progress = clamp(options.progress ?? config.navigation?.progress ?? 0.98, 0, 1);
-      return scrollToStepElement(step, {
+      scrollToStepElement(step, {
         offset,
         progress,
         behavior: options.behavior || config.navigation?.behavior || "auto"
@@ -104,7 +103,6 @@ export function createNativeScrollDriver({
 export function scrollToStepElement(step, { offset = 0.55, progress = 0.98, behavior = "auto" } = {}) {
   const top = stepScrollTop(step, offset, progress);
   window.scrollTo({ top, behavior });
-  return top;
 }
 
 export function measureStepProgress(steps, offset = 0.55, config = {}) {
@@ -143,11 +141,7 @@ export function measureStepProgress(steps, offset = 0.55, config = {}) {
 function stepScrollTop(step, offset, progress) {
   const rect = step.getBoundingClientRect();
   const offsetPx = resolveOffset(offset);
-  const pageHeight = Math.max(
-    document.body?.scrollHeight || 0,
-    document.documentElement?.scrollHeight || 0
-  );
-  const maxScroll = pageHeight - window.innerHeight;
+  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
   const top = window.scrollY + rect.top - offsetPx + rect.height * progress;
   return clamp(top, 0, Math.max(0, maxScroll));
 }

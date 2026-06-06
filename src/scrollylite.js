@@ -307,28 +307,17 @@ function createRenderer(shell, spec, datasets, d3) {
     }
   };
 
-  const renderScrollProgress = (index, progress, direction = "down", options = {}) => {
+  const renderScrollProgress = (index, progress, direction = "down") => {
     const bounded = clamp(index, 0, spec.steps.length - 1);
     const step = spec.steps[bounded];
     if (!hasScrollAction(step)) return;
 
-    const nextProgress = {
+    pendingProgress = {
       index: bounded,
       progress: clamp(progress, 0, 1),
       direction
     };
 
-    if (options.immediate) {
-      pendingProgress = null;
-      if (progressFrame) {
-        window.cancelAnimationFrame(progressFrame);
-        progressFrame = null;
-      }
-      applyScrollProgress(nextProgress);
-      return;
-    }
-
-    pendingProgress = nextProgress;
     if (progressFrame) return;
     progressFrame = window.requestAnimationFrame(() => {
       progressFrame = null;
@@ -336,14 +325,11 @@ function createRenderer(shell, spec, datasets, d3) {
       const next = pendingProgress;
       pendingProgress = null;
 
-      applyScrollProgress(next);
-    });
-  };
+      if (activeIndex !== next.index) return;
 
-  const applyScrollProgress = (next) => {
-    if (activeIndex !== next.index) return;
-    updateStoryProgress(shell, spec, next.index, next.progress);
-    applyStepScrollProgress(shell, spec, next.index, next.progress);
+      updateStoryProgress(shell, spec, next.index, next.progress);
+      applyStepScrollProgress(shell, spec, next.index, next.progress);
+    });
   };
 
   const cancelScrollProgress = () => {
@@ -1362,15 +1348,13 @@ function setupScroll(spec, shell, renderer) {
     threshold: spec.layout.threshold || 4,
     config: spec.layout.scroll,
     isLocked: () => isNavigationLocked(shell),
-    onEnter: ({ index, progress, direction }) => {
+    onEnter: ({ index, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderStep(index, { direction, scrollProgress: progress });
+      renderer.renderStep(index, { direction });
     },
     onExit: ({ index, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderScrollProgress(index, direction === "down" ? 1 : 0, direction, {
-        immediate: true
-      });
+      renderer.renderScrollProgress(index, direction === "down" ? 1 : 0, direction);
     },
     onProgress: ({ index, progress, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
@@ -1419,16 +1403,18 @@ function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null)
   const step = targetStep || shell.steps[index];
   if (!step || !shell.story) return;
   const token = beginNavigationLock(shell, renderer, index);
-  const targetTop = scrollDriver?.scrollToStep
-    ? scrollDriver.scrollToStep(index)
-    : scrollStepIntoView(step);
+  if (scrollDriver?.scrollToStep) scrollDriver.scrollToStep(index);
+  else step.scrollIntoView({ behavior: "auto", block: "center" });
   renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  waitForNavigationScroll(shell, renderer, index, token, targetTop);
-}
-
-function scrollStepIntoView(step) {
-  step.scrollIntoView({ behavior: "auto", block: "center" });
-  return null;
+  addNavigationTimer(shell, window.setTimeout(() => {
+    if (!isCurrentNavigation(shell, token)) return;
+    renderer.renderStep(index, { force: true, scrollProgress: 1 });
+  }, 300));
+  addNavigationTimer(shell, window.setTimeout(() => {
+    if (!isCurrentNavigation(shell, token)) return;
+    renderer.renderStep(index, { force: true, scrollProgress: 1 });
+    endNavigationLock(shell, token);
+  }, 900));
 }
 
 function beginNavigationLock(shell, renderer, index) {
@@ -1453,41 +1439,6 @@ function isNavigationLocked(shell) {
 
 function isCurrentNavigation(shell, token) {
   return shell.story?.dataset.navLockToken === token;
-}
-
-function waitForNavigationScroll(shell, renderer, index, token, targetTop) {
-  if (!Number.isFinite(targetTop)) {
-    addNavigationTimer(shell, window.setTimeout(() => {
-      finishNavigationLock(shell, renderer, index, token);
-    }, 900));
-    return;
-  }
-
-  const startedAt = now();
-  const timeout = 1400;
-  const tolerance = 2;
-  const check = () => {
-    if (!isCurrentNavigation(shell, token)) return;
-    const reachedTarget = Math.abs(window.scrollY - targetTop) <= tolerance;
-    const expired = now() - startedAt >= timeout;
-    if (reachedTarget || expired) {
-      finishNavigationLock(shell, renderer, index, token);
-      return;
-    }
-    addNavigationTimer(shell, window.setTimeout(check, 50));
-  };
-
-  addNavigationTimer(shell, window.setTimeout(check, 50));
-}
-
-function finishNavigationLock(shell, renderer, index, token) {
-  if (!isCurrentNavigation(shell, token)) return;
-  renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  endNavigationLock(shell, token);
-}
-
-function now() {
-  return window.performance?.now?.() ?? Date.now();
 }
 
 function addNavigationTimer(shell, timer) {
