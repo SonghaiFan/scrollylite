@@ -1,4 +1,4 @@
-import { bar, story } from "../../grammar/index.js?v=story-split-1";
+import { bar, story } from "../../grammar/index.js?v=default-domain-1";
 import {
   COLD_COLOR,
   HOT_COLOR,
@@ -9,9 +9,9 @@ import {
 
 export function createBarStory() {
   const base = bar("weatherDays")
-    .x("decade", { title: "Decade" })
-    .y("days", { title: "Hot days" })
     .where({ temperature_kind: "Hot days" })
+    .x("decade")
+    .y("days", { title: "Hot days" })
     .color(HOT_COLOR)
     .key("decade")
     .transition(sharedTiming)
@@ -25,8 +25,6 @@ export function createBarStory() {
 
   const segmented = base.segment("temperature_kind", {
     value: "days",
-    categoryTitle: "Decade",
-    valueTitle: "Days",
     layout: "stacked",
     color: TEMPERATURE_HUE
   });
@@ -43,35 +41,20 @@ export function createBarStory() {
     )
     .step(
       "Focus: filter to a subset",
-      base.filter({ period: "recent" }),
+      base.filter({ period: "recent" }).flip(),
       "The focus scene keeps the bar chart form but filters the data to the recent period."
     )
     .step(
       "Guide: re-orient and rescale",
-      base.guide({
-        orientation: "horizontal",
-        category: { field: "decade", type: "nominal", title: "Decade" },
-        measure: { field: "days", type: "quantitative", title: "Hot days" },
-        scale: { domain: [0, 30] },
-        staging: {
-          order: ["y", "x"]
-        }
-      }),
+      base.flip(),
       "The guide scene turns vertical bars into horizontal bars with a two-stage y-then-x transition."
     )
     .step(
       "Observation: change encoded variable",
-      base.observeWhere({ temperature_kind: "Cold days" }, {
-        title: "Cold days",
-        domain: [0, 30],
-        color: { value: COLD_COLOR },
-        tooltip: [
-          { field: "decade", title: "Decade" },
-          { field: "period", title: "Period" },
-          { field: "temperature_kind", title: "Kind" },
-          { field: "days", title: "Days" }
-        ]
-      }),
+      base
+        .where({ temperature_kind: "Cold days" })
+        .y("days", { title: "Cold days" })
+        .color(COLD_COLOR),
       "The observation scene keeps the same decade categories but changes the value encoded by bar height."
     )
     .step(

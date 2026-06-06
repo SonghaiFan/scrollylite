@@ -5,7 +5,7 @@ import {
 } from "./design-space.js";
 import { applyTransforms } from "./data/transforms.js";
 import { keyAccessor } from "./identity/semantic-key.js";
-import { createBarRenderer } from "./charts/bar/render.js";
+import { createBarRenderer } from "./charts/bar/render.js?v=default-domain-1";
 import { resolveBarTransitionPlan } from "./charts/bar/state.js";
 import { createLineRenderer } from "./charts/line/render.js";
 import { createScatterRenderer } from "./charts/scatter/render.js";
@@ -378,6 +378,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   clearSceneTransitionProgress(scene);
   const source = effectiveViewSpec.data ? datasets[effectiveViewSpec.data] || [] : [];
   const rows = applyTransforms(source, effectiveViewSpec.transform || []);
+  const domainRows = applyTransforms(source, domainTransforms(effectiveViewSpec.transform || []));
   if (!rows.length) {
     scene.empty.style("display", "grid").text("No rows after transforms.");
     fadeLayers(scene, null);
@@ -405,7 +406,9 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     transition: transitionSpec(effectiveViewSpec, previousSpec),
     transitionPlan: resolveBarTransitionPlan(previousSpec, effectiveViewSpec),
     sceneTransition,
-    scrollDriven
+    scrollDriven,
+    sourceRows: source,
+    domainRows
   };
   chart.innerWidth = chart.width - chart.margin.left - chart.margin.right;
   chart.innerHeight = chart.height - chart.margin.top - chart.margin.bottom;
@@ -450,6 +453,10 @@ function hasScrollAction(step = {}) {
 
 function hasScrollActionDesign(designSpace = {}) {
   return (designSpace.action || []).includes("scroll");
+}
+
+function domainTransforms(transforms = []) {
+  return transforms.filter((transform) => !transform.filter && !transform.limit);
 }
 
 function defaultScrollProgress(direction) {

@@ -29,6 +29,7 @@ export class BarState extends ViewState {
     const { color, tooltip, ...channelOptions } = options;
     const channel = channelFrom(field, { type: "quantitative", ...channelOptions });
     const previous = this.state.encoding?.y;
+    const pendingWhere = this.state.__grammar?.pendingWhere;
     const patch = {
       encoding: {
         y: channel,
@@ -37,10 +38,28 @@ export class BarState extends ViewState {
       }
     };
 
+    if (previous && pendingWhere && previous.field === channel.field) {
+      return this.with({
+        ...patch,
+        __grammar: {
+          pendingWhere: null
+        },
+        observation: {
+          measure: channel.field,
+          title: channel.title,
+          domain: channel.domain,
+          category: pendingWhere.next
+        }
+      }, "observation");
+    }
+
     if (!previous || previous.field === channel.field) return this.with(patch);
 
     return this.with({
       ...patch,
+      __grammar: {
+        pendingWhere: null
+      },
       observation: {
         measure: channel.field,
         title: channel.title,
@@ -92,31 +111,47 @@ export class BarState extends ViewState {
 
   where(selector) {
     const constraint = normalizeSelector(selector);
-    return this.with({
-      where: setConstraint(this.state.where || [], constraint)
-    });
-  }
-
-  observeWhere(selector, options = {}) {
-    const y = this.state.encoding?.y || {};
-    const constraint = normalizeSelector(selector);
+    const previous = findConstraint(this.state.where || [], constraint.field);
+    const pendingWhere = previous && !sameSelector(previous, constraint)
+      ? { previous, next: constraint }
+      : this.state.__grammar?.pendingWhere || null;
     return this.with({
       where: setConstraint(this.state.where || [], constraint),
-      observation: {
-        measure: y.field,
-        title: options.title || y.title,
-        domain: options.domain || y.domain,
-        category: constraint
-      },
-      encoding: {
-        ...(options.color ? { color: cloneState(options.color) } : {}),
-        ...(options.tooltip ? { tooltip: cloneState(options.tooltip) } : {})
+      __grammar: {
+        pendingWhere
       }
-    }, "observation");
+    });
   }
 
   guide(config = {}) {
     return this.with({ guide: cloneState(config) }, "guide");
+  }
+
+  flip(options = {}) {
+    const encoding = this.state.encoding || {};
+    const category = cloneState(options.category || encoding.x || {});
+    const measure = cloneState(options.measure || encoding.y || {});
+    const domain = options.domain || options.scale?.domain || measure.domain;
+    const scale = domain || options.scale
+      ? {
+          ...(options.scale || {}),
+          ...(domain ? { domain } : {})
+        }
+      : undefined;
+    const staging = options.staging || options.stage || options.order
+      ? {
+          ...(typeof options.staging === "object" ? options.staging : {}),
+          order: options.order || options.stage || options.staging?.order || ["y", "x"]
+        }
+      : undefined;
+
+    return this.guide({
+      orientation: options.orientation || "horizontal",
+      category,
+      measure,
+      ...(scale ? { scale } : {}),
+      ...(staging ? { staging } : {})
+    });
   }
 
   observe(field, options = {}) {
@@ -206,9 +241,16 @@ export class BarState extends ViewState {
 }
 
 function channelFrom(field, options = {}) {
-  if (typeof field === "object") return { ...field, ...options };
+  if (typeof field === "object") {
+    const channel = { ...field, ...options };
+    return {
+      ...channel,
+      title: channel.title || titleize(channel.field)
+    };
+  }
   return {
     field,
+    title: titleize(field),
     ...options
   };
 }
@@ -230,6 +272,14 @@ function setConstraint(constraints, selector) {
 
 function clearConstraint(constraints, field) {
   return constraints.filter((constraint) => constraint.field !== field);
+}
+
+function findConstraint(constraints, field) {
+  return constraints.find((constraint) => constraint.field === field);
+}
+
+function sameSelector(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function titleize(value) {

@@ -29,7 +29,7 @@ not a scene grammar operation.
 import { bar, story } from "../grammar/index.js";
 
 const base = bar("weatherDays")
-  .x("decade", { title: "Decade" })
+  .x("decade")
   .y("days", { title: "Hot days" })
   .where({ temperature_kind: "Hot days" })
   .color("#b05d3b")
@@ -42,12 +42,17 @@ const base = bar("weatherDays")
   ]);
 ```
 
+Channel titles default from field names, so `.x("decade")` compiles to a
+channel titled `Decade`. Authors only need to provide `{ title: ... }` when the
+display label carries extra story semantics, such as showing `days` as
+`Hot days`.
+
 State transforms:
 
 ```js
 base.filter({ period: "recent" })
-base.guide({ orientation: "horizontal", staging: { order: ["y", "x"] } })
-base.observeWhere({ temperature_kind: "Cold days" })
+base.flip()
+base.where({ temperature_kind: "Cold days" }).y("days", { title: "Cold days" })
 base.segment("temperature_kind", { value: "days", layout: "stacked" })
 base.segment(...).layout("grouped").stage(["x", "y"])
 ```
@@ -58,10 +63,10 @@ The grammar layer records semantic operations when an altering function is
 called:
 
 - `.filter()` records `focus`
-- `.guide()` records `guide`
+- `.flip()` and `.guide()` record `guide`
 - `.y()` records `observation` when it changes an existing y measure
+- `.where(...).y(...)` records `observation` when it changes a tidy category
 - `.observe()` records `observation` explicitly
-- `.observeWhere()` records `observation` when changing a tidy category
 - `.segment()` records `granularity`
 - `.layout()` and `.stage()` record `guide`
 
@@ -124,7 +129,7 @@ return story()
   })
   .step("Baseline", base)
   .step("Focus", base.filter({ period: "recent" }))
-  .step("Observation", base.observeWhere({ temperature_kind: "Cold days" }))
+  .step("Observation", base.where({ temperature_kind: "Cold days" }).y("days", { title: "Cold days" }))
   .step("Split", segmented)
   .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
   .toSpec();

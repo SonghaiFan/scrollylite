@@ -40,6 +40,7 @@ function createLegacyBarRenderer(deps) {
     const t = chart.transition.base;
     const key = barKeyAccessor(chart, spec, enc.x?.field || enc.y?.field);
     const barLayout = spec.barLayout || spec.bar?.layout || "simple";
+    const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const horizontal =
       enc.x?.type === "quantitative" && ["nominal", "ordinal"].includes(enc.y?.type);
 
@@ -53,7 +54,7 @@ function createLegacyBarRenderer(deps) {
     if (horizontal) {
       const x = d3
         .scaleLinear()
-        .domain(quantitativeDomain(rows, enc.x, 0))
+        .domain(quantitativeDomain(domainRows, enc.x, 0))
         .range([0, chart.innerWidth])
         .nice();
       const y = d3
@@ -144,7 +145,7 @@ function createLegacyBarRenderer(deps) {
       const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
       const y = d3
         .scaleLinear()
-        .domain(quantitativeDomain(rows, enc.y, 0))
+        .domain(quantitativeDomain(domainRows, enc.y, 0))
         .range([chart.innerHeight, 0])
         .nice();
       const color = colorScale(rows, enc.color, d3);
@@ -299,6 +300,7 @@ function createLegacyBarRenderer(deps) {
   function drawSegmentedBar(chart, rows, spec, tooltip, d3, barLayout) {
     const enc = spec.encoding || {};
     const t = chart.transition.base;
+    const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const categoryField = enc.x?.field;
     const valueField = enc.y?.field;
     const segmentField = barSegmentField(spec);
@@ -324,7 +326,7 @@ function createLegacyBarRenderer(deps) {
         .padding(0.08);
       const y = d3
         .scaleLinear()
-        .domain(quantitativeDomain(rows, enc.y, 0))
+        .domain(quantitativeDomain(domainRows, enc.y, 0))
         .range([chart.innerHeight, 0])
         .nice();
 
@@ -410,9 +412,10 @@ function createLegacyBarRenderer(deps) {
         );
     } else {
       const stackedRows = stackBarRows(rows, categoryField, segmentField, valueField, segments);
+      const domainStackedRows = stackBarRows(domainRows, categoryField, segmentField, valueField, segments);
       const y = d3
         .scaleLinear()
-        .domain(enc.y?.domain || [0, d3.max(stackedRows, (d) => d.__stack1) || 1])
+        .domain(enc.y?.domain || [0, d3.max(domainStackedRows, (d) => d.__stack1) || 1])
         .range([chart.innerHeight, 0])
         .nice();
 
