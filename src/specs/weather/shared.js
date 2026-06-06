@@ -207,13 +207,13 @@ export function withScrollActionMode(demo) {
   return {
     ...demo,
     description: `${demo.description} Continuous mode maps scene transitions to scroll progress.`,
-    steps: demo.steps.map((step) => {
-      if (!hasTransitionStep(step)) return step;
+    steps: demo.steps.map((step, index) => {
+      if (!shouldUseScrollAction(step, index)) return step;
       return {
         ...step,
         designSpace: {
           ...(step.designSpace || {}),
-          action: ["scroll", "tooltip"]
+          action: index === 0 ? ["scroll", "tooltip", "enter"] : ["scroll", "tooltip"]
         },
         views: Object.fromEntries(
           Object.entries(step.views || {}).map(([viewId, viewSpec]) => [
@@ -227,6 +227,10 @@ export function withScrollActionMode(demo) {
       };
     })
   };
+}
+
+function shouldUseScrollAction(step, index) {
+  return index === 0 || hasTransitionStep(step);
 }
 
 function hasTransitionStep(step) {

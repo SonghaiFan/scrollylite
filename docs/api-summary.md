@@ -234,6 +234,9 @@ Returned fields:
 - D3 remains the mark-rendering and transition engine.
 - Scroll mode scrubs D3 transition schedules instead of duplicating animation
   logic in chart renderers.
+- Scroll-driven steps use authored source states, not last-rendered scene
+  state: step `i` scrubs from step `i - 1`, while step 1 scrubs from an empty
+  scene. This keeps forward and reverse scroll paths symmetric.
 - Semantic keys are the primary mechanism for object consistency.
 - Chart idioms extend through `BaseChart` and `src/charts/<type>/`.
 

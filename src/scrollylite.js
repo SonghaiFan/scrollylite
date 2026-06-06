@@ -26,7 +26,7 @@ import {
   clearSceneTransitionProgress,
   createSceneTransitionProgress,
   installTransitionProgress
-} from "./transition-progress.js?v=scroll-transition-name-1";
+} from "./transition-progress.js?v=scroll-transition-name-2";
 import {
   compileSceneViewSpec,
   hasScene,
@@ -300,7 +300,14 @@ function createRenderer(shell, spec, datasets, d3) {
       const viewConfig = spec.views[viewId] || {};
       const viewSpec = step.views[viewId] || step.views.main || {};
       node.__scrollyLiteMarkName = shell.markName;
-      drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, step.designSpace);
+      const previousStep = bounded > 0 ? spec.steps[bounded - 1] : null;
+      const previousViewSpec = previousStep
+        ? previousStep.views[viewId] || previousStep.views.main || null
+        : null;
+      drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, step.designSpace, {
+        previousViewSpec,
+        previousDesignSpace: previousStep?.designSpace || {}
+      });
     });
 
     if (hasScrollAction(step)) {
@@ -360,7 +367,7 @@ function createRenderer(shell, spec, datasets, d3) {
   };
 }
 
-function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}) {
+function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}, options = {}) {
   const scene = getScene(node, viewConfig, d3);
   scene.progressRoots = [
     node,
@@ -383,10 +390,10 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     return;
   }
 
-  const sceneTransition = resolveSceneTransition(viewSpec, designSpace);
-  const effectiveViewSpec = compileSceneViewSpec(
-    withSceneTransitionDefaults(viewSpec, sceneTransition),
-    sceneTransition
+  const { sceneTransition, effectiveViewSpec } = compileEffectiveView(viewSpec, designSpace);
+  const transitionSource = compileTransitionSource(
+    options.previousViewSpec,
+    options.previousDesignSpace
   );
 
   if (scene.virtualRenderTimer) {
@@ -394,8 +401,11 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     scene.virtualRenderTimer = null;
   }
 
-  const collapseIntermediateSpec = barCollapseIntermediateSpec(scene.previousSpec, effectiveViewSpec);
-  const splitIntermediateSpec = barSplitIntermediateSpec(scene.previousSpec, effectiveViewSpec);
+  const sourceForTransitionPlan = hasScrollActionDesign(designSpace)
+    ? transitionSource.effectiveViewSpec
+    : scene.previousSpec;
+  const collapseIntermediateSpec = barCollapseIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec);
+  const splitIntermediateSpec = barSplitIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec);
   const intermediateViewSpec = collapseIntermediateSpec || splitIntermediateSpec;
   if (intermediateViewSpec) {
     const intermediateSceneType = collapseIntermediateSpec ? "guide" : "granularity";
@@ -419,7 +429,8 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
           tooltip,
           d3,
           designSpace,
-          sceneTransition: intermediateSceneTransition
+          sceneTransition: intermediateSceneTransition,
+          transitionSource
         },
         final: {
           node,
@@ -429,7 +440,11 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
           tooltip,
           d3,
           designSpace,
-          sceneTransition
+          sceneTransition,
+          transitionSource: {
+            effectiveViewSpec: intermediateViewSpec,
+            sceneTransition: intermediateSceneTransition
+          }
         }
       };
       renderVirtualScrollPhase(scene, "intermediate");
@@ -437,23 +452,58 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     }
 
     clearVirtualScrollSequence(scene);
-    renderCompiledView(node, intermediateViewSpec, viewConfig, datasets, tooltip, d3, designSpace, intermediateSceneTransition);
+    renderCompiledView(node, intermediateViewSpec, viewConfig, datasets, tooltip, d3, designSpace, intermediateSceneTransition, {
+      transitionSource
+    });
 
     scene.virtualRenderTimer = window.setTimeout(() => {
       scene.virtualRenderTimer = null;
-      renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition);
+      renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition, {
+        transitionSource
+      });
     }, virtualRenderDelay(intermediateViewSpec));
     return;
   }
 
   clearVirtualScrollSequence(scene);
-  renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition);
+  renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition, {
+    transitionSource
+  });
 }
 
-function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}, sceneTransition = {}) {
+function compileEffectiveView(viewSpec, designSpace = {}) {
+  const sceneTransition = resolveSceneTransition(viewSpec, designSpace);
+  const effectiveViewSpec = compileSceneViewSpec(
+    withSceneTransitionDefaults(viewSpec, sceneTransition),
+    sceneTransition
+  );
+  return { sceneTransition, effectiveViewSpec };
+}
+
+function compileTransitionSource(viewSpec, designSpace = {}) {
+  if (!viewSpec || !viewSpec.mark || viewSpec.mark === "text") {
+    return {
+      effectiveViewSpec: null,
+      sceneTransition: {}
+    };
+  }
+  return compileEffectiveView(viewSpec, designSpace);
+}
+
+function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}, sceneTransition = {}, renderOptions = {}) {
   const scene = getScene(node, viewConfig, d3);
-  const scrollDriven = hasScrollActionDesign(designSpace);
-  clearSceneTransitionProgress(scene);
+  const scrollDriven = renderOptions.scrollDriven ?? hasScrollActionDesign(designSpace);
+  if (scrollDriven && !renderOptions.skipScrollSourcePrep) {
+    prepareScrollSourceState(
+      node,
+      viewConfig,
+      datasets,
+      tooltip,
+      d3,
+      renderOptions.transitionSource
+    );
+  }
+  clearSceneTransitionProgress(scene, { finish: !scrollDriven });
   const source = effectiveViewSpec.data ? datasets[effectiveViewSpec.data] || [] : [];
   const rows = applyTransforms(source, effectiveViewSpec.transform || []);
   const domainRows = applyTransforms(source, domainTransforms(effectiveViewSpec.transform || []));
@@ -468,7 +518,9 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
   resizeScene(scene, width, height);
 
   const chartType = normalizeChartType(effectiveViewSpec.mark);
-  const previousSpec = scene.previousSpec;
+  const previousSpec = scrollDriven
+    ? renderOptions.transitionSource?.effectiveViewSpec || null
+    : scene.previousSpec;
   const chart = {
     scene,
     type: chartType,
@@ -517,6 +569,51 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
   scene.previousSpec = effectiveViewSpec;
 }
 
+function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, transitionSource = {}) {
+  const scene = getScene(node, viewConfig, d3);
+  const sourceSpec = transitionSource?.effectiveViewSpec || null;
+  if (!sourceSpec) {
+    resetSceneToEmptySource(scene);
+    return;
+  }
+
+  renderCompiledView(
+    node,
+    sourceSpec,
+    viewConfig,
+    datasets,
+    tooltip,
+    d3,
+    { action: ["scroll"] },
+    transitionSource.sceneTransition || {},
+    {
+      scrollDriven: true,
+      skipScrollSourcePrep: true,
+      transitionSource: null
+    }
+  );
+  scene.transitionProgress?.progress(1);
+  clearSceneTransitionProgress(scene, { finish: true });
+}
+
+function resetSceneToEmptySource(scene) {
+  clearSceneTransitionProgress(scene, { finish: false });
+  scene.grid.interrupt().selectAll("*").remove();
+  scene.xAxis.interrupt().style("opacity", 0).selectAll("*").remove();
+  scene.yAxis.interrupt().style("opacity", 0).selectAll("*").remove();
+  scene.xLabel.interrupt().style("opacity", 0).text("");
+  scene.yLabel.interrupt().style("opacity", 0).text("");
+  scene.legend.interrupt().style("opacity", 0).selectAll("*").remove();
+  scene.guideLayer?.interrupt().selectAll("*").remove();
+  scene.granularityLayer?.interrupt().selectAll("*").remove();
+  scene.markLayers?.forEach((layer) => {
+    layer.interrupt().selectAll("*").remove();
+  });
+  scene.unitLabel.interrupt().text("").style("opacity", 0);
+  scene.textLayer.interrupt().html("").style("opacity", 0);
+  scene.previousSpec = null;
+}
+
 function virtualRenderDelay(spec = {}) {
   const duration = Number(spec.transition?.duration);
   const stagger = spec.transition?.stagger;
@@ -551,7 +648,10 @@ function renderVirtualScrollPhase(scene, phase) {
     config.tooltip,
     config.d3,
     config.designSpace,
-    config.sceneTransition
+    config.sceneTransition,
+    {
+      transitionSource: config.transitionSource
+    }
   );
 }
 

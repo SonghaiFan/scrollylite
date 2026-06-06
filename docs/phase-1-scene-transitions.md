@@ -113,6 +113,19 @@ The renderer then scrubs D3 transition schedules with that progress. This keeps
 chart renderers written in normal D3 enter/update/exit style while allowing the
 same transition to be either time-driven or scroll-driven.
 
+In scroll mode, each step must render from a stable authored source state:
+step `i` begins from step `i - 1`, and the first step begins from an empty
+scene. Do not derive the scroll transition source from the currently rendered
+DOM or from `scene.previousSpec`, because reverse scrolling can otherwise pick
+up a later step as the source. The symptom is a back-scroll from step 2 to step
+1 briefly animating toward step 3, then jumping to step 1 at the end.
+
+The runtime prepares that source state before creating the current step's
+named scroll transition, then scrubs the current transition with the measured
+progress. Existing scroll-driven transition schedules should be cancelled
+rather than finished when switching scroll steps; finishing them can force the
+old step to its endpoint before the reverse-scroll progress is applied.
+
 The current template intentionally keeps only the native controller. Scrollama
 and GSAP adapters were removed to avoid multiple progress semantics during the
 grammar design phase.

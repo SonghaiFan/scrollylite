@@ -30,9 +30,9 @@ export function createSceneTransitionProgress(scene, options = {}) {
   return createProgressController(sceneNodes(scene), options);
 }
 
-export function clearSceneTransitionProgress(scene) {
+export function clearSceneTransitionProgress(scene, { finish = true } = {}) {
   if (!scene?.transitionProgress) return;
-  scene.transitionProgress.destroy({ finish: true });
+  scene.transitionProgress.destroy({ finish });
   scene.transitionProgress = null;
 }
 

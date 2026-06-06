@@ -1,8 +1,8 @@
-import { bar, story } from "../../grammar/index.js?v=semantic-key-10";
+import { bar, story } from "../../grammar/index.js?v=semantic-key-11";
 import {
   createBaseDemo,
   sharedTiming
-} from "./shared.js?v=semantic-key-10";
+} from "./shared.js?v=semantic-key-11";
 
 export function createBarStory() {
   const base = bar("weatherDays")

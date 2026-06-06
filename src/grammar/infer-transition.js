@@ -2,17 +2,19 @@ import { diffViewStates } from "./diff.js";
 
 export function inferTransition(previous, next) {
   if (!previous) return [];
+  const scenes = [];
   const operations = next?.operations?.() || [];
   if (operations.length) {
     const previousOperations = previous?.operations?.() || [];
     const delta = operationDelta(previousOperations, operations);
-    if (delta.length) return unique(delta);
+    scenes.push(...delta);
   }
 
   const diff = diffViewStates(previous, next);
-  const scenes = [];
 
-  if (diff.has("filter")) scenes.push("focus");
+  if (diff.has("filter") || filterTransformChanged(diff.previous, diff.next)) {
+    scenes.push("focus");
+  }
   if (diff.has("observation")) scenes.push("observation");
   if (diff.has("granularity") && !onlyGranularityLayoutChanged(diff.previous, diff.next)) {
     scenes.push("granularity");
@@ -20,6 +22,16 @@ export function inferTransition(previous, next) {
   if (diff.has("guide")) scenes.push("guide");
 
   return unique(scenes);
+}
+
+function filterTransformChanged(previous = {}, next = {}) {
+  return !sameJSON(filterTransforms(previous.transform), filterTransforms(next.transform));
+}
+
+function filterTransforms(transforms = []) {
+  return transforms
+    .filter((transform) => transform?.filter)
+    .map((transform) => transform.filter);
 }
 
 function onlyGranularityLayoutChanged(previous = {}, next = {}) {
