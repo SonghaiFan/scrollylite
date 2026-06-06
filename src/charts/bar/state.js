@@ -25,6 +25,16 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     };
   }
 
+  if (previous.hasAggregate && next.hasGranularity && !previous.hasGranularity) {
+    plan.barSplit = {
+      mode: "parent-child",
+      reason: "granularity-parent-child-lineage",
+      parentKey: previous.categoryField,
+      childKey: [next.categoryField, next.segmentField].filter(Boolean),
+      toLayout: next.barLayout
+    };
+  }
+
   const layoutChanged = previous.barLayout !== next.barLayout;
   const changesSegmentLayout =
     layoutChanged &&
@@ -71,6 +81,30 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   return plan;
 }
 
+export function barCollapseIntermediateSpec(previousSpec, nextSpec) {
+  const plan = resolveBarTransitionPlan(previousSpec, nextSpec);
+  if (plan.barCollapse?.mode !== "parent-child" || plan.barCollapse.fromLayout !== "grouped") {
+    return null;
+  }
+
+  const previous = barState(previousSpec);
+  if (!previous?.hasGranularity) return null;
+
+  return stackedSegmentSpec(previousSpec, nextSpec);
+}
+
+export function barSplitIntermediateSpec(previousSpec, nextSpec) {
+  const plan = resolveBarTransitionPlan(previousSpec, nextSpec);
+  if (plan.barSplit?.mode !== "parent-child" || plan.barSplit.toLayout !== "grouped") {
+    return null;
+  }
+
+  const next = barState(nextSpec);
+  if (!next?.hasGranularity) return null;
+
+  return stackedSegmentSpec(nextSpec, previousSpec);
+}
+
 export function barState(spec) {
   if (!spec || normalizeChartType(spec.mark) !== "bar") return null;
 
@@ -111,4 +145,42 @@ function segmentLayoutStageOrder(staging = {}, layout) {
 
 function isSegmentLayout(layout) {
   return layout === "grouped" || layout === "stacked";
+}
+
+function stackedSegmentSpec(spec, transitionPeerSpec) {
+  return {
+    ...cloneSpec(spec),
+    barLayout: "stacked",
+    guide: {
+      ...(spec.guide || {}),
+      layout: "stacked",
+      staging: {
+        ...(spec.guide?.staging || {}),
+        order: ["y", "x"]
+      }
+    },
+    sceneState: {
+      ...(spec.sceneState || {}),
+      granularity: {
+        ...(spec.sceneState?.granularity || {}),
+        layout: "stacked"
+      },
+      guide: {
+        ...(spec.sceneState?.guide || {}),
+        layout: "stacked",
+        staging: {
+          ...(spec.sceneState?.guide?.staging || {}),
+          order: ["y", "x"]
+        }
+      }
+    },
+    transition: {
+      ...(transitionPeerSpec?.transition || {}),
+      ...(spec.transition || {})
+    }
+  };
+}
+
+function cloneSpec(spec) {
+  return spec == null ? spec : JSON.parse(JSON.stringify(spec));
 }

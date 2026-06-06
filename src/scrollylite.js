@@ -5,11 +5,15 @@ import {
 } from "./design-space.js";
 import { applyTransforms } from "./data/transforms.js";
 import { keyAccessor } from "./identity/semantic-key.js";
-import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-5";
-import { resolveBarTransitionPlan } from "./charts/bar/state.js";
-import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-5";
-import { createScatterRenderer } from "./charts/scatter/render.js?v=semantic-key-5";
-import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-5";
+import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-10";
+import {
+  barCollapseIntermediateSpec,
+  barSplitIntermediateSpec,
+  resolveBarTransitionPlan
+} from "./charts/bar/state.js";
+import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-10";
+import { createScatterRenderer } from "./charts/scatter/render.js?v=semantic-key-10";
+import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-10";
 import { createChartRegistry, normalizeChartType } from "./charts/index.js";
 import { layoutClasses } from "./layouts/index.js";
 import {
@@ -27,7 +31,7 @@ import {
   hasScene,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "./transitions/index.js?v=semantic-key-5";
+} from "./transitions/index.js?v=semantic-key-10";
 
 const DEFAULT_PALETTE = [
   "#2f7d7e",
@@ -303,17 +307,28 @@ function createRenderer(shell, spec, datasets, d3) {
     }
   };
 
-  const renderScrollProgress = (index, progress, direction = "down") => {
+  const renderScrollProgress = (index, progress, direction = "down", options = {}) => {
     const bounded = clamp(index, 0, spec.steps.length - 1);
     const step = spec.steps[bounded];
     if (!hasScrollAction(step)) return;
 
-    pendingProgress = {
+    const nextProgress = {
       index: bounded,
       progress: clamp(progress, 0, 1),
       direction
     };
 
+    if (options.immediate) {
+      pendingProgress = null;
+      if (progressFrame) {
+        window.cancelAnimationFrame(progressFrame);
+        progressFrame = null;
+      }
+      applyScrollProgress(nextProgress);
+      return;
+    }
+
+    pendingProgress = nextProgress;
     if (progressFrame) return;
     progressFrame = window.requestAnimationFrame(() => {
       progressFrame = null;
@@ -321,11 +336,14 @@ function createRenderer(shell, spec, datasets, d3) {
       const next = pendingProgress;
       pendingProgress = null;
 
-      if (activeIndex !== next.index) return;
-
-      updateStoryProgress(shell, spec, next.index, next.progress);
-      applyStepScrollProgress(shell, spec, next.index, next.progress);
+      applyScrollProgress(next);
     });
+  };
+
+  const applyScrollProgress = (next) => {
+    if (activeIndex !== next.index) return;
+    updateStoryProgress(shell, spec, next.index, next.progress);
+    applyStepScrollProgress(shell, spec, next.index, next.progress);
   };
 
   const cancelScrollProgress = () => {
@@ -381,6 +399,46 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     withSceneTransitionDefaults(viewSpec, sceneTransition),
     sceneTransition
   );
+
+  if (scene.virtualRenderTimer) {
+    window.clearTimeout(scene.virtualRenderTimer);
+    scene.virtualRenderTimer = null;
+  }
+
+  const collapseIntermediateSpec = barCollapseIntermediateSpec(scene.previousSpec, effectiveViewSpec);
+  const splitIntermediateSpec = barSplitIntermediateSpec(scene.previousSpec, effectiveViewSpec);
+  const intermediateViewSpec = collapseIntermediateSpec || splitIntermediateSpec;
+  if (intermediateViewSpec) {
+    const intermediateSceneType = collapseIntermediateSpec ? "guide" : "granularity";
+    renderCompiledView(
+      node,
+      intermediateViewSpec,
+      viewConfig,
+      datasets,
+      tooltip,
+      d3,
+      designSpace,
+      {
+        scene: [intermediateSceneType],
+        [intermediateSceneType]:
+          intermediateViewSpec[intermediateSceneType] ||
+          intermediateViewSpec.sceneState?.[intermediateSceneType] ||
+          null
+      }
+    );
+
+    scene.virtualRenderTimer = window.setTimeout(() => {
+      scene.virtualRenderTimer = null;
+      renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition);
+    }, virtualRenderDelay(intermediateViewSpec));
+    return;
+  }
+
+  renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition);
+}
+
+function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}, sceneTransition = {}) {
+  const scene = getScene(node, viewConfig, d3);
   const scrollDriven = hasScrollActionDesign(designSpace);
   clearSceneTransitionProgress(scene);
   const source = effectiveViewSpec.data ? datasets[effectiveViewSpec.data] || [] : [];
@@ -393,7 +451,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   }
 
   const width = Math.max(320, node.clientWidth || 720);
-  const height = viewConfig.height || viewSpec.height || 500;
+  const height = viewConfig.height || effectiveViewSpec.height || 500;
   resizeScene(scene, width, height);
 
   const chartType = normalizeChartType(effectiveViewSpec.mark);
@@ -439,6 +497,16 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   applySceneTransitions(chart, rows, effectiveViewSpec);
   if (scrollDriven) scene.transitionProgress = createSceneTransitionProgress(scene);
   scene.previousSpec = effectiveViewSpec;
+}
+
+function virtualRenderDelay(spec = {}) {
+  const duration = Number(spec.transition?.duration);
+  const stagger = spec.transition?.stagger;
+  const staggerMax =
+    typeof stagger === "object"
+      ? Number(stagger.max ?? 0)
+      : 0;
+  return Math.max(1, Number.isFinite(duration) ? duration : defaultTransition().duration) + (Number.isFinite(staggerMax) ? staggerMax : 0);
 }
 
 function hideUnitMetaLabel(scene) {
@@ -1294,13 +1362,15 @@ function setupScroll(spec, shell, renderer) {
     threshold: spec.layout.threshold || 4,
     config: spec.layout.scroll,
     isLocked: () => isNavigationLocked(shell),
-    onEnter: ({ index, direction }) => {
+    onEnter: ({ index, progress, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderStep(index, { direction });
+      renderer.renderStep(index, { direction, scrollProgress: progress });
     },
     onExit: ({ index, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderScrollProgress(index, direction === "down" ? 1 : 0, direction);
+      renderer.renderScrollProgress(index, direction === "down" ? 1 : 0, direction, {
+        immediate: true
+      });
     },
     onProgress: ({ index, progress, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;

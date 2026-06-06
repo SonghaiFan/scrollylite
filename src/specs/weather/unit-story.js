@@ -1,4 +1,4 @@
-import { HOT_PERIOD_COLOR, createBaseDemo, unitView } from "./shared.js?v=semantic-key-5";
+import { HOT_PERIOD_COLOR, createBaseDemo, unitView } from "./shared.js?v=semantic-key-10";
 
 export function createUnitStory() {
   return {

@@ -1,4 +1,4 @@
-import { ViewState, cloneState } from "../view-state.js?v=semantic-key-5";
+import { ViewState, cloneState } from "../view-state.js?v=semantic-key-10";
 
 export function bar(data) {
   return new BarState({
@@ -21,6 +21,7 @@ export class BarState extends ViewState {
     if (spec.granularity == null) delete spec.granularity;
     if (spec.guide == null) delete spec.guide;
     if (spec.aggregate == null) delete spec.aggregate;
+    if (spec.semanticKey == null) delete spec.semanticKey;
     return spec;
   }
 
@@ -38,30 +39,13 @@ export class BarState extends ViewState {
     if (typeof options === "string") options = { title: options };
     const { color, tooltip, ...channelOptions } = options;
     const channel = channelFrom(field, { type: "quantitative", ...channelOptions });
-    const previous = this.state.encoding?.y;
-    const lastWhere = this.state.__grammar?.lastWhere;
-    const patch = {
+    return this.with({
       encoding: {
         y: channel,
         ...(color ? { color: colorFrom(color) } : {}),
         ...(tooltip ? { tooltip: cloneState(tooltip) } : {})
       }
-    };
-
-    if (!previous) return this.with(patch);
-
-    if (previous.field === channel.field) {
-      return this.with(patch);
-    }
-
-    return this.with({
-      ...patch,
-      observation: {
-        measure: channel.field,
-        title: channel.title,
-        domain: channel.domain
-      }
-    }, "observation");
+    });
   }
 
   channel(name, field, options = {}) {
@@ -113,14 +97,29 @@ export class BarState extends ViewState {
 
     const selectors = normalizeSelectors(selector);
     const identity = identityFromSelectors(this.state, selectors);
+    const measureTitle = measureTitleFromSelectors(this.state, selectors);
     return this.with({
       where: setConstraints(this.state.where || [], selectors),
       ...(identity ? identity : {}),
+      ...(measureTitle ? {
+        encoding: {
+          y: {
+            ...this.state.encoding.y,
+            title: measureTitle
+          }
+        }
+      } : {}),
       __grammar: {
         lastWhere: {
           selectors: cloneState(selectors),
           fields: selectors.map((item) => item.field)
-        }
+        },
+        ...(measureTitle ? {
+          measureSelector: {
+            title: measureTitle,
+            fields: selectors.map((item) => item.field)
+          }
+        } : {})
       }
     }, "focus");
   }
@@ -156,20 +155,6 @@ export class BarState extends ViewState {
     });
   }
 
-  observe(field, options = {}) {
-    return this.with({
-      observation: {
-        measure: field,
-        title: options.title,
-        domain: options.domain
-      },
-      encoding: {
-        ...(options.color ? { color: cloneState(options.color) } : {}),
-        ...(options.tooltip ? { tooltip: cloneState(options.tooltip) } : {})
-      }
-    }, "observation");
-  }
-
   agg(config = {}) {
     const normalized = normalizeAggregation(config, this.state);
     const groupby = normalized.groupby;
@@ -195,6 +180,9 @@ export class BarState extends ViewState {
           groupby,
           op: normalized.op
         },
+        __grammar: {
+          measureSelector: null
+        },
         encoding: {
           tooltip: cloneState(normalized.tooltip || [
             { field: normalized.category, title: titleize(normalized.category) },
@@ -209,6 +197,10 @@ export class BarState extends ViewState {
       key: normalized.key || (groupby.length === 1 ? groupby[0] : groupby),
       granularity: null,
       guide: null,
+      semanticKey: normalized.semanticKey || null,
+      where: normalized.drop
+        ? clearConstraint(this.state.where || [], normalized.drop)
+        : this.state.where,
       aggregate: {
         groupby,
         value: normalized.value,
@@ -227,7 +219,10 @@ export class BarState extends ViewState {
             }]
           }
         }
-      ]
+      ],
+      __grammar: {
+        measureSelector: null
+      }
     }, "granularity");
   }
 
@@ -254,7 +249,7 @@ export class BarState extends ViewState {
       : next.y(value, { title: options.title || titleize(value) });
   }
 
-  merge(drop = "type", options = {}) {
+  collapse(drop = "type", options = {}) {
     const value = options.value || this.state.encoding?.y?.field || "count";
     const {
       color,
@@ -416,8 +411,33 @@ function identityFromSelectors(state = {}, selectors = []) {
   };
 }
 
+function measureTitleFromSelectors(state = {}, selectors = []) {
+  const y = state.encoding?.y;
+  if (!y?.field) return null;
+
+  const measure = selectors.find((selector) => (
+    selector.field &&
+    Object.prototype.hasOwnProperty.call(selector, "equal") &&
+    isMeasureSelectorField(selector.field)
+  ));
+  if (!measure) return null;
+
+  const currentTitle = y.title || titleize(y.field);
+  const previousMeasureTitle = state.__grammar?.measureSelector?.title;
+  const titleCanFollowSelector =
+    currentTitle === titleize(y.field) ||
+    currentTitle === previousMeasureTitle;
+
+  return titleCanFollowSelector ? labelFromValue(measure.equal) : null;
+}
+
 function isMeasureSelectorField(field) {
   return field === "type" || field === "kind" || field.endsWith("_type") || field.endsWith("_kind");
+}
+
+function labelFromValue(value) {
+  const text = String(value ?? "");
+  return text.includes("_") ? titleize(text) : text;
 }
 
 function titleize(value) {

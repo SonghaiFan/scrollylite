@@ -43,6 +43,7 @@ export function createNativeScrollDriver({
       onEnter({
         element: steps[state.index],
         index: state.index,
+        progress: state.progress,
         direction
       });
     }

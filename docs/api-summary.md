@@ -32,7 +32,7 @@ The current bar grammar assumes long data in a compact
 `entity/time/type/count` shape. For the weather demo, `type` is `Hot days` or
 `Cold days`, and `count` is the measured value. If one x category maps to
 multiple y values, use `.where(...)` to choose a subset, or
-`.split(...)` / `.merge(...)` to change granularity. A future data-preparation
+`.split(...)` / `.collapse(...)` to change granularity. A future data-preparation
 API should convert wide tables to this long flavour.
 
 `layout` controls story mechanics:
@@ -205,7 +205,7 @@ const spec = story()
   .step("Cold days", base.where({ type: "Cold days" }))
   .step("Split", segmented)
   .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
-  .step("Merge", segmented.merge("type", { title: "Total days" }))
+  .step("Collapse", segmented.collapse("type", { title: "Total days" }))
   .toSpec();
 ```
 

@@ -14,10 +14,32 @@ export function inferTransition(previous, next) {
 
   if (diff.has("filter")) scenes.push("focus");
   if (diff.has("observation")) scenes.push("observation");
-  if (diff.has("granularity")) scenes.push("granularity");
+  if (diff.has("granularity") && !onlyGranularityLayoutChanged(diff.previous, diff.next)) {
+    scenes.push("granularity");
+  }
   if (diff.has("guide")) scenes.push("guide");
 
   return unique(scenes);
+}
+
+function onlyGranularityLayoutChanged(previous = {}, next = {}) {
+  const prevGranularity = previous.granularity || {};
+  const nextGranularity = next.granularity || {};
+  const prevRest = { ...prevGranularity };
+  const nextRest = { ...nextGranularity };
+  delete prevRest.layout;
+  delete nextRest.layout;
+
+  return (
+    previous.granularity &&
+    next.granularity &&
+    sameJSON(prevRest, nextRest) &&
+    !sameJSON(prevGranularity.layout, nextGranularity.layout)
+  );
+}
+
+function sameJSON(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
 function operationDelta(previousOperations, nextOperations) {

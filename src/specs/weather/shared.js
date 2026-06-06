@@ -182,7 +182,7 @@ export function createBaseDemo() {
         type: "csv"
       },
       weatherDays: {
-        url: "./src/data/weather_days_tidy.csv?v=semantic-key-5",
+        url: "./src/data/weather_days_tidy.csv?v=semantic-key-10",
         type: "csv"
       }
     },

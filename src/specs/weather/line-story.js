@@ -1,4 +1,4 @@
-import { COLD_COLOR, COLD_PERIOD_COLOR, createBaseDemo, lineView } from "./shared.js?v=semantic-key-5";
+import { COLD_COLOR, COLD_PERIOD_COLOR, createBaseDemo, lineView } from "./shared.js?v=semantic-key-10";
 
 export function createLineStory() {
   return {

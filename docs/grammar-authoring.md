@@ -64,7 +64,7 @@ base.where({ type: "Cold days" })
 base.flip()
 base.split("type")
 base.split("type").layout("grouped").stage(["x", "y"])
-base.split("type").merge("type", { title: "Total days" })
+base.split("type").collapse("type", { title: "Total days" })
 ```
 
 ## Inference
@@ -76,10 +76,8 @@ called:
 - `.where()` records `focus`; `.where({ type: ... })` also contributes to the
   semantic object key
 - `.flip()` and `.guide()` record `guide`
-- `.y()` records `observation` when it changes an existing y measure
-- `.observe()` records `observation` explicitly
 - `.agg()` records `granularity`
-- `.split()` and `.merge()` are short `type/count` aliases for aggregation
+- `.split()` and `.collapse()` are short `type/count` aliases for changing grain
 - `.layout()` and `.stage()` record `guide`
 
 `story().step()` converts those operations into the current design-space step
@@ -143,7 +141,7 @@ return story()
   .step("Cold days", base.where({ type: "Cold days" }))
   .step("Split", segmented)
   .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
-  .step("Merge", segmented.merge("type", { title: "Total days" }))
+  .step("Collapse", segmented.collapse("type", { title: "Total days" }))
   .toSpec();
 ```
 

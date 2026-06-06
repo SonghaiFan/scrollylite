@@ -342,6 +342,7 @@ function createLegacyBarRenderer(deps) {
     }
 
     const bounds = new Map();
+
     chart.g.selectAll("rect.sl-bar").each(function () {
       const node = this;
       const parent = node.dataset.category || parentFromChildKey(node.dataset.key);
@@ -350,6 +351,29 @@ function createLegacyBarRenderer(deps) {
 
       const current = bounds.get(parent);
       bounds.set(parent, current ? unionRect(current, box) : box);
+    });
+
+    if (!bounds.size) return null;
+
+    return {
+      start(d) {
+        return bounds.get(String(d[parentField])) || null;
+      }
+    };
+  }
+
+  function barSplitLineage(chart, parentField) {
+    if (chart.transitionPlan?.barSplit?.mode !== "parent-child" || !parentField) {
+      return null;
+    }
+
+    const bounds = new Map();
+    chart.g.selectAll("rect.sl-bar:not(.sl-bar-segment)").each(function () {
+      const node = this;
+      const parent = node.dataset.category || node.dataset.key;
+      const box = rectGeometry(node);
+      if (!parent || !box) return;
+      bounds.set(parent, box);
     });
 
     if (!bounds.size) return null;
@@ -375,6 +399,7 @@ function createLegacyBarRenderer(deps) {
     });
     const color = colorScale(domainRows, enc.color, d3);
     const key = barKeyAccessor(chart, spec, [categoryField, segmentField]);
+    const splitLineage = barSplitLineage(chart, categoryField);
 
     const x = d3
       .scaleBand()
@@ -415,10 +440,19 @@ function createLegacyBarRenderer(deps) {
               .append("rect")
               .attr("class", "sl-bar sl-bar-segment sl-bar-grouped")
               .call(applyBarIdentity, spec, key, (d) => d[categoryField])
-              .attr("x", (d) => x(d[categoryField]) + x1(d[segmentField]))
-              .attr("y", chart.innerHeight)
-              .attr("width", Math.max(1, x1.bandwidth()))
-              .attr("height", 0)
+              .call((selection) =>
+                selection.each(function (d) {
+                  setRectGeometry(
+                    d3.select(this),
+                    splitLineage?.start(d) || {
+                      x: x(d[categoryField]) + x1(d[segmentField]),
+                      y: chart.innerHeight,
+                      width: Math.max(1, x1.bandwidth()),
+                      height: 0
+                    }
+                  );
+                })
+              )
               .attr("rx", 2)
               .attr("fill", (d) => color(d))
               .style("opacity", 0)
@@ -466,13 +500,15 @@ function createLegacyBarRenderer(deps) {
               .attr("height", (d) => chart.innerHeight - y(d[valueField]))
               .attr("fill", (d) => color(d));
           },
-          (exit) =>
-            exit
-              .transition(t)
-              .style("opacity", 0)
-              .attr("y", chart.innerHeight)
-              .attr("height", 0)
-              .remove()
+          (exit) => {
+            const leaving = exit.transition(t).style("opacity", 0);
+            if (!splitLineage) {
+              leaving
+                .attr("y", chart.innerHeight)
+                .attr("height", 0);
+            }
+            return leaving.remove();
+          }
         );
     } else {
       const stackedRows = stackBarRows(rows, categoryField, segmentField, valueField, segments);
@@ -504,10 +540,19 @@ function createLegacyBarRenderer(deps) {
               .append("rect")
               .attr("class", "sl-bar sl-bar-segment sl-bar-stacked")
               .call(applyBarIdentity, spec, key, (d) => d[categoryField])
-              .attr("x", (d) => x(d[categoryField]))
-              .attr("y", chart.innerHeight)
-              .attr("width", Math.max(1, x.bandwidth()))
-              .attr("height", 0)
+              .call((selection) =>
+                selection.each(function (d) {
+                  setRectGeometry(
+                    d3.select(this),
+                    splitLineage?.start(d) || {
+                      x: x(d[categoryField]),
+                      y: chart.innerHeight,
+                      width: Math.max(1, x.bandwidth()),
+                      height: 0
+                    }
+                  );
+                })
+              )
               .attr("rx", 2)
               .attr("fill", (d) => color(d))
               .style("opacity", 0)
@@ -555,13 +600,15 @@ function createLegacyBarRenderer(deps) {
               .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)))
               .attr("fill", (d) => color(d));
           },
-          (exit) =>
-            exit
-              .transition(t)
-              .style("opacity", 0)
-              .attr("y", chart.innerHeight)
-              .attr("height", 0)
-              .remove()
+          (exit) => {
+            const leaving = exit.transition(t).style("opacity", 0);
+            if (!splitLineage) {
+              leaving
+                .attr("y", chart.innerHeight)
+                .attr("height", 0);
+            }
+            return leaving.remove();
+          }
         );
     }
 
