@@ -1,5 +1,9 @@
+const STARTING = 2;
 const STARTED = 3;
 const RUNNING = 4;
+const ENDING = 5;
+const ENDED = 6;
+export const SCROLL_TRANSITION_NAME = "__scrollyLiteScroll";
 
 export function installTransitionProgress(d3) {
   const transition = d3.transition();
@@ -14,7 +18,7 @@ export function installTransitionProgress(d3) {
     if (!this.__scrollyLiteProgressController) {
       this.__scrollyLiteProgressController = createProgressController(
         transitionNodes(this),
-        this._id
+        { transitionId: this._id }
       );
     }
     this.__scrollyLiteProgressController.progress(value);
@@ -22,18 +26,18 @@ export function installTransitionProgress(d3) {
   };
 };
 
-export function createSceneTransitionProgress(scene) {
-  return createProgressController(sceneNodes(scene));
+export function createSceneTransitionProgress(scene, options = {}) {
+  return createProgressController(sceneNodes(scene), options);
 }
 
 export function clearSceneTransitionProgress(scene) {
   if (!scene?.transitionProgress) return;
-  scene.transitionProgress.destroy();
+  scene.transitionProgress.destroy({ finish: true });
   scene.transitionProgress = null;
 }
 
-function createProgressController(nodes, transitionId = null) {
-  const items = collectSchedules(nodes, transitionId);
+function createProgressController(nodes, { transitionId = null, transitionName = null } = {}) {
+  const items = collectSchedules(nodes, { transitionId, transitionName });
   const minTime = items.length ? Math.min(...items.map((item) => item.time)) : 0;
   const span = Math.max(
     1,
@@ -47,25 +51,23 @@ function createProgressController(nodes, transitionId = null) {
       const elapsed = clamp(value, 0, 1) * span;
       items.forEach((item) => scrubSchedule(item, elapsed, minTime));
     },
-    destroy() {
+    destroy({ finish = false } = {}) {
       items.forEach((item) => {
-        item.schedule.timer?.stop();
-        const schedules = item.node.__transition;
-        if (!schedules) return;
-        delete schedules[item.id];
-        if (!Object.keys(schedules).length) delete item.node.__transition;
+        if (finish) finishSchedule(item);
+        else cancelSchedule(item);
       });
     }
   };
 }
 
-function collectSchedules(nodes, transitionId) {
+function collectSchedules(nodes, { transitionId, transitionName } = {}) {
   const items = [];
   nodes.forEach((node) => {
     const schedules = node.__transition;
     if (!schedules) return;
     Object.entries(schedules).forEach(([id, schedule]) => {
       if (transitionId != null && Number(id) !== Number(transitionId)) return;
+      if (transitionName != null && schedule.name !== transitionName) return;
       schedule.timer?.stop();
       items.push({
         id,
@@ -76,7 +78,8 @@ function collectSchedules(nodes, transitionId) {
         duration: Math.max(0, Number(schedule.duration) || 0),
         ease: typeof schedule.ease === "function" ? schedule.ease : (t) => t,
         tweens: null,
-        started: false
+        started: false,
+        finished: false
       });
     });
   });
@@ -84,6 +87,7 @@ function collectSchedules(nodes, transitionId) {
 }
 
 function scrubSchedule(item, elapsed, minTime) {
+  if (item.finished) return;
   const start = item.time - minTime + item.delay;
   const duration = item.duration || 1;
   const local = clamp((elapsed - start) / duration, 0, 1);
@@ -99,12 +103,48 @@ function initializeSchedule(item) {
   if (item.started) return;
   const { node, schedule } = item;
   schedule.timer?.stop();
-  schedule.state = schedule.state < STARTED ? STARTED : schedule.state;
+  if (schedule.state < STARTED) {
+    schedule.state = STARTING;
+    schedule.on?.call("start", node, node.__data__, schedule.index, schedule.group);
+    if (schedule.state !== STARTING) return;
+    schedule.state = STARTED;
+  }
   item.tweens = schedule.tween
     .map((entry) => entry.value.call(node, node.__data__, schedule.index, schedule.group))
     .filter(Boolean);
   schedule.state = RUNNING;
   item.started = true;
+}
+
+function finishSchedule(item) {
+  if (item.finished) return;
+  initializeSchedule(item);
+  if (!item.started) {
+    cleanupSchedule(item);
+    return;
+  }
+
+  item.tweens.forEach((tween) => tween.call(item.node, 1));
+  item.schedule.state = ENDING;
+  item.schedule.on?.call("end", item.node, item.node.__data__, item.schedule.index, item.schedule.group);
+  cleanupSchedule(item);
+}
+
+function cancelSchedule(item) {
+  if (item.finished) return;
+  const active = item.schedule.state > STARTING && item.schedule.state < ENDING;
+  item.schedule.on?.call(active ? "interrupt" : "cancel", item.node, item.node.__data__, item.schedule.index, item.schedule.group);
+  cleanupSchedule(item);
+}
+
+function cleanupSchedule(item) {
+  item.finished = true;
+  item.schedule.state = ENDED;
+  item.schedule.timer?.stop();
+  const schedules = item.node.__transition;
+  if (!schedules) return;
+  delete schedules[item.id];
+  if (!Object.keys(schedules).length) delete item.node.__transition;
 }
 
 function sceneNodes(scene) {

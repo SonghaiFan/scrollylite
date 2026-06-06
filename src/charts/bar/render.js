@@ -286,7 +286,8 @@ function createLegacyBarRenderer(deps) {
       order,
       duration: staging.duration || stagedDuration(chart.transition.duration, order.length),
       ease: easeFor(staging.ease || chart.transition.ease, d3),
-      stagger: staging.stagger
+      stagger: staging.stagger,
+      transitionName: chart.scrollDriven ? chart.scrollTransitionName : null
     };
   }
 
@@ -299,7 +300,7 @@ function createLegacyBarRenderer(deps) {
 
       current = index === 0
         ? selection
-          .transition()
+          .transition(stage.transitionName)
           .duration(stage.duration)
           .ease(stage.ease)
           .delay((d, i) => staggerDelay(spec, d, i, stage.stagger))

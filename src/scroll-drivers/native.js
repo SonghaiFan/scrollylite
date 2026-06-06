@@ -67,12 +67,12 @@ export function createNativeScrollDriver({
     refresh: schedule,
     scrollToStep(index, options = {}) {
       const step = steps[index];
-      if (!step) return;
+      if (!step) return null;
       const progress = clamp(options.progress ?? config.navigation?.progress ?? 0.98, 0, 1);
-      scrollToStepElement(step, {
+      return scrollToStepElement(step, {
         offset,
         progress,
-        behavior: options.behavior || config.navigation?.behavior || "auto"
+        behavior: options.behavior || config.navigation?.behavior || "instant"
       });
     },
     destroy() {
@@ -100,9 +100,10 @@ export function createNativeScrollDriver({
   }
 }
 
-export function scrollToStepElement(step, { offset = 0.55, progress = 0.98, behavior = "auto" } = {}) {
+export function scrollToStepElement(step, { offset = 0.55, progress = 0.98, behavior = "instant" } = {}) {
   const top = stepScrollTop(step, offset, progress);
   window.scrollTo({ top, behavior });
+  return top;
 }
 
 export function measureStepProgress(steps, offset = 0.55, config = {}) {

@@ -46,7 +46,7 @@ layout: {
     progress: "geometry",
     clamp: true,
     navigation: {
-      behavior: "auto",
+      behavior: "instant",
       progress: 0.98
     }
   }

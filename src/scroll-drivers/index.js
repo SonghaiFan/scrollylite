@@ -36,7 +36,7 @@ function defaultScrollDriverConfig() {
       target: "step"
     },
     navigation: {
-      behavior: "auto",
+      behavior: "instant",
       lock: true,
       progress: 0.98
     }

@@ -107,7 +107,8 @@ class UnitChart extends BaseChart {
         .attr("fill", (d) => color(d.__row))
         .attr("cx", (d, i) => layout.x(d, i))
         .attr("r", layout.r)
-        .transition(motion.yPhase)
+        .transition()
+        .duration(motion.yDuration)
         .easeVarying(function (d, i) {
           const origin = numberAttr(this, "cy", layout.y(d, i));
           const target = layout.y(d, i);
@@ -185,13 +186,16 @@ function unitMotionTiming(spec, chart, d3, hasXAxis) {
     DEFAULT_TIMING.unit.xStagger,
     motion.xStagger ?? spec.unit?.xStagger ?? motion.gravityStagger ?? spec.unit?.gravityStagger
   );
+  const transition = () => chart.scrollDriven
+    ? d3.transition(chart.scrollTransitionName)
+    : d3.transition();
   return {
     duration,
     staggerMax: motion.staggerMax ?? spec.unit?.staggerMax ?? DEFAULT_TIMING.unit.stagger.max,
     xStagger,
-    whole: d3.transition().duration(duration),
-    xPhase: d3.transition().duration(xDuration).ease(d3.easeCubicOut),
-    yPhase: d3.transition().duration(yDuration)
+    whole: transition().duration(duration),
+    xPhase: transition().duration(xDuration).ease(d3.easeCubicOut),
+    yDuration
   };
 }
 

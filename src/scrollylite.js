@@ -22,10 +22,11 @@ import {
 } from "./scroll-drivers/index.js";
 import { DEFAULT_TIMING, defaultTransition } from "./timing.js";
 import {
+  SCROLL_TRANSITION_NAME,
   clearSceneTransitionProgress,
   createSceneTransitionProgress,
   installTransitionProgress
-} from "./transition-progress.js";
+} from "./transition-progress.js?v=scroll-transition-name-1";
 import {
   compileSceneViewSpec,
   hasScene,
@@ -367,6 +368,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   ].filter(Boolean);
 
   if (!viewSpec || !viewSpec.mark) {
+    clearVirtualScrollSequence(scene);
     scene.empty.style("display", "grid").text("No view for this step.");
     fadeLayers(scene, null);
     return;
@@ -375,6 +377,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   scene.empty.style("display", "none");
 
   if (viewSpec.mark === "text") {
+    clearVirtualScrollSequence(scene);
     fadeLayers(scene, "text");
     drawTextBoard(scene, viewSpec);
     return;
@@ -396,22 +399,45 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   const intermediateViewSpec = collapseIntermediateSpec || splitIntermediateSpec;
   if (intermediateViewSpec) {
     const intermediateSceneType = collapseIntermediateSpec ? "guide" : "granularity";
-    renderCompiledView(
-      node,
-      intermediateViewSpec,
-      viewConfig,
-      datasets,
-      tooltip,
-      d3,
-      designSpace,
-      {
-        scene: [intermediateSceneType],
-        [intermediateSceneType]:
-          intermediateViewSpec[intermediateSceneType] ||
-          intermediateViewSpec.sceneState?.[intermediateSceneType] ||
-          null
-      }
-    );
+    const intermediateSceneTransition = {
+      scene: [intermediateSceneType],
+      [intermediateSceneType]:
+        intermediateViewSpec[intermediateSceneType] ||
+        intermediateViewSpec.sceneState?.[intermediateSceneType] ||
+        null
+    };
+
+    if (hasScrollActionDesign(designSpace)) {
+      scene.virtualScrollSequence = {
+        phase: null,
+        split: virtualRenderSplit(intermediateViewSpec, effectiveViewSpec),
+        intermediate: {
+          node,
+          spec: intermediateViewSpec,
+          viewConfig,
+          datasets,
+          tooltip,
+          d3,
+          designSpace,
+          sceneTransition: intermediateSceneTransition
+        },
+        final: {
+          node,
+          spec: effectiveViewSpec,
+          viewConfig,
+          datasets,
+          tooltip,
+          d3,
+          designSpace,
+          sceneTransition
+        }
+      };
+      renderVirtualScrollPhase(scene, "intermediate");
+      return;
+    }
+
+    clearVirtualScrollSequence(scene);
+    renderCompiledView(node, intermediateViewSpec, viewConfig, datasets, tooltip, d3, designSpace, intermediateSceneTransition);
 
     scene.virtualRenderTimer = window.setTimeout(() => {
       scene.virtualRenderTimer = null;
@@ -420,6 +446,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     return;
   }
 
+  clearVirtualScrollSequence(scene);
   renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition);
 }
 
@@ -454,10 +481,11 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
       left: 68,
       ...(effectiveViewSpec.margin || {})
     },
-    transition: transitionSpec(effectiveViewSpec, previousSpec),
+    transition: transitionSpec(effectiveViewSpec, previousSpec, { scrollDriven }),
     transitionPlan: resolveBarTransitionPlan(previousSpec, effectiveViewSpec),
     sceneTransition,
     scrollDriven,
+    scrollTransitionName: SCROLL_TRANSITION_NAME,
     sourceRows: source,
     domainRows
   };
@@ -481,7 +509,11 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
   if (chartType === "unit") hideUnitMetaLabel(scene);
 
   applySceneTransitions(chart, rows, effectiveViewSpec);
-  if (scrollDriven) scene.transitionProgress = createSceneTransitionProgress(scene);
+  if (scrollDriven) {
+    scene.transitionProgress = createSceneTransitionProgress(scene, {
+      transitionName: SCROLL_TRANSITION_NAME
+    });
+  }
   scene.previousSpec = effectiveViewSpec;
 }
 
@@ -493,6 +525,51 @@ function virtualRenderDelay(spec = {}) {
       ? Number(stagger.max ?? 0)
       : 0;
   return Math.max(1, Number.isFinite(duration) ? duration : defaultTransition().duration) + (Number.isFinite(staggerMax) ? staggerMax : 0);
+}
+
+function virtualRenderSplit(intermediateSpec, finalSpec) {
+  const intermediate = virtualRenderDelay(intermediateSpec);
+  const final = virtualRenderDelay(finalSpec);
+  return clamp(intermediate / Math.max(1, intermediate + final), 0.2, 0.8);
+}
+
+function clearVirtualScrollSequence(scene) {
+  scene.virtualScrollSequence = null;
+}
+
+function renderVirtualScrollPhase(scene, phase) {
+  const sequence = scene.virtualScrollSequence;
+  const config = sequence?.[phase];
+  if (!sequence || !config || sequence.phase === phase) return;
+
+  sequence.phase = phase;
+  renderCompiledView(
+    config.node,
+    config.spec,
+    config.viewConfig,
+    config.datasets,
+    config.tooltip,
+    config.d3,
+    config.designSpace,
+    config.sceneTransition
+  );
+}
+
+function applyVirtualScrollSequence(scene, progress) {
+  const sequence = scene.virtualScrollSequence;
+  if (!sequence) return false;
+
+  const bounded = clamp(progress, 0, 1);
+  const split = clamp(sequence.split ?? 0.5, 0.01, 0.99);
+  if (bounded < split) {
+    renderVirtualScrollPhase(scene, "intermediate");
+    scene.transitionProgress?.progress(bounded / split);
+    return true;
+  }
+
+  renderVirtualScrollPhase(scene, "final");
+  scene.transitionProgress?.progress((bounded - split) / (1 - split));
+  return true;
 }
 
 function hideUnitMetaLabel(scene) {
@@ -540,6 +617,7 @@ function applyScrollAction(node, viewSpec, progress) {
 
   const action = normalizeScrollAction(viewSpec.scroll);
   const eased = easeProgress(progress, action.ease);
+  if (applyVirtualScrollSequence(scene, eased)) return;
   scene.transitionProgress?.progress(eased);
 }
 
@@ -771,7 +849,7 @@ function resizeScene(scene, width, height) {
   scene.svg.attr("viewBox", `0 0 ${width} ${height}`);
 }
 
-function transitionSpec(spec, previousSpec) {
+function transitionSpec(spec, previousSpec, { scrollDriven = false } = {}) {
   const local = spec.transition || {};
   const previous = previousSpec?.transition || {};
   const transition = {
@@ -781,7 +859,9 @@ function transitionSpec(spec, previousSpec) {
   };
   const d3 = getD3();
   const ease = easeFor(transition.ease, d3);
-  const base = d3.transition().duration(transition.duration).ease(ease);
+  const base = (scrollDriven ? d3.transition(SCROLL_TRANSITION_NAME) : d3.transition())
+    .duration(transition.duration)
+    .ease(ease);
   return { ...transition, base };
 }
 
@@ -1403,18 +1483,53 @@ function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null)
   const step = targetStep || shell.steps[index];
   if (!step || !shell.story) return;
   const token = beginNavigationLock(shell, renderer, index);
-  if (scrollDriver?.scrollToStep) scrollDriver.scrollToStep(index);
-  else step.scrollIntoView({ behavior: "auto", block: "center" });
+  let targetTop = null;
+  if (scrollDriver?.scrollToStep) {
+    targetTop = scrollDriver.scrollToStep(index);
+  } else {
+    step.scrollIntoView({ behavior: "instant", block: "center" });
+  }
   renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  addNavigationTimer(shell, window.setTimeout(() => {
-    if (!isCurrentNavigation(shell, token)) return;
-    renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  }, 300));
-  addNavigationTimer(shell, window.setTimeout(() => {
-    if (!isCurrentNavigation(shell, token)) return;
+  waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop);
+}
+
+function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop) {
+  const maxWait = 1800;
+  const tolerance = 2;
+  const start = performance.now();
+  let frame = null;
+  let cancelled = false;
+
+  const finish = () => {
+    if (cancelled || !isCurrentNavigation(shell, token)) return;
     renderer.renderStep(index, { force: true, scrollProgress: 1 });
     endNavigationLock(shell, token);
-  }, 900));
+    scrollDriver?.refresh?.();
+  };
+
+  const tick = () => {
+    frame = null;
+    if (cancelled || !isCurrentNavigation(shell, token)) return;
+
+    const reached = Number.isFinite(targetTop)
+      ? Math.abs(window.scrollY - targetTop) <= tolerance
+      : true;
+    const timedOut = performance.now() - start >= maxWait;
+
+    if (reached || timedOut) {
+      finish();
+      return;
+    }
+
+    frame = window.requestAnimationFrame(tick);
+  };
+
+  addNavigationCleanup(shell, () => {
+    cancelled = true;
+    if (frame) window.cancelAnimationFrame(frame);
+  });
+
+  frame = window.requestAnimationFrame(tick);
 }
 
 function beginNavigationLock(shell, renderer, index) {
@@ -1441,16 +1556,19 @@ function isCurrentNavigation(shell, token) {
   return shell.story?.dataset.navLockToken === token;
 }
 
-function addNavigationTimer(shell, timer) {
-  const timers = shell.story.__scrollyLiteNavTimers || [];
-  timers.push(timer);
-  shell.story.__scrollyLiteNavTimers = timers;
-}
-
 function clearNavigationTimers(shell) {
   const timers = shell.story.__scrollyLiteNavTimers || [];
   timers.forEach((timer) => window.clearTimeout(timer));
   shell.story.__scrollyLiteNavTimers = [];
+  const cleanups = shell.story.__scrollyLiteNavCleanups || [];
+  cleanups.forEach((cleanup) => cleanup());
+  shell.story.__scrollyLiteNavCleanups = [];
+}
+
+function addNavigationCleanup(shell, cleanup) {
+  const cleanups = shell.story.__scrollyLiteNavCleanups || [];
+  cleanups.push(cleanup);
+  shell.story.__scrollyLiteNavCleanups = cleanups;
 }
 
 function applyTheme(theme) {
