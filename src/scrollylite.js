@@ -5,7 +5,7 @@ import {
 } from "./design-space.js";
 import { applyTransforms } from "./data/transforms.js";
 import { keyAccessor } from "./identity/semantic-key.js";
-import { createBarRenderer } from "./charts/bar/render.js?v=default-domain-1";
+import { createBarRenderer } from "./charts/bar/render.js?v=semantic-agg-1";
 import { resolveBarTransitionPlan } from "./charts/bar/state.js";
 import { createLineRenderer } from "./charts/line/render.js";
 import { createScatterRenderer } from "./charts/scatter/render.js";
@@ -27,7 +27,7 @@ import {
   hasScene,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "./transitions/index.js?v=tidy-bar-3";
+} from "./transitions/index.js?v=semantic-agg-1";
 
 const DEFAULT_PALETTE = [
   "#2f7d7e",
@@ -841,10 +841,11 @@ function applyPlotClip(chart, enabled) {
 
 function applyXAxisClip(chart) {
   const id = `sl-x-axis-clip-${chart.scene.node.dataset.viewId || "main"}`;
+  const labelPadding = 28;
   ensureClipRect(chart.scene, id, {
-    x: 0,
+    x: -labelPadding,
     y: -8,
-    width: chart.innerWidth,
+    width: chart.innerWidth + labelPadding * 2,
     height: 72
   });
 
@@ -1001,13 +1002,21 @@ function drawXAxis(chart, scale, title, d3) {
 
   applyXAxisClip(chart);
   const axis = typeof scale.bandwidth === "function" ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(6);
-  chart.scene.xAxis
+  const xAxis = chart.scene.xAxis
     .interrupt()
-    .style("opacity", 1)
+    .style("opacity", 1);
+
+  xAxis
     .transition(chart.transition.base)
     .attr("transform", `translate(${chart.margin.left},${chart.margin.top + chart.innerHeight})`)
     .call(axis)
-    .call((g) => g.selectAll(".tick text").attr("dy", "0.8em"));
+    .on("end", () => {
+      xAxis.selectAll(".tick text").attr("dy", "0.8em");
+      alignEdgeTickLabels(xAxis, scale, d3);
+    });
+
+  xAxis.selectAll(".tick text").attr("dy", "0.8em");
+  alignEdgeTickLabels(xAxis, scale, d3);
 
   if (title) {
     chart.scene.xLabel
@@ -1021,6 +1030,26 @@ function drawXAxis(chart, scale, title, d3) {
   } else {
     chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
   }
+}
+
+function alignEdgeTickLabels(axisGroup, scale, d3) {
+  if (typeof scale.bandwidth === "function" || typeof scale.range !== "function") return;
+
+  const range = scale.range();
+  const min = Math.min(...range);
+  const max = Math.max(...range);
+  axisGroup.selectAll(".tick").each(function () {
+    const tick = d3.select(this);
+    const transform = tick.attr("transform") || "";
+    const match = transform.match(/translate\(([-\d.]+)/);
+    if (!match) return;
+
+    const x = Number(match[1]);
+    const text = tick.select("text");
+    if (Math.abs(x - min) <= 1) text.attr("text-anchor", "start").attr("dx", "0.15em");
+    else if (Math.abs(x - max) <= 1) text.attr("text-anchor", "end").attr("dx", "-0.15em");
+    else text.attr("text-anchor", "middle").attr("dx", null);
+  });
 }
 
 function drawYAxis(chart, scale, title, d3) {

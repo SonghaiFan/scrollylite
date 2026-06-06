@@ -170,13 +170,15 @@ per story.
 ```js
 import { bar, story } from "./src/grammar/index.js";
 
-const base = bar("weatherDays")
+const base = bar("weather")
   .x("decade")
-  .y("days")
-  .where({ temperature_kind: "Hot days" })
+  .y("hot_days", { title: "Hot days" })
   .key("decade");
 
-const segmented = base.segment("temperature_kind", { value: "days" });
+const segmented = bar("weatherDays")
+  .x("decade")
+  .y("days", { title: "Days" })
+  .agg({ by: ["decade", "temperature_kind"], value: "days", op: "sum", layout: "stacked" });
 
 const spec = story()
   .data("weatherDays", {
@@ -192,9 +194,9 @@ const spec = story()
   })
   .view("main", { title: "Melbourne weather sample", height: 540 })
   .step("Baseline", base)
-  .step("Focus recent", base.filter({ period: "recent" }))
+  .step("Focus recent", base.where({ period: "recent" }))
   .step("Flip coordinates", base.flip())
-  .step("Cold days", base.where({ temperature_kind: "Cold days" }).y("days", { title: "Cold days" }))
+  .step("Cold days", base.y("cold_days", { title: "Cold days" }))
   .step("Split", segmented)
   .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
   .toSpec();

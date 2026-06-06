@@ -16,8 +16,11 @@ export class BarState extends ViewState {
         ...spec.where.map((filter) => ({ filter })),
         ...(spec.transform || [])
       ];
-      delete spec.where;
     }
+    delete spec.where;
+    if (spec.granularity == null) delete spec.granularity;
+    if (spec.guide == null) delete spec.guide;
+    if (spec.aggregate == null) delete spec.aggregate;
     return spec;
   }
 
@@ -29,7 +32,6 @@ export class BarState extends ViewState {
     const { color, tooltip, ...channelOptions } = options;
     const channel = channelFrom(field, { type: "quantitative", ...channelOptions });
     const previous = this.state.encoding?.y;
-    const pendingWhere = this.state.__grammar?.pendingWhere;
     const patch = {
       encoding: {
         y: channel,
@@ -38,28 +40,10 @@ export class BarState extends ViewState {
       }
     };
 
-    if (previous && pendingWhere && previous.field === channel.field) {
-      return this.with({
-        ...patch,
-        __grammar: {
-          pendingWhere: null
-        },
-        observation: {
-          measure: channel.field,
-          title: channel.title,
-          domain: channel.domain,
-          category: pendingWhere.next
-        }
-      }, "observation");
-    }
-
     if (!previous || previous.field === channel.field) return this.with(patch);
 
     return this.with({
       ...patch,
-      __grammar: {
-        pendingWhere: null
-      },
       observation: {
         measure: channel.field,
         title: channel.title,
@@ -110,17 +94,13 @@ export class BarState extends ViewState {
   }
 
   where(selector) {
-    const constraint = normalizeSelector(selector);
-    const previous = findConstraint(this.state.where || [], constraint.field);
-    const pendingWhere = previous && !sameSelector(previous, constraint)
-      ? { previous, next: constraint }
-      : this.state.__grammar?.pendingWhere || null;
+    if (selector == null) {
+      return this.with({ where: [] }, "focus");
+    }
+
     return this.with({
-      where: setConstraint(this.state.where || [], constraint),
-      __grammar: {
-        pendingWhere
-      }
-    });
+      where: setConstraints(this.state.where || [], normalizeSelectors(selector))
+    }, "focus");
   }
 
   guide(config = {}) {
@@ -166,6 +146,67 @@ export class BarState extends ViewState {
         ...(options.tooltip ? { tooltip: cloneState(options.tooltip) } : {})
       }
     }, "observation");
+  }
+
+  agg(config = {}) {
+    const normalized = normalizeAggregation(config, this.state);
+    const groupby = normalized.groupby;
+    const segment = normalized.segment;
+
+    if (segment) {
+      return this.with({
+        key: normalized.key || [normalized.category, segment],
+        where: clearConstraint(this.state.where || [], segment),
+        granularity: {
+          category: normalized.category,
+          categoryTitle: normalized.categoryTitle,
+          fields: [],
+          labels: {},
+          segment,
+          value: normalized.value,
+          valueTitle: normalized.valueTitle,
+          layout: normalized.layout || "stacked",
+          color: cloneState(normalized.color),
+          domain: normalized.domain,
+          range: normalized.range,
+          source: segment,
+          groupby,
+          op: normalized.op
+        },
+        encoding: {
+          tooltip: cloneState(normalized.tooltip || [
+            { field: normalized.category, title: titleize(normalized.category) },
+            { field: segment, title: titleize(segment) },
+            { field: normalized.value, title: normalized.valueTitle }
+          ])
+        }
+      }, "granularity");
+    }
+
+    return this.with({
+      key: normalized.key || (groupby.length === 1 ? groupby[0] : groupby),
+      granularity: null,
+      guide: null,
+      aggregate: {
+        groupby,
+        value: normalized.value,
+        as: normalized.as,
+        op: normalized.op
+      },
+      transform: [
+        ...(this.state.transform || []),
+        {
+          aggregate: {
+            groupby,
+            fields: [{
+              op: normalized.op,
+              field: normalized.value,
+              as: normalized.as
+            }]
+          }
+        }
+      ]
+    }, "granularity");
   }
 
   segment(fieldOrConfig = {}, maybeConfig = {}) {
@@ -265,25 +306,59 @@ function normalizeSelector(selector = {}) {
   return cloneState(selector);
 }
 
-function setConstraint(constraints, selector) {
-  const next = clearConstraint(constraints, selector.field);
-  return [...next, cloneState(selector)];
+function normalizeSelectors(selector = {}) {
+  if (selector.field) return [cloneState(selector)];
+  return Object.entries(selector).map(([field, equal]) => ({ field, equal }));
+}
+
+function setConstraints(constraints, selectors) {
+  const fields = new Set(selectors.map((selector) => selector.field));
+  const next = constraints.filter((constraint) => !fields.has(constraint.field));
+  return [...next, ...selectors.map(cloneState)];
 }
 
 function clearConstraint(constraints, field) {
   return constraints.filter((constraint) => constraint.field !== field);
 }
 
-function findConstraint(constraints, field) {
-  return constraints.find((constraint) => constraint.field === field);
-}
-
-function sameSelector(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
 function titleize(value) {
   return String(value || "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function normalizeAggregation(config = {}, state = {}) {
+  const aggregate = typeof config === "string" ? { drop: config } : config;
+  const xField = state.encoding?.x?.field;
+  const yField = state.encoding?.y?.field;
+  const groupby = asArray(
+    aggregate.by ||
+    aggregate.groupby ||
+    (aggregate.drop ? xField : null) ||
+    xField
+  ).filter(Boolean);
+  const value = aggregate.value || aggregate.field || yField || "value";
+  const as = aggregate.as || value;
+  const op = aggregate.op || aggregate.use || "sum";
+  const segment =
+    aggregate.segment ||
+    (!aggregate.drop ? groupby.find((field) => field !== xField) : null);
+  const category = aggregate.category || xField || groupby.find((field) => field !== segment);
+
+  return {
+    ...aggregate,
+    groupby,
+    category,
+    categoryTitle: aggregate.categoryTitle || titleize(category),
+    segment,
+    value,
+    as,
+    valueTitle: aggregate.valueTitle || state.encoding?.y?.title || titleize(as),
+    op
+  };
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  return value == null ? [] : [value];
 }

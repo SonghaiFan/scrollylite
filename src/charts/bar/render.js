@@ -51,6 +51,15 @@ function createLegacyBarRenderer(deps) {
       return;
     }
 
+    const duplicate = duplicateCategory(rows, horizontal ? enc.y : enc.x);
+    if (duplicate) {
+      drawBarDataError(
+        chart,
+        `Bar chart needs one value per ${duplicate.field}. Found ${duplicate.count} rows for "${duplicate.value}". Use .where(...) or .agg(...) to make the grain explicit.`
+      );
+      return;
+    }
+
     if (horizontal) {
       const x = d3
         .scaleLinear()
@@ -138,7 +147,7 @@ function createLegacyBarRenderer(deps) {
             exit
               .transition(t)
               .style("opacity", 0)
-              .attr("width", 0)
+              .attr("height", 0)
               .remove()
         );
     } else {
@@ -516,6 +525,33 @@ function createLegacyBarRenderer(deps) {
   }
 
   return drawBar;
+}
+
+function duplicateCategory(rows, channel = {}) {
+  if (!channel.field) return null;
+
+  const counts = new Map();
+  for (const row of rows) {
+    const value = row[channel.field];
+    const count = (counts.get(value) || 0) + 1;
+    if (count > 1) return { field: channel.field, value, count };
+    counts.set(value, count);
+  }
+
+  return null;
+}
+
+function drawBarDataError(chart, message) {
+  chart.scene.empty
+    .style("display", "grid")
+    .text(message);
+  chart.g.selectAll("rect.sl-bar").transition(chart.transition.base).style("opacity", 0).remove();
+  chart.scene.grid.transition(chart.transition.base).style("opacity", 0);
+  chart.scene.xAxis.transition(chart.transition.base).style("opacity", 0);
+  chart.scene.yAxis.transition(chart.transition.base).style("opacity", 0);
+  chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
+  chart.scene.yLabel.transition(chart.transition.base).style("opacity", 0);
+  chart.scene.legend.transition(chart.transition.base).style("opacity", 0);
 }
 
 function stackBarRows(rows, categoryField, segmentField, valueField, segments) {

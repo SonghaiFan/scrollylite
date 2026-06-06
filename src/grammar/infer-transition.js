@@ -29,6 +29,11 @@ function operationDelta(previousOperations, nextOperations) {
   ) {
     index += 1;
   }
+
+  if (index < previousOperations.length && index === nextOperations.length) {
+    return previousOperations.slice(index);
+  }
+
   return nextOperations.slice(index);
 }
 

@@ -69,7 +69,7 @@ function stateApplicationOrder(viewSpec, sceneTransition, compiler) {
   const supported = Object.keys(compiler.scenes);
   return STATE_APPLICATION_ORDER.filter((type) =>
     supported.includes(type) &&
-    (viewSpec[type] != null || sceneTransition.scene.includes(type))
+    (viewSpec[type] != null || sceneTransition[type] != null)
   );
 }
 

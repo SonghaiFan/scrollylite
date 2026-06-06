@@ -30,8 +30,7 @@ import { bar, story } from "../grammar/index.js";
 
 const base = bar("weatherDays")
   .x("decade")
-  .y("days", { title: "Hot days" })
-  .where({ temperature_kind: "Hot days" })
+  .y("days", { title: "Days" })
   .color("#b05d3b")
   .key("decade")
   .sort("year")
@@ -50,11 +49,12 @@ display label carries extra story semantics, such as showing `days` as
 State transforms:
 
 ```js
-base.filter({ period: "recent" })
+base.where({ period: "recent" })
 base.flip()
-base.where({ temperature_kind: "Cold days" }).y("days", { title: "Cold days" })
-base.segment("temperature_kind", { value: "days", layout: "stacked" })
-base.segment(...).layout("grouped").stage(["x", "y"])
+base.y("cold_days", { title: "Cold days" })
+base.agg({ by: "decade", value: "days", op: "sum" })
+base.agg({ by: ["decade", "temperature_kind"], value: "days", op: "sum", layout: "stacked" })
+base.agg(...).layout("grouped").stage(["x", "y"])
 ```
 
 ## Inference
@@ -63,11 +63,11 @@ The grammar layer records semantic operations when an altering function is
 called:
 
 - `.filter()` records `focus`
+- `.where()` records `focus`; `.where()` with no argument resets filters
 - `.flip()` and `.guide()` record `guide`
 - `.y()` records `observation` when it changes an existing y measure
-- `.where(...).y(...)` records `observation` when it changes a tidy category
 - `.observe()` records `observation` explicitly
-- `.segment()` records `granularity`
+- `.agg()` records `granularity`
 - `.layout()` and `.stage()` record `guide`
 
 `story().step()` converts those operations into the current design-space step
@@ -91,7 +91,7 @@ This avoids relying only on structural diff. A pure diff would also mark
 "leaving focus" or "leaving guide" as new transition intent. The operation log
 better matches the author's authored delta, and the compiler compares the next
 operation chain with the previous one so a derived state like
-`base.segment("temperature_kind").layout("grouped")` records only the new
+`base.agg({ by: ["decade", "temperature_kind"] }).layout("grouped")` records only the new
 `guide` transition after the segmented state.
 
 The compiled final view state is still complete. For example, the grouped bar
@@ -103,13 +103,15 @@ label remains only `guide`.
 The bar weather story in `src/specs/weather/bar-story.js` now uses this API:
 
 ```js
-const base = bar("weatherDays")
+const base = bar("weather")
   .x("decade")
-  .y("days")
-  .where({ temperature_kind: "Hot days" })
+  .y("hot_days", { title: "Hot days" })
   .key("decade");
 
-const segmented = base.segment("temperature_kind", { value: "days" });
+const segmented = bar("weatherDays")
+  .x("decade")
+  .y("days", { title: "Days" })
+  .agg({ by: ["decade", "temperature_kind"], value: "days", op: "sum", layout: "stacked" });
 
 return story()
   .data("weatherDays", {
@@ -128,8 +130,8 @@ return story()
     height: 540
   })
   .step("Baseline", base)
-  .step("Focus", base.filter({ period: "recent" }))
-  .step("Observation", base.where({ temperature_kind: "Cold days" }).y("days", { title: "Cold days" }))
+  .step("Focus", base.where({ period: "recent" }))
+  .step("Observation", base.y("cold_days", { title: "Cold days" }))
   .step("Split", segmented)
   .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
   .toSpec();
