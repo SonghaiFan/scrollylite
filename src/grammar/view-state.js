@@ -7,12 +7,19 @@ export class ViewState {
   with(patch = {}, operation = null) {
     const next = mergeState(this.state, patch);
     if (operation) {
+      const operationName = typeof operation === "string"
+        ? operation
+        : operation.name || operation.operation;
+      let operations = [
+        ...(this.state.__grammar?.operations || [])
+      ];
+      if (typeof operation === "object" && operation.replaceLast) {
+        const last = operations[operations.length - 1];
+        if (last === operation.replaceLast) operations = operations.slice(0, -1);
+      }
       next.__grammar = {
         ...(next.__grammar || {}),
-        operations: [
-          ...(this.state.__grammar?.operations || []),
-          operation
-        ]
+        operations: operationName ? [...operations, operationName] : operations
       };
     }
     return new this.constructor(next);

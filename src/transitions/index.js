@@ -233,7 +233,7 @@ function applyBarGranularity(spec, granularitySpec = {}) {
         granularitySpec.color || {
           field: segmentField,
           type: "nominal",
-          domain: segmentDomain,
+          ...(segmentDomain.length ? { domain: segmentDomain } : {}),
           range: granularitySpec.range || ["#b05d3b", "#536a9e"]
         }
     },

@@ -15,6 +15,16 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     };
   }
 
+  if (previous.hasGranularity && next.hasAggregate && !next.hasGranularity) {
+    plan.barCollapse = {
+      mode: "parent-child",
+      reason: "granularity-parent-child-lineage",
+      parentKey: next.categoryField,
+      childKey: [previous.categoryField, previous.segmentField].filter(Boolean),
+      fromLayout: previous.barLayout
+    };
+  }
+
   const layoutChanged = previous.barLayout !== next.barLayout;
   const changesSegmentLayout =
     layoutChanged &&
@@ -79,6 +89,8 @@ export function barState(spec) {
     measureField: horizontal ? enc.x?.field : enc.y?.field,
     hasGuide: Boolean(spec.sceneState?.guide),
     hasGranularity: Boolean(spec.sceneState?.granularity),
+    hasAggregate: Boolean(spec.aggregate),
+    segmentField: spec.sceneState?.granularity?.segmentField || spec.segmentField || spec.segment || null,
     guideStaging: spec.sceneState?.guide?.staging || null
   };
 }

@@ -1,4 +1,4 @@
-import { createBaseDemo, scatterView } from "./shared.js";
+import { createBaseDemo, scatterView } from "./shared.js?v=semantic-key-5";
 
 export function createScatterStory() {
   return {

@@ -73,11 +73,9 @@ import { defaultTransition } from "./src/timing.js";
 
 const sharedTransition = defaultTransition();
 const base = bar("weatherDays")
-  .x("decade", { title: "Decade" })
-  .y("days", { title: "Hot days" })
-  .where({ temperature_kind: "Hot days" })
-  .color("#b05d3b")
-  .key("decade")
+  .x("decade")
+  .y("count")
+  .where({ type: "Hot days" })
   .transition(sharedTransition)
   .sort("year");
 
@@ -118,9 +116,12 @@ export default story()
 - Native scroll-progress controller; no external scroll driver dependency
 - CSV loading through D3
 - Structured transforms: `filter`, `fold`, `aggregate`, `bin`, `sort`, `limit`
-- Tidy-data authoring convention: scene grammar uses category fields such as
-  `temperature_kind` plus value fields such as `days`; wide-to-long conversion
-  belongs in data preparation
+- Long-data authoring convention: scene grammar uses fields such as `type` plus
+  `count`, following the `country/year/type/count` shape used in tidy-data
+  teaching examples; wide-to-long conversion belongs in data preparation
+- Default color schema: categorical fields map to hue; quantitative color
+  fields map to luminance; semantic hot/cold categories keep the case-study
+  red/blue convention
 - Chart registry for `bar`, `scatter`, `line`, and `unit`
 - Chart modules under `src/charts/<type>/` with `BaseChart` inheritance,
   renderer, state, and key helpers

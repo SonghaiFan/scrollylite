@@ -1,4 +1,4 @@
-import { ViewState, cloneState } from "../view-state.js";
+import { ViewState, cloneState } from "../view-state.js?v=semantic-key-5";
 
 export function bar(data) {
   return new BarState({
@@ -25,22 +25,34 @@ export class BarState extends ViewState {
   }
 
   x(field, options = {}) {
-    return this.channel("x", field, { type: "nominal", ...options });
+    const channel = channelFrom(field, { type: "nominal", ...options });
+    return this.with({
+      key: this.state.key || channel.field,
+      encoding: {
+        x: channel
+      }
+    });
   }
 
   y(field, options = {}) {
+    if (typeof options === "string") options = { title: options };
     const { color, tooltip, ...channelOptions } = options;
     const channel = channelFrom(field, { type: "quantitative", ...channelOptions });
     const previous = this.state.encoding?.y;
+    const lastWhere = this.state.__grammar?.lastWhere;
     const patch = {
       encoding: {
         y: channel,
-        ...(color ? { color: cloneState(color) } : {}),
+        ...(color ? { color: colorFrom(color) } : {}),
         ...(tooltip ? { tooltip: cloneState(tooltip) } : {})
       }
     };
 
-    if (!previous || previous.field === channel.field) return this.with(patch);
+    if (!previous) return this.with(patch);
+
+    if (previous.field === channel.field) {
+      return this.with(patch);
+    }
 
     return this.with({
       ...patch,
@@ -61,16 +73,17 @@ export class BarState extends ViewState {
   }
 
   color(valueOrField, options = {}) {
-    const color = typeof valueOrField === "string" && valueOrField.startsWith("#")
-      ? { value: valueOrField }
-      : options.value
-        ? { value: options.value }
-        : { field: valueOrField, type: "nominal", ...options };
-    return this.with({ encoding: { color } });
+    return this.with({ encoding: { color: colorFrom(valueOrField, options) } });
   }
 
   tooltip(items) {
-    return this.with({ encoding: { tooltip: cloneState(items) } });
+    return this.with({
+      encoding: {
+        tooltip: cloneState(items.map((item) => (
+          typeof item === "string" ? { field: item, title: titleize(item) } : item
+        )))
+      }
+    });
   }
 
   key(fields) {
@@ -98,8 +111,17 @@ export class BarState extends ViewState {
       return this.with({ where: [] }, "focus");
     }
 
+    const selectors = normalizeSelectors(selector);
+    const identity = identityFromSelectors(this.state, selectors);
     return this.with({
-      where: setConstraints(this.state.where || [], normalizeSelectors(selector))
+      where: setConstraints(this.state.where || [], selectors),
+      ...(identity ? identity : {}),
+      __grammar: {
+        lastWhere: {
+          selectors: cloneState(selectors),
+          fields: selectors.map((item) => item.field)
+        }
+      }
     }, "focus");
   }
 
@@ -209,6 +231,50 @@ export class BarState extends ViewState {
     }, "granularity");
   }
 
+  split(segment = "type", options = {}) {
+    const category = options.category || this.state.encoding?.x?.field;
+    const value = options.value || this.state.encoding?.y?.field || "count";
+    const {
+      by,
+      category: _category,
+      value: _value,
+      ...rest
+    } = options;
+
+    const next = this.agg({
+      ...rest,
+      by: by || [category, segment],
+      segment,
+      value,
+      layout: options.layout || "stacked",
+      op: options.op || "sum"
+    });
+    return options.title === false
+      ? next
+      : next.y(value, { title: options.title || titleize(value) });
+  }
+
+  merge(drop = "type", options = {}) {
+    const value = options.value || this.state.encoding?.y?.field || "count";
+    const {
+      color,
+      title,
+      value: _value,
+      ...rest
+    } = options;
+    let next = this.agg({
+      ...rest,
+      drop,
+      value,
+      as: options.as || value,
+      op: options.op || "sum"
+    });
+
+    if (title) next = next.y(value, { title });
+    if (color) next = next.color(color);
+    return next;
+  }
+
   segment(fieldOrConfig = {}, maybeConfig = {}) {
     const config = typeof fieldOrConfig === "string"
       ? { ...maybeConfig, segment: fieldOrConfig }
@@ -296,6 +362,16 @@ function channelFrom(field, options = {}) {
   };
 }
 
+function colorFrom(valueOrField, options = {}) {
+  if (typeof valueOrField === "object") return cloneState(valueOrField);
+  if (typeof valueOrField === "string" && valueOrField.startsWith("#")) {
+    return { value: valueOrField };
+  }
+  return options.value
+    ? { value: options.value }
+    : { field: valueOrField, type: "nominal", ...options };
+}
+
 function normalizeSelector(selector = {}) {
   if (selector.field) return cloneState(selector);
   const entries = Object.entries(selector);
@@ -319,6 +395,29 @@ function setConstraints(constraints, selectors) {
 
 function clearConstraint(constraints, field) {
   return constraints.filter((constraint) => constraint.field !== field);
+}
+
+function identityFromSelectors(state = {}, selectors = []) {
+  const category = state.encoding?.x?.field;
+  const measure = selectors.find((selector) => (
+    selector.field &&
+    Object.prototype.hasOwnProperty.call(selector, "equal") &&
+    isMeasureSelectorField(selector.field)
+  ));
+
+  if (!category || !measure) return null;
+
+  return {
+    key: [category, measure.field],
+    semanticKey: {
+      entity: { field: category },
+      measure: { field: measure.field }
+    }
+  };
+}
+
+function isMeasureSelectorField(field) {
+  return field === "type" || field === "kind" || field.endsWith("_type") || field.endsWith("_kind");
 }
 
 function titleize(value) {
@@ -353,7 +452,7 @@ function normalizeAggregation(config = {}, state = {}) {
     segment,
     value,
     as,
-    valueTitle: aggregate.valueTitle || state.encoding?.y?.title || titleize(as),
+    valueTitle: aggregate.valueTitle || (segment ? titleize(value) : state.encoding?.y?.title || titleize(as)),
     op
   };
 }

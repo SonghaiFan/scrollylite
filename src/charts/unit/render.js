@@ -21,9 +21,10 @@ class UnitChart extends BaseChart {
     } = this.deps;
 
     const enc = spec.encoding || {};
+    const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const units = expandUnits(rows, spec, d3);
     const layout = unitLayout(units, chart, spec, { ...this.deps, d3 });
-    const color = colorScale(rows, enc.color, d3);
+    const color = colorScale(domainRows, enc.color, d3);
 
     hideAxesForUnit(chart, layout.axes);
     chart.scales = { color, orientation: layout.name };

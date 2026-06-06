@@ -1,5 +1,5 @@
-import { cloneState } from "./view-state.js";
-import { inferTransition } from "./infer-transition.js?v=semantic-agg-1";
+import { cloneState } from "./view-state.js?v=semantic-key-5";
+import { inferTransition } from "./infer-transition.js?v=semantic-key-5";
 
 export function story(initialSpec = {}) {
   return new StoryBuilder(initialSpec);

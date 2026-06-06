@@ -21,7 +21,7 @@ export const PERIOD_LUMINANCE_COLOR = {
 };
 
 export const TEMPERATURE_HUE = {
-  field: "temperature_kind",
+  field: "type",
   type: "nominal",
   domain: ["Hot days", "Cold days"],
   range: [HOT_COLOR, COLD_COLOR]
@@ -182,7 +182,7 @@ export function createBaseDemo() {
         type: "csv"
       },
       weatherDays: {
-        url: "./src/data/weather_days_tidy.csv",
+        url: "./src/data/weather_days_tidy.csv?v=semantic-key-5",
         type: "csv"
       }
     },

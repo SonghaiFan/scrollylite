@@ -71,7 +71,7 @@ function createLegacyBarRenderer(deps) {
         .domain(channelDomain(rows, enc.y))
         .range([0, chart.innerHeight])
         .padding(0.22);
-      const color = colorScale(rows, enc.color, d3);
+      const color = colorScale(domainRows, enc.color, d3);
 
       chart.scales = { x, y, color, orientation: "horizontal" };
       chart.channels = enc;
@@ -157,7 +157,7 @@ function createLegacyBarRenderer(deps) {
         .domain(quantitativeDomain(domainRows, enc.y, 0))
         .range([chart.innerHeight, 0])
         .nice();
-      const color = colorScale(rows, enc.color, d3);
+      const color = colorScale(domainRows, enc.color, d3);
 
       chart.scales = { x, y, color, orientation: "vertical" };
       chart.channels = enc;
@@ -172,33 +172,40 @@ function createLegacyBarRenderer(deps) {
 
       const barWidth = typeof x.bandwidth === "function" ? x.bandwidth() : 10;
       const guideStage = barGuideStage(chart, spec, "vertical", d3);
+      const collapseLineage = barCollapseLineage(chart, enc.x?.field);
       chart.g
         .selectAll("rect.sl-bar")
         .data(rows, key)
         .join(
-          (enter) =>
-            enter
+          (enter) => {
+            const entered = enter
               .append("rect")
               .attr("class", "sl-bar")
               .call(applyBarIdentity, spec, key, (d) => d[enc.x.field])
-              .attr(
-                "x",
-                (d) =>
-                  position(x, d[enc.x.field]) -
-                  (typeof x.bandwidth === "function" ? x.bandwidth() / 2 : barWidth / 2)
-              )
-              .attr("y", chart.innerHeight)
-              .attr("width", Math.max(1, barWidth))
-              .attr("height", 0)
               .attr("rx", 3)
               .attr("fill", (d) => color(d))
               .style("opacity", 0)
-              .call(bindTooltip, spec, tooltip)
+              .call(bindTooltip, spec, tooltip);
+
+            entered.each(function (d) {
+              const target = verticalBarGeometry(d, enc, x, y, chart, barWidth);
+              const start = collapseLineage?.start(d) || {
+                ...target,
+                y: chart.innerHeight,
+                height: 0
+              };
+              setRectGeometry(d3.select(this), start);
+            });
+
+            return entered
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
               .style("opacity", 1)
-              .attr("y", (d) => y(d[enc.y.field]))
-              .attr("height", (d) => chart.innerHeight - y(d[enc.y.field])),
+              .attr("x", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).x)
+              .attr("y", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).y)
+              .attr("width", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).width)
+              .attr("height", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).height);
+          },
           (update) => {
             const prepared = update
               .attr("class", "sl-bar")
@@ -246,13 +253,15 @@ function createLegacyBarRenderer(deps) {
               .attr("height", (d) => chart.innerHeight - y(d[enc.y.field]))
               .attr("fill", (d) => color(d));
           },
-          (exit) =>
-            exit
-              .transition(t)
-              .style("opacity", 0)
-              .attr("y", chart.innerHeight)
-              .attr("height", 0)
-              .remove()
+          (exit) => {
+            const leaving = exit.transition(t).style("opacity", 0);
+            if (!collapseLineage) {
+              leaving
+                .attr("y", chart.innerHeight)
+                .attr("height", 0);
+            }
+            return leaving.remove();
+          }
         );
     }
 
@@ -306,6 +315,52 @@ function createLegacyBarRenderer(deps) {
     return current || selection;
   }
 
+  function verticalBarGeometry(d, enc, x, y, chart, barWidth) {
+    return {
+      x:
+        position(x, d[enc.x.field]) -
+        (typeof x.bandwidth === "function" ? x.bandwidth() / 2 : barWidth / 2),
+      y: y(d[enc.y.field]),
+      width: Math.max(1, barWidth),
+      height: chart.innerHeight - y(d[enc.y.field])
+    };
+  }
+
+  function setRectGeometry(selection, geometry) {
+    selection
+      .attr("x", geometry.x)
+      .attr("y", geometry.y)
+      .attr("width", Math.max(0, geometry.width))
+      .attr("height", Math.max(0, geometry.height));
+  }
+
+  function barCollapseLineage(chart, parentField) {
+    const hasCollapsePlan = chart.transitionPlan?.barCollapse?.mode === "parent-child";
+    const hasSegmentChildren = chart.g.selectAll("rect.sl-bar-segment").size() > 0;
+    if ((!hasCollapsePlan && !hasSegmentChildren) || !parentField) {
+      return null;
+    }
+
+    const bounds = new Map();
+    chart.g.selectAll("rect.sl-bar").each(function () {
+      const node = this;
+      const parent = node.dataset.category || parentFromChildKey(node.dataset.key);
+      const box = rectGeometry(node);
+      if (!parent || !box) return;
+
+      const current = bounds.get(parent);
+      bounds.set(parent, current ? unionRect(current, box) : box);
+    });
+
+    if (!bounds.size) return null;
+
+    return {
+      start(d) {
+        return bounds.get(String(d[parentField])) || null;
+      }
+    };
+  }
+
   function drawSegmentedBar(chart, rows, spec, tooltip, d3, barLayout) {
     const enc = spec.encoding || {};
     const t = chart.transition.base;
@@ -318,7 +373,7 @@ function createLegacyBarRenderer(deps) {
       field: segmentField,
       domain: spec.sceneState?.granularity?.segments || spec.segmentDomain
     });
-    const color = colorScale(rows, enc.color, d3);
+    const color = colorScale(domainRows, enc.color, d3);
     const key = barKeyAccessor(chart, spec, [categoryField, segmentField]);
 
     const x = d3
@@ -539,6 +594,37 @@ function duplicateCategory(rows, channel = {}) {
   }
 
   return null;
+}
+
+function rectGeometry(node) {
+  const x = rectNumber(node, "x");
+  const y = rectNumber(node, "y");
+  const width = rectNumber(node, "width");
+  const height = rectNumber(node, "height");
+  if (![x, y, width, height].every(Number.isFinite)) return null;
+  return { x, y, width, height };
+}
+
+function rectNumber(node, attr) {
+  const value = Number(node.getAttribute(attr));
+  return Number.isFinite(value) ? value : NaN;
+}
+
+function unionRect(a, b) {
+  const x0 = Math.min(a.x, b.x);
+  const y0 = Math.min(a.y, b.y);
+  const x1 = Math.max(a.x + a.width, b.x + b.width);
+  const y1 = Math.max(a.y + a.height, b.y + b.height);
+  return {
+    x: x0,
+    y: y0,
+    width: x1 - x0,
+    height: y1 - y0
+  };
+}
+
+function parentFromChildKey(key = "") {
+  return String(key).includes("|") ? String(key).split("|")[0] : null;
 }
 
 function drawBarDataError(chart, message) {

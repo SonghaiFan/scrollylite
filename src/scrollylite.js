@@ -5,11 +5,11 @@ import {
 } from "./design-space.js";
 import { applyTransforms } from "./data/transforms.js";
 import { keyAccessor } from "./identity/semantic-key.js";
-import { createBarRenderer } from "./charts/bar/render.js?v=semantic-agg-1";
+import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-5";
 import { resolveBarTransitionPlan } from "./charts/bar/state.js";
-import { createLineRenderer } from "./charts/line/render.js";
-import { createScatterRenderer } from "./charts/scatter/render.js";
-import { createUnitRenderer } from "./charts/unit/render.js";
+import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-5";
+import { createScatterRenderer } from "./charts/scatter/render.js?v=semantic-key-5";
+import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-5";
 import { createChartRegistry, normalizeChartType } from "./charts/index.js";
 import { layoutClasses } from "./layouts/index.js";
 import {
@@ -27,7 +27,7 @@ import {
   hasScene,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "./transitions/index.js?v=semantic-agg-1";
+} from "./transitions/index.js?v=semantic-key-5";
 
 const DEFAULT_PALETTE = [
   "#2f7d7e",
@@ -39,6 +39,13 @@ const DEFAULT_PALETTE = [
   "#c18f2f",
   "#4f7f99"
 ];
+const DEFAULT_LUMINANCE_BASE = "#2f7d7e";
+const SEMANTIC_CATEGORY_COLORS = {
+  "hot": "#b05d3b",
+  "hot days": "#b05d3b",
+  "cold": "#536a9e",
+  "cold days": "#536a9e"
+};
 
 const BUILT_IN_CHARTS = createChartRegistry();
 
@@ -954,33 +961,115 @@ function channelDomain(rows, channel = {}) {
 }
 
 function colorScale(rows, channel, d3) {
-  if (!channel) return () => "var(--sl-accent)";
+  const resolved = resolveColorChannel(rows, channel);
+  if (!resolved) return () => "var(--sl-accent)";
+  channel = resolved;
   if (channel.value) return () => channel.value;
   if (channel.hue || channel.luminance) return compositeColorScale(channel, d3);
   if (!channel.field) return () => "var(--sl-accent)";
 
+  if (channel.type === "quantitative") return luminanceColorScale(rows, channel, d3);
+
   const domain = channelDomain(rows, channel);
-  const scale = d3.scaleOrdinal(channel.range || DEFAULT_PALETTE).domain(domain);
+  const scale = d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
   return (row) => scale(row[channel.field]);
+}
+
+function resolveColorChannel(rows, channel) {
+  if (channel === false) return null;
+  if (channel?.value) return channel;
+  if (channel?.hue || channel?.luminance) {
+    return {
+      ...channel,
+      ...(channel.hue ? { hue: normalizeColorSubchannel(rows, channel.hue) } : {}),
+      ...(channel.luminance ? { luminance: normalizeColorSubchannel(rows, channel.luminance) } : {})
+    };
+  }
+  if (channel?.field) {
+    return {
+      ...channel,
+      type: channel.type || inferFieldType(rows, channel.field)
+    };
+  }
+
+  const field = defaultColorField(rows);
+  if (!field) return null;
+  return {
+    field,
+    type: inferFieldType(rows, field),
+    inferred: true
+  };
+}
+
+function normalizeColorSubchannel(rows, channel = {}) {
+  if (!channel.field) return channel;
+  return {
+    ...channel,
+    type: channel.type || inferFieldType(rows, channel.field)
+  };
+}
+
+function defaultColorField(rows) {
+  const preferred = ["type", "kind", "category", "group", "series", "period"];
+  return preferred.find((field) => rows.some((row) => row[field] != null));
+}
+
+function inferFieldType(rows, field) {
+  const values = rows
+    .map((row) => row[field])
+    .filter((value) => value != null && value !== "");
+  if (!values.length) return "nominal";
+  return values.every((value) => Number.isFinite(Number(value))) ? "quantitative" : "nominal";
+}
+
+function categoricalRange(domain) {
+  return domain.map((value, index) => (
+    semanticCategoryColor(value) || DEFAULT_PALETTE[index % DEFAULT_PALETTE.length]
+  ));
+}
+
+function semanticCategoryColor(value) {
+  return SEMANTIC_CATEGORY_COLORS[String(value ?? "").trim().toLowerCase()];
+}
+
+function luminanceColorScale(rows, channel, d3) {
+  const domain = quantitativeDomain(rows, channel);
+  const base = channel.base || channel.value || DEFAULT_LUMINANCE_BASE;
+  const lightness = channel.lightness || [22, -18];
+  const scale = d3
+    .scaleLinear()
+    .domain(domain)
+    .range(lightness)
+    .clamp(true);
+
+  return (row = {}) => adjustLightness(base, scale(Number(row[channel.field])), d3);
 }
 
 function compositeColorScale(channel, d3) {
   const hue = channel.hue || {};
   const luminance = channel.luminance || {};
   const hueDomain = hue.domain || [];
-  const hueScale = d3.scaleOrdinal(hue.range || DEFAULT_PALETTE).domain(hueDomain);
+  const hueScale = d3.scaleOrdinal(hue.range || categoricalRange(hueDomain)).domain(hueDomain);
   const luminanceDomain = luminance.domain || [];
+  const continuousLuminance =
+    luminance.type === "quantitative" ||
+    (luminanceDomain.length === 2 && luminanceDomain.every((value) => Number.isFinite(Number(value))));
   const lightness = luminance.lightness || [18, 0, -18];
-  const lightnessScale = d3
-    .scaleOrdinal(lightness)
-    .domain(luminanceDomain);
+  const lightnessScale = continuousLuminance
+    ? d3.scaleLinear()
+        .domain(luminanceDomain.map(Number))
+        .range([lightness[0], lightness[lightness.length - 1]])
+        .clamp(true)
+    : d3
+        .scaleOrdinal(lightness)
+        .domain(luminanceDomain);
 
   return (row = {}) => {
     const base = hue.value || hueScale(row[hue.field]);
     const luminanceValue = row[luminance.field];
     const offset =
-      luminance.field && luminanceDomain.includes(luminanceValue)
-        ? Number(lightnessScale(luminanceValue)) || 0
+      luminance.field && (continuousLuminance || luminanceDomain.includes(luminanceValue))
+        ? Number(lightnessScale(continuousLuminance ? Number(luminanceValue) : luminanceValue)) || 0
         : 0;
     return adjustLightness(base, offset, d3);
   };
@@ -1100,16 +1189,23 @@ function updateGrid(chart, y, d3) {
 }
 
 function drawLegend(chart, rows, channel, d3) {
+  const colorRows = chart.domainRows?.length ? chart.domainRows : rows;
+  channel = resolveColorChannel(colorRows, channel);
   if (!channel || channel.value || (!channel.field && !channel.hue && !channel.luminance)) {
     chart.scene.legend.transition(chart.transition.base).style("opacity", 0);
     return;
   }
 
   const legendChannel = channel.hue?.field ? channel.hue : channel.luminance?.field ? channel.luminance : channel;
-  const domain = channelDomain(rows, legendChannel);
+  const quantitativeLegend = legendChannel.type === "quantitative";
+  const domain = quantitativeLegend
+    ? quantitativeLegendDomain(colorRows, legendChannel, d3)
+    : channelDomain(colorRows, legendChannel);
   const scale = channel.hue || channel.luminance
     ? compositeColorScale(channel, d3)
-    : d3.scaleOrdinal(channel.range || DEFAULT_PALETTE).domain(domain);
+    : quantitativeLegend
+      ? luminanceColorScale(colorRows, legendChannel, d3)
+      : d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
   const legendRow = (value) => ({ [legendChannel.field]: value });
   const legend = chart.scene.legend
     .interrupt()
@@ -1144,9 +1240,15 @@ function drawLegend(chart, rows, channel, d3) {
   items
     .merge(entered)
     .select("text")
-    .text((d) => d);
+    .text((d) => quantitativeLegend ? d3.format("~g")(d) : d);
 
   items.exit().transition(chart.transition.base).style("opacity", 0).remove();
+}
+
+function quantitativeLegendDomain(rows, channel, d3) {
+  const [min, max] = quantitativeDomain(rows, channel);
+  if (min === max) return [min];
+  return d3.ticks(min, max, 3);
 }
 
 function legendItemX(domain, index) {
@@ -1247,18 +1349,16 @@ function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null)
   const step = targetStep || shell.steps[index];
   if (!step || !shell.story) return;
   const token = beginNavigationLock(shell, renderer, index);
-  if (scrollDriver?.scrollToStep) scrollDriver.scrollToStep(index);
-  else step.scrollIntoView({ behavior: "auto", block: "center" });
+  const targetTop = scrollDriver?.scrollToStep
+    ? scrollDriver.scrollToStep(index)
+    : scrollStepIntoView(step);
   renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  addNavigationTimer(shell, window.setTimeout(() => {
-    if (!isCurrentNavigation(shell, token)) return;
-    renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  }, 300));
-  addNavigationTimer(shell, window.setTimeout(() => {
-    if (!isCurrentNavigation(shell, token)) return;
-    renderer.renderStep(index, { force: true, scrollProgress: 1 });
-    endNavigationLock(shell, token);
-  }, 900));
+  waitForNavigationScroll(shell, renderer, index, token, targetTop);
+}
+
+function scrollStepIntoView(step) {
+  step.scrollIntoView({ behavior: "auto", block: "center" });
+  return null;
 }
 
 function beginNavigationLock(shell, renderer, index) {
@@ -1283,6 +1383,41 @@ function isNavigationLocked(shell) {
 
 function isCurrentNavigation(shell, token) {
   return shell.story?.dataset.navLockToken === token;
+}
+
+function waitForNavigationScroll(shell, renderer, index, token, targetTop) {
+  if (!Number.isFinite(targetTop)) {
+    addNavigationTimer(shell, window.setTimeout(() => {
+      finishNavigationLock(shell, renderer, index, token);
+    }, 900));
+    return;
+  }
+
+  const startedAt = now();
+  const timeout = 1400;
+  const tolerance = 2;
+  const check = () => {
+    if (!isCurrentNavigation(shell, token)) return;
+    const reachedTarget = Math.abs(window.scrollY - targetTop) <= tolerance;
+    const expired = now() - startedAt >= timeout;
+    if (reachedTarget || expired) {
+      finishNavigationLock(shell, renderer, index, token);
+      return;
+    }
+    addNavigationTimer(shell, window.setTimeout(check, 50));
+  };
+
+  addNavigationTimer(shell, window.setTimeout(check, 50));
+}
+
+function finishNavigationLock(shell, renderer, index, token) {
+  if (!isCurrentNavigation(shell, token)) return;
+  renderer.renderStep(index, { force: true, scrollProgress: 1 });
+  endNavigationLock(shell, token);
+}
+
+function now() {
+  return window.performance?.now?.() ?? Date.now();
 }
 
 function addNavigationTimer(shell, timer) {

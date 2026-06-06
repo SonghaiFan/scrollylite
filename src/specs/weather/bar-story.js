@@ -1,57 +1,23 @@
-import { bar, story } from "../../grammar/index.js?v=semantic-agg-1";
+import { bar, story } from "../../grammar/index.js?v=semantic-key-5";
 import {
-  COLD_COLOR,
-  HOT_COLOR,
-  TEMPERATURE_HUE,
   createBaseDemo,
   sharedTiming
-} from "./shared.js";
+} from "./shared.js?v=semantic-key-5";
 
 export function createBarStory() {
-  const base = bar("weather")
+  const base = bar("weatherDays")
     .x("decade")
-    .y("hot_days", { title: "Hot days" })
-    .color(HOT_COLOR)
-    .key("decade")
+    .y("count")
+    .where({ type: "Hot days" })
     .transition(sharedTiming)
     .sort("year")
-    .tooltip([
-      { field: "decade", title: "Decade" },
-      { field: "period", title: "Period" },
-      { field: "hot_days", title: "Hot days" },
-      { field: "cold_days", title: "Cold days" }
-    ]);
+    .tooltip(["decade", "period", "type", "count"]);
 
-  const tidyBase = bar("weatherDays")
-    .x("decade")
-    .y("days", { title: "Days" })
-    .key("decade")
-    .transition(sharedTiming)
-    .sort("year")
-    .tooltip([
-      { field: "decade", title: "Decade" },
-      { field: "period", title: "Period" },
-      { field: "temperature_kind", title: "Kind" },
-      { field: "days", title: "Days" }
-    ]);
-
-  const segmented = tidyBase.agg({
-    by: ["decade", "temperature_kind"],
-    value: "days",
-    op: "sum",
-    layout: "stacked",
-    color: TEMPERATURE_HUE
-  });
-  const grouped = segmented.layout("grouped").stage(["x", "y"]);
-  const total = grouped
-    .agg("temperature_kind")
-    .y("days", { title: "Total days" })
-    .color("#6d7480");
 
   return story(createBaseDemo())
     .layout("floatToText")
     .description(
-      "This demo keeps the chart type fixed as bar chart and demonstrates Focus, Guide, Observation, and Granularity as scene-state changes."
+      "This demo keeps the chart type fixed as bar chart and demonstrates Focus, Guide, and Granularity as scene-state changes over tidy data."
     )
     .step(
       "Baseline: vertical bar chart",
@@ -69,26 +35,34 @@ export function createBarStory() {
       "The guide scene turns vertical bars into horizontal bars with a two-stage y-then-x transition."
     )
     .step(
-      "Observation: change encoded variable",
-      base
-        .y("cold_days", { title: "Cold days" })
-        .color(COLD_COLOR),
-      "The observation scene keeps the same decade categories but changes the value encoded by bar height."
+      "Focus: switch selected type",
+      base.where({ type: "Cold days" }),
+      "In tidy data, changing from hot days to cold days is a keyed filter change over the same count channel."
+    )
+    .step(
+      "Baseline: return to hot days",
+      base,
+      "Start with one vertical bar per decade, using bar height to encode hot days."
     )
     .step(
       "Granularity: split into hot/cold segments",
-      segmented,
+      base.split("type"),
       "The granularity scene changes one aggregate bar into hot/cold segments for each decade."
     )
     .step(
       "Guide: stacked to grouped segments",
-      grouped,
+      base.split("type").layout("grouped").stage(["x", "y"]),
       "The guide scene keeps the same hot/cold segments but changes their position and scale from stacked to grouped."
     )
     .step(
+      "Guide: grouped back to stacked",
+      base.split("type").layout("stacked").stage(["y", "x"]),
+      "The guide scene keeps decade/type segment keys stable while regrouped bars return to a stacked layout."
+    )
+    .step(
       "Granularity: merge to total days",
-      total,
-      "The granularity scene merges hot/cold segments back into one total-days bar per decade."
+      base.split("type").merge("type", { title: "Total days" }),
+      "The granularity scene collapses child segment keys into one parent total-days bar per decade."
     )
     .toSpec();
 }

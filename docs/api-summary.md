@@ -28,10 +28,12 @@ data: {
 }
 ```
 
-ScrollyLite authoring assumes tidy data. Related observations should live in
-rows, not separate measure columns: for example `temperature_kind = "Hot days"`
-and `days = 16`, rather than separate `hot_days` and `cold_days` fields. If a
-source arrives wide, fold it before authoring the story.
+The current bar grammar assumes long data in a compact
+`entity/time/type/count` shape. For the weather demo, `type` is `Hot days` or
+`Cold days`, and `count` is the measured value. If one x category maps to
+multiple y values, use `.where(...)` to choose a subset, or
+`.split(...)` / `.merge(...)` to change granularity. A future data-preparation
+API should convert wide tables to this long flavour.
 
 `layout` controls story mechanics:
 
@@ -85,11 +87,11 @@ Each step can declare a transition type and a view state:
       key: "decade",
       guide: { orientation: "horizontal" },
       transform: [
-        { filter: { field: "temperature_kind", equal: "Hot days" } }
+        { filter: { field: "type", equal: "Hot days" } }
       ],
       encoding: {
         x: { field: "decade", type: "nominal" },
-        y: { field: "days", type: "quantitative" }
+        y: { field: "count", type: "quantitative" }
       }
     }
   }
@@ -131,6 +133,7 @@ Color can be direct, categorical, or composite:
 ```js
 color: { value: "#b05d3b" }
 color: { field: "period", type: "nominal" }
+color: { field: "count", type: "quantitative" } // same hue, luminance varies
 color: {
   hue: { value: "#b05d3b" },
   luminance: {
@@ -141,6 +144,11 @@ color: {
 }
 ```
 
+When `encoding.color` is omitted, the runtime applies a default schema. It looks
+for semantic categorical fields such as `type`, `kind`, `category`, `group`,
+`series`, or `period`, and assigns hue. Hot/Cold values use the case-study
+red/blue mapping. Explicit quantitative color fields use luminance.
+
 ## Scene Semantics
 
 Scene-state fields and transition labels are related but separate. A step can
@@ -148,13 +156,14 @@ carry `granularity` state because the final chart is segmented while declaring
 only `scene: ["guide"]` because the authored delta is stacked-to-grouped
 repositioning.
 
-`focus`: change the subset or visible range.
+`focus`: change data size through filtering or unfiltering. Visual elements
+enter and exit.
 
-`guide`: change orientation, scale, axis mapping, or unit/bar layout while
-preserving the same observation.
+`guide`: change scale, coordinate mapping, axis mapping, or layout while the
+data and observation stay the same.
 
-`granularity`: change aggregation/detail level, such as aggregate bars to
-segmented bars, or scatter parent points to child points.
+`granularity`: change visual element grain, such as stacked segments merging to
+one aggregate bar or one aggregate bar splitting into segments.
 
 `observation`: change which variable is encoded while preserving the same
 entity key.
@@ -170,15 +179,12 @@ per story.
 ```js
 import { bar, story } from "./src/grammar/index.js";
 
-const base = bar("weather")
+const base = bar("weatherDays")
   .x("decade")
-  .y("hot_days", { title: "Hot days" })
-  .key("decade");
+  .y("count")
+  .where({ type: "Hot days" });
 
-const segmented = bar("weatherDays")
-  .x("decade")
-  .y("days", { title: "Days" })
-  .agg({ by: ["decade", "temperature_kind"], value: "days", op: "sum", layout: "stacked" });
+const segmented = base.split("type");
 
 const spec = story()
   .data("weatherDays", {
@@ -196,9 +202,10 @@ const spec = story()
   .step("Baseline", base)
   .step("Focus recent", base.where({ period: "recent" }))
   .step("Flip coordinates", base.flip())
-  .step("Cold days", base.y("cold_days", { title: "Cold days" }))
+  .step("Cold days", base.where({ type: "Cold days" }))
   .step("Split", segmented)
   .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
+  .step("Merge", segmented.merge("type", { title: "Total days" }))
   .toSpec();
 ```
 
@@ -229,3 +236,9 @@ Returned fields:
   logic in chart renderers.
 - Semantic keys are the primary mechanism for object consistency.
 - Chart idioms extend through `BaseChart` and `src/charts/<type>/`.
+
+## TODO
+
+- Add a data-preparation API for converting wide tables into the long flavour
+  expected by the bar grammar, for example folding `hot_days` and `cold_days`
+  into `type` plus `count`.

@@ -31,9 +31,10 @@ class ScatterChart extends BaseChart {
 
     const enc = spec.encoding || {};
     const t = chart.transition.base;
+    const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
     const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
-    const color = colorScale(rows, enc.color, d3);
+    const color = colorScale(domainRows, enc.color, d3);
     const key = scatterKeyAccessor(spec, enc.x?.field);
     const radius = radiusScale(rows, enc.size, spec.size || 7, d3, quantitativeDomain);
     const state = scatterState(spec, enc);

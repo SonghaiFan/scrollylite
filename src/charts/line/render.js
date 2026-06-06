@@ -32,6 +32,7 @@ class LineChart extends BaseChart {
     const enc = spec.encoding || {};
     const t = chart.transition.base;
     const state = lineState(spec, enc);
+    const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const x = focusedLineXScale(rows, enc.x, chart, state.focus, {
       bandOrLinear,
       d3,
@@ -39,7 +40,7 @@ class LineChart extends BaseChart {
       position
     });
     const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
-    const color = colorScale(rows, enc.color, d3);
+    const color = colorScale(domainRows, enc.color, d3);
     const key = linePointKeyAccessor(spec, enc.x?.field);
     const series = lineSeries(rows, state.seriesField);
     const line = d3
