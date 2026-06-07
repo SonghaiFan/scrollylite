@@ -16,8 +16,8 @@ The five sibling projects in this folder repeat the same hidden pattern:
 - change chart state when the active step changes
 - preserve object identity with keyed joins
 - animate marks between layouts with enter/update/exit transitions
-- reuse marks such as line, bar, point, unit chart, and Sankey-like relationship
-  diagrams
+- reuse Vega-Lite-style marks such as line, bar, point, circle, and Sankey-like
+  relationship diagrams
 
 The essential abstraction is not just "a chart per step." It is a sequence of
 keyed scene states. The same objects can move from a timeline to a scatterplot,
@@ -40,21 +40,20 @@ http://localhost:5510/
 
 ## Current Grammar Sketch
 
-The grammar has two layers:
+The grammar has two runtime layers:
 
-- `designSpace`: thesis vocabulary for Layout, Transition, and Action.
-  Structure is intentionally not implemented yet.
+- `layout`, `action`, and `transition`: direct story mechanics.
 - `views`: executable visual grammar for data, marks, encodings, transforms,
   keyed joins, and animation timing.
 
-See `docs/api-summary.md` for the current phase-1 API surface and
-`docs/grammar-authoring.md` for the phase-2 state-transform authoring
-prototype.
+See `docs/spec-schema-and-authoring.md` for the current spec schema and
+authoring grammar, `docs/api-summary.md` for the phase-1 API surface, and
+`docs/grammar-authoring.md` for the phase-2 state-transform authoring prototype.
 
 The authoring entry point is a story. In this demo each story happens to focus
 on one chart idiom, but the selection model is story-first rather than
 chart-first. The core runtime should not grow one `if/else` branch per chart or
-layout. Story modules, chart types, and layout modes are managed as registries:
+layout. Story modules, mark renderers, and layout modes are managed as registries:
 
 - `src/specs/weather/` contains one story module per weather demo story.
 - `src/charts/index.js` normalizes chart aliases and exposes a registry pattern.
@@ -92,12 +91,7 @@ export default story()
       nav: true,
       progress: true,
       scroll: {
-        progress: "geometry",
-        clamp: true,
-        navigation: {
-          behavior: "instant",
-          progress: 0.98
-        }
+        progress: "geometry"
       }
     }
   })
@@ -111,8 +105,8 @@ export default story()
 ## Implemented In This Template
 
 - Static ES-module runtime, no build step
-- Thesis-aligned `designSpace` annotations for `Layout`, `Transition`, and
-  `Action`
+- Vega-Lite-shaped bar specs with ScrollyLite narrative extensions in a single
+  `narrative` block
 - Native scroll-progress controller; no external scroll driver dependency
 - CSV loading through D3
 - Structured transforms: `filter`, `fold`, `aggregate`, `bin`, `sort`, `limit`
@@ -122,18 +116,19 @@ export default story()
 - Default color schema: categorical fields map to hue; quantitative color
   fields map to luminance; semantic hot/cold categories keep the case-study
   red/blue convention
-- Chart registry for `bar`, `scatter`, `line`, and `unit`
+- Mark renderer registry currently focused on Vega-Lite-style `bar` variants,
+  plus ScrollyLite's custom `unit` idiom
 - Chart modules under `src/charts/<type>/` with `BaseChart` inheritance,
   renderer, state, and key helpers
-- Chart aliases such as `point`, `dot`, and `barChart`
+- Renderer aliases such as `point`, `circle`, `square`, `dot`, and `barChart`
 - Encoding channels: `x`, `y`, `color`, `tooltip`
 - Persistent SVG scene layers instead of clearing and redrawing
 - Keyed enter/update/exit transitions
 - Pairwise transition planning from previous scene state to next scene state
 - Declarative transition timing: `duration`, `ease`, and `stagger`
 - Scroll-controlled transition mode using D3 transition schedule scrubbing
-- Scene transition compiler for `bar`, `scatter`, `line`, and `unit`:
-  - `focus` filters bar/scatter views and range-crops line views by default
+- Scene transition compiler for `bar` variants and circle-unit views:
+  - `focus` filters bar views by default
   - `guide` changes orientation, scale, axis mapping, or segmented-bar layout
   - `granularity` changes aggregation, segmentation, split/merge, or line series
   - `observation` changes encoded variables while preserving semantic identity

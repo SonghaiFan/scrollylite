@@ -1,34 +1,30 @@
-import { createBaseDemo, scatterView } from "./shared.js?v=semantic-key-11";
+import { createBaseDemo, pointView } from "./shared.js?v=semantic-key-16";
 
-export function createScatterStory() {
+export function createPointStory() {
   return {
     ...createBaseDemo(),
     description:
-      "This demo keeps the chart type fixed as scatter plot and demonstrates Focus, Guide, Observation, and Granularity with semantic split/merge anchors.",
+      "This demo keeps the mark fixed as point and demonstrates Focus, Guide, Observation, and Granularity with semantic split/merge anchors.",
     steps: [
       {
         title: "Baseline: temperature scatter plot",
         body:
           "Start with one circle per decade, encoding minimum temperature on x and maximum temperature on y.",
-        designSpace: {
-          action: ["step", "tooltip", "enter"]
-        },
+        action: ["step", "tooltip", "enter"],
         views: {
-          main: scatterView()
+          main: pointView()
         }
       },
       {
         title: "Focus: filter to a subset",
         body:
           "The focus scene keeps the scatter plot form but filters to the recent decades.",
-        designSpace: {
-          transition: {
-            scene: ["focus"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["focus"]
         },
+        action: ["step", "tooltip"],
         views: {
-          main: scatterView({
+          main: pointView({
             focus: {
               field: "period",
               equal: "recent"
@@ -40,14 +36,12 @@ export function createScatterStory() {
         title: "Guide: swap axes and use log scale",
         body:
           "The guide scene changes how the same variables are read: axes swap and the horizontal scale becomes logarithmic.",
-        designSpace: {
-          transition: {
-            scene: ["guide"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["guide"]
         },
+        action: ["step", "tooltip"],
         views: {
-          main: scatterView({
+          main: pointView({
             guide: {
               swap: true,
               x: {
@@ -70,14 +64,12 @@ export function createScatterStory() {
         title: "Observation: change encoded variables",
         body:
           "The observation scene keeps the decade circles but changes both axes to encode hot and cold days.",
-        designSpace: {
-          transition: {
-            scene: ["observation"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["observation"]
         },
+        action: ["step", "tooltip"],
         views: {
-          main: scatterView({
+          main: pointView({
             observation: {
               x: { field: "hot_days", title: "Hot days", domain: [0, 30] },
               y: { field: "cold_days", title: "Cold days", domain: [0, 30] }
@@ -89,14 +81,12 @@ export function createScatterStory() {
         title: "Granularity: merge decades into periods",
         body:
           "The granularity scene merges multiple decade circles into one aggregate circle for each period.",
-        designSpace: {
-          transition: {
-            scene: ["granularity"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["granularity"]
         },
+        action: ["step", "tooltip"],
         views: {
-          main: scatterView({
+          main: pointView({
             granularity: {
               mode: "aggregate",
               groupby: ["period"],
@@ -126,14 +116,12 @@ export function createScatterStory() {
         title: "Granularity: split periods back to decades",
         body:
           "The granularity scene splits each aggregate period circle back into its decade circles using the period as parent identity.",
-        designSpace: {
-          transition: {
-            scene: ["granularity"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["granularity"]
         },
+        action: ["step", "tooltip"],
         views: {
-          main: scatterView({
+          main: pointView({
             granularity: {
               mode: "detail",
               key: "decade",
@@ -149,4 +137,8 @@ export function createScatterStory() {
       }
     ]
   };
+}
+
+export function createScatterStory() {
+  return createPointStory();
 }

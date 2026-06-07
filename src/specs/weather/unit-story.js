@@ -1,4 +1,4 @@
-import { HOT_PERIOD_COLOR, createBaseDemo, unitView } from "./shared.js?v=semantic-key-11";
+import { HOT_PERIOD_COLOR, createBaseDemo, unitView } from "./shared.js?v=semantic-key-16";
 
 export function createUnitStory() {
   return {
@@ -10,9 +10,7 @@ export function createUnitStory() {
         title: "Baseline: one unit per hot day",
         body:
           "Start with one keyed circle per hot day. Units inherit semantic identity from decade plus unit index.",
-        designSpace: {
-          action: ["step", "tooltip", "enter"]
-        },
+        action: ["step", "tooltip", "enter"],
         views: {
           main: unitView()
         }
@@ -21,12 +19,10 @@ export function createUnitStory() {
         title: "Focus: filter to recent decades",
         body:
           "The focus scene keeps the unit idiom but filters rows before unit expansion.",
-        designSpace: {
-          transition: {
-            scene: ["focus"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["focus"]
         },
+        action: ["step", "tooltip"],
         views: {
           main: unitView({
             focus: {
@@ -40,12 +36,10 @@ export function createUnitStory() {
         title: "Guide: group units by period",
         body:
           "The guide scene changes position and scale to group the same repeated units by period.",
-        designSpace: {
-          transition: {
-            scene: ["guide"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["guide"]
         },
+        action: ["step", "tooltip"],
         views: {
           main: unitView({
             guide: {
@@ -60,12 +54,10 @@ export function createUnitStory() {
         title: "Guide: dodge units along the timeline",
         body:
           "The guide scene keeps the hot-day units but changes their reading guide to a collision-dodged timeline.",
-        designSpace: {
-          transition: {
-            scene: ["guide"]
-          },
-          action: ["step", "tooltip"]
+        transition: {
+          scene: ["guide"]
         },
+        action: ["step", "tooltip"],
         views: {
           main: unitView({
             guide: {

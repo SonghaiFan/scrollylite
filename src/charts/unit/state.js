@@ -104,7 +104,7 @@ export function unitLayout(units, chart, spec, deps) {
     };
   }
 
-  if (layout === "scatter" && xField && yField) {
+  if ((layout === "point" || layout === "scatter") && xField && yField) {
     const radius = fitRadius(chart, requestedRadius, {
       columns: Math.max(uniqueCount(units, (d) => d.__row[xField]), 1),
       rows: Math.max(uniqueCount(units, (d) => d.__row[yField]), 1)
@@ -124,7 +124,7 @@ export function unitLayout(units, chart, spec, deps) {
     drawXAxis(chart, x, unit.xTitle || xField, d3);
     drawYAxis(chart, y, unit.yTitle || yField, d3);
     return {
-      name: "scatter",
+      name: "point",
       axes: true,
       r: radius,
       x: (d) => position(x, d.__row[xField]),

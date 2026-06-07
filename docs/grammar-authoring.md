@@ -80,17 +80,15 @@ called:
 - `.split()` and `.collapse()` are short `type/count` aliases for changing grain
 - `.layout()` and `.stage()` record `guide`
 
-`story().step()` converts those operations into the current design-space step
-shape. `authoredSteps()` remains available as the lower-level helper behind the
-builder:
+`story().step()` converts those operations into the current runtime step shape.
+`authoredSteps()` remains available as the lower-level helper behind the builder:
 
 ```js
 {
-  designSpace: {
-    transition: {
-      scene: ["granularity", "guide"]
-    }
+  transition: {
+    scene: ["granularity", "guide"]
   },
+  action: ["step", "tooltip"],
   views: {
     main: compiledViewSpec
   }
@@ -150,6 +148,6 @@ return story()
 - Add richer validation and better author-facing error messages.
 - Add a data-preparation helper for converting wide tables to the long flavour
   expected by the bar grammar.
-- Generalize `ViewState` operations for scatter, line, and unit.
+- Generalize `ViewState` operations for point, line, and circle-unit views.
 - Decide whether operation inference should be explicit, automatic, or mixed:
   operation log first, structural diff as fallback.

@@ -14,9 +14,16 @@ export function diffViewStates(previous, next) {
   if (!sameValue(prev.granularity, curr.granularity)) changed.push("granularity");
   if (!sameValue(prev.observation, curr.observation)) changed.push("observation");
 
+  const semantic = diffSemanticViewStates(prev, curr);
+
   return {
     changed,
     has: (key) => changed.includes(key),
+    deltas: semantic.deltas,
+    delta: (type) => semantic.deltas.find((item) => item.type === type) || null,
+    hasDelta: (type, action = null) =>
+      semantic.deltas.some((item) => item.type === type && (action == null || item.action === action)),
+    semantic,
     previous: prev,
     next: curr
   };
@@ -24,4 +31,218 @@ export function diffViewStates(previous, next) {
 
 export function sameValue(a, b) {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+export function diffSemanticViewStates(previous = {}, next = {}) {
+  const prev = semanticState(previous);
+  const curr = semanticState(next);
+  const deltas = [];
+
+  pushDelta(deltas, "mark", prev.mark, curr.mark);
+  pushDelta(deltas, "key", prev.key, curr.key);
+  pushDelta(deltas, "semantic-key", prev.semanticKey, curr.semanticKey);
+  pushCollectionDelta(deltas, "filter", prev.filters, curr.filters);
+  pushDelta(deltas, "transform", prev.nonFilterTransforms, curr.nonFilterTransforms);
+  pushDelta(deltas, "encoding.x", prev.encoding.x, curr.encoding.x);
+  pushDelta(deltas, "encoding.y", prev.encoding.y, curr.encoding.y);
+  pushDelta(deltas, "encoding.color", prev.encoding.color, curr.encoding.color);
+  pushStateDelta(deltas, "focus", prev.focus, curr.focus);
+  pushStateDelta(deltas, "guide", prev.guide, curr.guide);
+  pushStateDelta(deltas, "granularity", prev.granularity, curr.granularity);
+  pushStateDelta(deltas, "observation", prev.observation, curr.observation);
+
+  if (prev.mark === "bar" || curr.mark === "bar") {
+    pushDelta(deltas, "bar.orientation", prev.bar?.orientation, curr.bar?.orientation);
+    pushDelta(deltas, "bar.layout", prev.bar?.layout, curr.bar?.layout);
+    pushDelta(deltas, "bar.category-field", prev.bar?.categoryField, curr.bar?.categoryField);
+    pushDelta(deltas, "bar.measure-field", prev.bar?.measureField, curr.bar?.measureField);
+    pushStateDelta(deltas, "bar.guide", prev.bar?.guide, curr.bar?.guide);
+    pushStateDelta(deltas, "bar.granularity", prev.bar?.granularity, curr.bar?.granularity);
+    pushStateDelta(deltas, "bar.aggregate", prev.bar?.aggregate, curr.bar?.aggregate);
+    pushDelta(deltas, "bar.segment-field", prev.bar?.segmentField, curr.bar?.segmentField);
+    pushDelta(deltas, "bar.x-geometry", prev.bar?.xGeometry, curr.bar?.xGeometry);
+    pushDelta(deltas, "bar.y-geometry", prev.bar?.yGeometry, curr.bar?.yGeometry);
+  }
+
+  return {
+    previous: prev,
+    next: curr,
+    deltas,
+    has: (type, action = null) =>
+      deltas.some((item) => item.type === type && (action == null || item.action === action)),
+    get: (type) => deltas.find((item) => item.type === type) || null
+  };
+}
+
+function semanticState(spec = {}) {
+  const sceneState = spec.sceneState || {};
+  const transforms = spec.transform || [];
+  const state = {
+    mark: spec.mark || null,
+    key: spec.key || null,
+    semanticKey: spec.semanticKey || null,
+    encoding: spec.encoding || {},
+    filters: [
+      ...(spec.filter ? [spec.filter] : []),
+      ...transforms.filter((transform) => transform?.filter).map((transform) => transform.filter)
+    ],
+    nonFilterTransforms: transforms.filter((transform) => !transform?.filter),
+    focus: sceneState.focus || spec.focus || null,
+    guide: sceneState.guide || spec.guide || null,
+    granularity: sceneState.granularity || spec.granularity || null,
+    observation: sceneState.observation || spec.observation || null
+  };
+
+  if (String(spec.mark || "").toLowerCase() === "bar") {
+    state.bar = semanticBarState(spec, state);
+  }
+
+  return state;
+}
+
+function semanticBarState(spec = {}, state = semanticState(spec)) {
+  const enc = spec.encoding || {};
+  const layout = spec.barLayout || spec.bar?.layout || "simple";
+  const horizontal =
+    layout === "simple" &&
+    enc.x?.type === "quantitative" &&
+    ["nominal", "ordinal"].includes(enc.y?.type);
+  const orientation = horizontal ? "horizontal" : "vertical";
+  const categoryField = horizontal ? enc.y?.field : enc.x?.field;
+  const measureField = horizontal ? enc.x?.field : enc.y?.field;
+  const segmentField =
+    state.granularity?.segmentField ||
+    spec.segmentField ||
+    spec.segment ||
+    spec.bar?.segment ||
+    null;
+  const geometry = barGeometryState({
+    enc,
+    filters: state.filters,
+    layout,
+    orientation,
+    categoryField,
+    measureField,
+    segmentField
+  });
+
+  return {
+    orientation,
+    layout,
+    categoryField,
+    measureField,
+    guide: state.guide,
+    granularity: state.granularity,
+    aggregate: spec.aggregate || null,
+    segmentField,
+    xGeometry: geometry.x,
+    yGeometry: geometry.y
+  };
+}
+
+function barGeometryState({ enc, filters, layout, orientation, categoryField, measureField, segmentField }) {
+  const category = {
+    role: "category",
+    field: categoryField || null,
+    filters
+  };
+  const measure = {
+    role: "measure",
+    field: measureField || null
+  };
+  const segment = segmentField
+    ? {
+        field: segmentField,
+        color: channelSignature(enc.color)
+      }
+    : null;
+
+  if (orientation === "horizontal") {
+    return {
+      x: {
+        orientation,
+        layout,
+        measure,
+        channel: channelSignature(enc.x)
+      },
+      y: {
+        orientation,
+        layout,
+        category,
+        channel: channelSignature(enc.y)
+      }
+    };
+  }
+
+  return {
+    x: {
+      orientation,
+      layout,
+      category,
+      segment: layout === "grouped" ? segment : null,
+      channel: channelSignature(enc.x)
+    },
+    y: {
+      orientation,
+      layout,
+      measure,
+      segment: layout === "stacked" ? segment : null,
+      channel: channelSignature(enc.y)
+    }
+  };
+}
+
+function channelSignature(channel = {}) {
+  return {
+    field: channel.field || null,
+    title: channel.title || null,
+    type: channel.type || null,
+    aggregate: channel.aggregate || null,
+    domain: channel.domain || null,
+    scale: channel.scale || null,
+    sort: channel.sort || null,
+    bin: channel.bin || null
+  };
+}
+
+function pushStateDelta(deltas, type, previous, next) {
+  if (sameValue(previous, next)) return;
+  deltas.push({
+    type,
+    action: deltaAction(previous, next),
+    previous: previous ?? null,
+    next: next ?? null
+  });
+}
+
+function pushDelta(deltas, type, previous, next) {
+  if (sameValue(previous, next)) return;
+  deltas.push({
+    type,
+    action: "change",
+    previous: previous ?? null,
+    next: next ?? null
+  });
+}
+
+function pushCollectionDelta(deltas, type, previous = [], next = []) {
+  if (sameValue(previous, next)) return;
+  deltas.push({
+    type,
+    action: collectionDeltaAction(previous, next),
+    previous,
+    next
+  });
+}
+
+function deltaAction(previous, next) {
+  if (previous == null && next != null) return "add";
+  if (previous != null && next == null) return "remove";
+  return "change";
+}
+
+function collectionDeltaAction(previous = [], next = []) {
+  if (!previous.length && next.length) return "add";
+  if (previous.length && !next.length) return "remove";
+  return "change";
 }

@@ -1,8 +1,12 @@
-const CHART_ALIASES = new Map([
-  ["point", "scatter"],
-  ["points", "scatter"],
-  ["dot", "scatter"],
-  ["dots", "scatter"],
+const MARK_RENDERER_ALIASES = new Map([
+  ["circle", "point"],
+  ["points", "point"],
+  ["square", "point"],
+  ["dot", "point"],
+  ["dots", "point"],
+  ["scatter", "point"],
+  ["scatterplot", "point"],
+  ["scatterPlot", "point"],
   ["lineChart", "line"],
   ["barChart", "bar"],
   ["unitChart", "unit"],
@@ -11,26 +15,26 @@ const CHART_ALIASES = new Map([
   ["units", "unit"]
 ]);
 
-export function createChartRegistry() {
+export function createMarkRendererRegistry() {
   const renderers = new Map();
 
   return {
-    register(type, renderer) {
-      const key = normalizeChartType(type);
-      if (!key) throw new Error("Chart type is required.");
+    register(markOrRenderer, renderer) {
+      const key = normalizeMarkRendererKey(markOrRenderer);
+      if (!key) throw new Error("Mark renderer key is required.");
       if (typeof renderer !== "function") {
-        throw new Error(`Renderer for chart "${key}" must be a function.`);
+        throw new Error(`Renderer for mark "${key}" must be a function.`);
       }
       renderers.set(key, renderer);
       return this;
     },
 
-    get(type) {
-      return renderers.get(normalizeChartType(type));
+    get(markOrRenderer) {
+      return renderers.get(normalizeMarkRendererKey(markOrRenderer));
     },
 
-    has(type) {
-      return renderers.has(normalizeChartType(type));
+    has(markOrRenderer) {
+      return renderers.has(normalizeMarkRendererKey(markOrRenderer));
     },
 
     types() {
@@ -39,10 +43,27 @@ export function createChartRegistry() {
   };
 }
 
-export function normalizeChartType(type) {
-  const raw = String(type || "").trim();
+export function createChartRegistry() {
+  return createMarkRendererRegistry();
+}
+
+export function normalizeMarkRendererKey(markOrRenderer) {
+  const raw = String(markOrRenderer || "").trim();
   if (!raw) return "";
   const compact = raw.replace(/\s+/g, "");
   const canonical = compact.charAt(0).toLowerCase() + compact.slice(1);
-  return CHART_ALIASES.get(canonical) || canonical.toLowerCase();
+  return MARK_RENDERER_ALIASES.get(canonical) || canonical.toLowerCase();
+}
+
+export function normalizeChartType(type) {
+  return normalizeMarkRendererKey(type);
+}
+
+export function resolveMarkRendererKey(viewSpec = {}) {
+  if (viewSpec?.unit) return "unit";
+  return normalizeMarkRendererKey(viewSpec?.mark);
+}
+
+export function resolveChartType(viewSpec = {}) {
+  return resolveMarkRendererKey(viewSpec);
 }

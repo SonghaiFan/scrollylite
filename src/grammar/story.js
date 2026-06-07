@@ -1,5 +1,9 @@
 import { cloneState } from "./view-state.js?v=semantic-key-10";
 import { inferTransition } from "./infer-transition.js?v=semantic-key-11";
+import {
+  externalizeScrollyViewSpec,
+  withNarrative
+} from "../scrolly-meta.js?v=semantic-key-5";
 
 export function story(initialSpec = {}) {
   return new StoryBuilder(initialSpec);
@@ -63,35 +67,17 @@ export class StoryBuilder {
 
   layout(presetOrConfig, options = {}) {
     if (typeof presetOrConfig === "string") {
-      this._spec.designSpace = {
-        ...(this._spec.designSpace || {}),
-        layout: {
-          ...(this._spec.designSpace?.layout || {}),
-          ...layoutPreset(presetOrConfig),
-          ...(options.designSpace || {})
-        }
+      this._spec.layout = {
+        ...(this._spec.layout || {}),
+        ...layoutPreset(presetOrConfig),
+        ...cloneState(options.runtime || options.layout || {})
       };
-
-      if (options.runtime || options.layout) {
-        this._spec.layout = {
-          ...(this._spec.layout || {}),
-          ...cloneState(options.runtime || options.layout)
-        };
-      }
       return this;
     }
 
     this._spec.layout = {
       ...(this._spec.layout || {}),
       ...cloneState(presetOrConfig || {})
-    };
-    return this;
-  }
-
-  designSpace(config = {}) {
-    this._spec.designSpace = {
-      ...(this._spec.designSpace || {}),
-      ...cloneState(config)
     };
     return this;
   }
@@ -144,15 +130,25 @@ export class StoryBuilder {
 }
 
 function compileStep(definition, view, scenes, isFirst, action) {
+  const authoringCode = definition.authoringCode || definition.authoring || definition.code;
+  const compiledView = withNarrative(compileView(view), {
+    annotation: {
+      title: definition.title,
+      ...(definition.body ? { description: definition.body } : {})
+    }
+  });
   return {
     title: definition.title,
     body: definition.body,
-    designSpace: {
-      transition: scenes.length ? { scene: scenes } : undefined,
-      action: isFirst ? ["step", "tooltip", "enter"] : action
-    },
+    ...(authoringCode ? {
+      inspector: {
+        authoringCode
+      }
+    } : {}),
+    transition: scenes.length ? { scene: scenes } : undefined,
+    action: isFirst ? ["step", "tooltip", "enter"] : action,
     views: {
-      main: compileView(view)
+      main: compiledView
     }
   };
 }
@@ -168,24 +164,11 @@ function compileView(view) {
     delete compiled.filter;
   }
 
-  return compiled;
+  return externalizeScrollyViewSpec(compiled);
 }
 
 function layoutPreset(name) {
-  if (name === "textOverVis") {
-    return {
-      preset: "textOverVis",
-      axis: "vertical",
-      binding: "floatToText",
-      container: "visContainer",
-      layering: "textOverVis"
-    };
-  }
-
   return {
-    preset: name,
-    axis: "vertical",
-    binding: "floatToText",
-    container: "visContainer"
+    preset: name
   };
 }

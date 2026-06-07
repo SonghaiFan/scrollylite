@@ -1,40 +1,35 @@
-import { createBarStory } from "./weather/bar-story.js?v=semantic-key-11";
-import { createLineStory } from "./weather/line-story.js?v=semantic-key-11";
-import { createScatterStory } from "./weather/scatter-story.js?v=semantic-key-11";
-import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-11";
-import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-11";
+import { createBarStory } from "./weather/bar-story.js?v=semantic-key-16";
+import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-15";
+import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-16";
 
 const STORY_REGISTRY = {
   bar: {
     label: "Bar",
-    chart: "bar",
+    mark: "bar",
     create: createBarStory
-  },
-  scatter: {
-    label: "Scatter",
-    chart: "scatter",
-    create: createScatterStory
-  },
-  line: {
-    label: "Line",
-    chart: "line",
-    create: createLineStory
   },
   unit: {
     label: "Unit",
-    chart: "unit",
+    mark: "unit",
     create: createUnitStory
   }
+};
+
+const STORY_ALIASES = {
+  scatter: "bar",
+  point: "bar",
+  line: "bar"
 };
 
 export function createDemoSpec({
   layoutPreset = "textOverVis",
   storyId,
+  mark,
   chartType,
   actionMode = "step"
 } = {}) {
   const layout = layoutCopy[layoutPreset] || layoutCopy.textOverVis;
-  const storyKey = normalizeStoryId(storyId || chartType);
+  const storyKey = normalizeStoryId(storyId || mark || chartType);
   const storyDefinition = STORY_REGISTRY[storyKey];
   const storySpec = storyDefinition.create();
   const preparedStory = actionMode === "scroll"
@@ -45,14 +40,14 @@ export function createDemoSpec({
     ...preparedStory,
     title: `${layout.label}: ${storyDefinition.label} story`,
     description: `${layout.description} ${preparedStory.description}`,
-    designSpace: {
-      layout: layout.designSpace,
-      action: ["header", "step", "tooltip", "enter"]
+    layout: {
+      ...(preparedStory.layout || {}),
+      preset: layout.preset
     },
     story: {
       id: storyKey,
       label: storyDefinition.label,
-      chart: storyDefinition.chart
+      mark: storyDefinition.mark
     }
   };
 }
@@ -61,12 +56,13 @@ export function availableStories() {
   return Object.entries(STORY_REGISTRY).map(([id, story]) => ({
     id,
     label: story.label,
-    chart: story.chart
+    mark: story.mark
   }));
 }
 
 function normalizeStoryId(value) {
-  return STORY_REGISTRY[value] ? value : "bar";
+  const key = STORY_ALIASES[value] || value;
+  return STORY_REGISTRY[key] ? key : "bar";
 }
 
 export default createDemoSpec();

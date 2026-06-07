@@ -1,4 +1,9 @@
 import { defaultTransition } from "../../timing.js";
+import {
+  externalizeScrollyViewSpec,
+  getScrollyMeta,
+  withScrollyMeta
+} from "../../scrolly-meta.js?v=semantic-key-5";
 
 export const sharedTiming = defaultTransition();
 
@@ -46,29 +51,17 @@ export const layoutCopy = {
     label: "Float to Text",
     description:
       "The chart stays beside the text while each step updates the registered renderer.",
-    designSpace: {
-      preset: "floatToText",
-      axis: "vertical",
-      binding: "floatToText",
-      container: "visContainer",
-      layering: ""
-    }
+    preset: "floatToText"
   },
   textOverVis: {
     label: "Text over Vis",
     description:
       "The chart becomes a sticky visual stage while the article track scrolls across the center of it.",
-    designSpace: {
-      preset: "textOverVis",
-      axis: "vertical",
-      binding: "floatToText",
-      container: "visContainer",
-      layering: "textOverVis"
-    }
+    preset: "textOverVis"
   }
 };
 
-export const scatterEncoding = {
+export const pointEncoding = {
   x: { field: "tmin", type: "quantitative", title: "Min temperature" },
   y: { field: "tmax", type: "quantitative", title: "Max temperature" },
   color: PERIOD_LUMINANCE_COLOR,
@@ -82,21 +75,27 @@ export const scatterEncoding = {
   ]
 };
 
-export function scatterView(overrides = {}) {
-  return {
+export function pointView(overrides = {}) {
+  return externalizeScrollyViewSpec({
     data: "weather",
-    mark: "scatter",
+    mark: "point",
     key: "decade",
     size: 8,
     transition: sharedTiming,
     transform: sortByYear,
-    encoding: scatterEncoding,
+    encoding: pointEncoding,
     ...overrides,
     encoding: {
-      ...scatterEncoding,
+      ...pointEncoding,
       ...(overrides.encoding || {})
     }
-  };
+  });
+}
+
+export const scatterEncoding = pointEncoding;
+
+export function scatterView(overrides = {}) {
+  return pointView(overrides);
 }
 
 export const lineEncoding = {
@@ -114,7 +113,7 @@ export const lineEncoding = {
 };
 
 export function lineView(overrides = {}) {
-  return {
+  return externalizeScrollyViewSpec({
     data: "weather",
     mark: "line",
     key: "decade",
@@ -128,7 +127,7 @@ export function lineView(overrides = {}) {
       ...lineEncoding,
       ...(overrides.encoding || {})
     }
-  };
+  });
 }
 
 export const unitEncoding = {
@@ -153,7 +152,7 @@ export const unitDefaults = {
 };
 
 export function unitView(overrides = {}) {
-  return {
+  return externalizeScrollyViewSpec({
     data: "weather",
     mark: "unit",
     key: "decade",
@@ -170,7 +169,7 @@ export function unitView(overrides = {}) {
       ...unitEncoding,
       ...(overrides.encoding || {})
     }
-  };
+  });
 }
 
 export function createBaseDemo() {
@@ -211,17 +210,13 @@ export function withScrollActionMode(demo) {
       if (!shouldUseScrollAction(step, index)) return step;
       return {
         ...step,
-        designSpace: {
-          ...(step.designSpace || {}),
-          action: index === 0 ? ["scroll", "tooltip", "enter"] : ["scroll", "tooltip"]
-        },
+        action: index === 0 ? ["scroll", "tooltip", "enter"] : ["scroll", "tooltip"],
         views: Object.fromEntries(
           Object.entries(step.views || {}).map(([viewId, viewSpec]) => [
             viewId,
-            {
-              ...viewSpec,
-              scroll: viewSpec.scroll || { ease: "linear" }
-            }
+            withScrollyMeta(viewSpec, {
+              scroll: getScrollyMeta(viewSpec).scroll || viewSpec.scroll || { ease: "linear" }
+            })
           ])
         )
       };
@@ -234,7 +229,5 @@ function shouldUseScrollAction(step, index) {
 }
 
 function hasTransitionStep(step) {
-  const scene = step.designSpace?.transition?.scene || [];
-  const segue = step.designSpace?.transition?.segue || [];
-  return scene.length > 0 || segue.length > 0;
+  return Boolean(step.transition?.scene?.length);
 }

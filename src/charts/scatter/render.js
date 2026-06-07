@@ -11,11 +11,15 @@ import {
   scatterState
 } from "./state.js";
 
-export function createScatterRenderer(deps) {
-  return new ScatterChart(deps).renderer();
+export function createPointRenderer(deps) {
+  return new PointMarkRenderer(deps).renderer();
 }
 
-class ScatterChart extends BaseChart {
+export function createScatterRenderer(deps) {
+  return createPointRenderer(deps);
+}
+
+class PointMarkRenderer extends BaseChart {
   render(chart, rows, spec, tooltip, d3) {
     const {
       bandOrLinear,

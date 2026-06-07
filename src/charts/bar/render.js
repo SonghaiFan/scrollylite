@@ -93,6 +93,7 @@ function createLegacyBarRenderer(deps) {
             enter
               .append("rect")
               .attr("class", "sl-bar")
+              .attr("data-orientation", "horizontal")
               .call(applyBarIdentity, spec, key, (d) => d[enc.y.field])
               .attr("x", x(0))
               .attr("y", (d) => y(d[enc.y.field]))
@@ -109,6 +110,7 @@ function createLegacyBarRenderer(deps) {
           (update) => {
             const prepared = update
               .attr("class", "sl-bar")
+              .attr("data-orientation", "horizontal")
               .call(applyBarIdentity, spec, key, (d) => d[enc.y.field])
               .call(bindTooltip, spec, tooltip);
             if (guideStage) {
@@ -143,12 +145,7 @@ function createLegacyBarRenderer(deps) {
               .attr("width", (d) => Math.abs(x(d[enc.x.field]) - x(0)))
               .attr("fill", (d) => color(d));
           },
-          (exit) =>
-            exit
-              .transition(t)
-              .style("opacity", 0)
-              .attr("height", 0)
-              .remove()
+          (exit) => collapseSimpleBarExit(exit, t, chart)
         );
     } else {
       const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
@@ -181,6 +178,7 @@ function createLegacyBarRenderer(deps) {
             const entered = enter
               .append("rect")
               .attr("class", "sl-bar")
+              .attr("data-orientation", "vertical")
               .call(applyBarIdentity, spec, key, (d) => d[enc.x.field])
               .attr("rx", 3)
               .attr("fill", (d) => color(d))
@@ -209,6 +207,7 @@ function createLegacyBarRenderer(deps) {
           (update) => {
             const prepared = update
               .attr("class", "sl-bar")
+              .attr("data-orientation", "vertical")
               .call(applyBarIdentity, spec, key, (d) => d[enc.x.field])
               .call(bindTooltip, spec, tooltip);
             if (guideStage) {
@@ -254,13 +253,10 @@ function createLegacyBarRenderer(deps) {
               .attr("fill", (d) => color(d));
           },
           (exit) => {
-            const leaving = exit.transition(t).style("opacity", 0);
             if (!collapseLineage) {
-              leaving
-                .attr("y", chart.innerHeight)
-                .attr("height", 0);
+              return collapseSimpleBarExit(exit, t, chart);
             }
-            return leaving.remove();
+            return exit.transition(t).style("opacity", 0).remove();
           }
         );
     }
@@ -271,7 +267,9 @@ function createLegacyBarRenderer(deps) {
   function barGuideStage(chart, spec, orientation, d3) {
     const staging = chart.transitionPlan?.barStage;
     if (!staging) return null;
-    const matchesOrientation = staging.toOrientation === orientation;
+    const matchesOrientation =
+      staging.toOrientation === orientation ||
+      (staging.toOrientation === "vertical" && orientation.endsWith("-vertical"));
     const matchesSegmentLayout =
       staging.toLayout &&
       (orientation === `${staging.toLayout}-vertical` || orientation === staging.toLayout);
@@ -325,6 +323,29 @@ function createLegacyBarRenderer(deps) {
       width: Math.max(1, barWidth),
       height: chart.innerHeight - y(d[enc.y.field])
     };
+  }
+
+  function collapseSimpleBarExit(exit, transition, chart) {
+    exit
+      .filter(function () {
+        return this.dataset.orientation === "horizontal";
+      })
+      .transition(transition)
+      .style("opacity", 0)
+      .attr("width", 0)
+      .remove();
+
+    exit
+      .filter(function () {
+        return this.dataset.orientation !== "horizontal";
+      })
+      .transition(transition)
+      .style("opacity", 0)
+      .attr("y", chart.innerHeight)
+      .attr("height", 0)
+      .remove();
+
+    return exit;
   }
 
   function setRectGeometry(selection, geometry) {
@@ -547,7 +568,7 @@ function createLegacyBarRenderer(deps) {
                     d3.select(this),
                     splitLineage?.start(d) || {
                       x: x(d[categoryField]),
-                      y: chart.innerHeight,
+                      y: y(d.__stack0),
                       width: Math.max(1, x.bandwidth()),
                       height: 0
                     }
@@ -605,7 +626,7 @@ function createLegacyBarRenderer(deps) {
             const leaving = exit.transition(t).style("opacity", 0);
             if (!splitLineage) {
               leaving
-                .attr("y", chart.innerHeight)
+                .attr("y", (d) => y(d.__stack0))
                 .attr("height", 0);
             }
             return leaving.remove();
@@ -622,6 +643,8 @@ function createLegacyBarRenderer(deps) {
       spec.segmentField ||
       spec.segment ||
       spec.bar?.segment ||
+      spec.encoding?.xOffset?.field ||
+      spec.encoding?.yOffset?.field ||
       spec.encoding?.color?.field ||
       null
     );

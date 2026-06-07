@@ -3,6 +3,7 @@ export function applyTransforms(source, transforms = [], aq = getArquero()) {
 
   transforms.forEach((transform) => {
     if (transform.filter) table = filterRows(table, transform.filter, aq);
+    if (transform.timeUnit) table = timeUnitRows(table, transform.timeUnit, aq);
     if (transform.fold) table = foldRows(table, transform.fold, aq);
     if (transform.bin) table = binRows(table, transform.bin, aq);
     if (transform.aggregate) table = aggregateRows(table, transform.aggregate, aq);
@@ -11,6 +12,20 @@ export function applyTransforms(source, transforms = [], aq = getArquero()) {
   });
 
   return table.objects();
+}
+
+function timeUnitRows(table, timeUnit, aq) {
+  const as = timeUnit.as || `${timeUnit.field}_${timeUnit.unit}`;
+  if (timeUnit.unit !== "month") return table;
+  return table.derive({
+    [as]: aq.escape((row) => monthLabel(row[timeUnit.field]))
+  });
+}
+
+function monthLabel(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value ?? "");
+  return date.toLocaleString("en", { month: "short" });
 }
 
 function filterRows(table, filter, aq) {
@@ -100,6 +115,7 @@ function sortField(sort, aq) {
 }
 
 function matchFilter(row, filter) {
+  if (typeof filter === "string") return matchFilterExpression(row, filter);
   const value = row[filter.field];
   if ("equal" in filter) return value === filter.equal;
   if ("notEqual" in filter) return value !== filter.notEqual;
@@ -109,6 +125,33 @@ function matchFilter(row, filter) {
   if ("lte" in filter && value > filter.lte) return false;
   if ("lt" in filter && value >= filter.lt) return false;
   return true;
+}
+
+function matchFilterExpression(row, expression) {
+  const match = String(expression).trim().match(/^datum\.([A-Za-z_$][\w$]*)\s*(==|===|!=|!==|>=|>|<=|<)\s*(.+)$/);
+  if (!match) return true;
+  const [, field, operator, rawValue] = match;
+  const left = row[field];
+  const right = parseFilterLiteral(rawValue);
+  if (operator === "==" || operator === "===") return left === right;
+  if (operator === "!=" || operator === "!==") return left !== right;
+  if (operator === ">=") return left >= right;
+  if (operator === ">") return left > right;
+  if (operator === "<=") return left <= right;
+  if (operator === "<") return left < right;
+  return true;
+}
+
+function parseFilterLiteral(value) {
+  const trimmed = String(value).trim();
+  if (
+    (trimmed.startsWith("\"") && trimmed.endsWith("\"")) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  const number = Number(trimmed);
+  return Number.isNaN(number) ? trimmed : number;
 }
 
 function getArquero() {

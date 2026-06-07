@@ -13,13 +13,12 @@ const ALIASES = new Map(
   })
 );
 
-export function resolveSceneTransition(viewSpec = {}, designSpace = {}) {
-  const mark = String(viewSpec.mark || "").toLowerCase();
-  const supportedScenes = supportedSceneTypes(mark);
+export function resolveSceneTransition(viewSpec = {}, stepTransition = {}) {
+  const rendererKey = transitionRendererKey(viewSpec);
+  const supportedScenes = supportedSceneTypes(rendererKey);
   const scene = uniqueTokens([
-    ...(designSpace.transition?.scene || []),
+    ...(stepTransition.scene || []),
     ...asArray(viewSpec.scene),
-    ...asArray(viewSpec.transition?.scene)
   ]).filter((token) => SCENE_TRANSITIONS.includes(token) && supportedScenes.includes(token));
 
   return {
@@ -46,8 +45,7 @@ export function withSceneTransitionDefaults(viewSpec, sceneTransition) {
 }
 
 export function compileSceneViewSpec(viewSpec, sceneTransition) {
-  const mark = String(viewSpec.mark || "").toLowerCase();
-  const compiler = CHART_TRANSITION_COMPILERS[mark];
+  const compiler = MARK_TRANSITION_COMPILERS[transitionRendererKey(viewSpec)];
   if (!compiler) return viewSpec;
 
   return stateApplicationOrder(viewSpec, sceneTransition, compiler).reduce((compiled, sceneType) => {
@@ -61,8 +59,15 @@ export function hasScene(sceneTransition, type) {
 }
 
 function supportedSceneTypes(mark) {
-  const compiler = CHART_TRANSITION_COMPILERS[mark];
+  const compiler = MARK_TRANSITION_COMPILERS[mark];
   return compiler ? Object.keys(compiler.scenes) : SCENE_TRANSITIONS;
+}
+
+function transitionRendererKey(viewSpec = {}) {
+  const mark = String(viewSpec.mark || "").toLowerCase();
+  if (viewSpec.unit) return "unit";
+  if (mark === "point" || mark === "circle" || mark === "square") return "point";
+  return mark;
 }
 
 function stateApplicationOrder(viewSpec, sceneTransition, compiler) {
@@ -73,7 +78,7 @@ function stateApplicationOrder(viewSpec, sceneTransition, compiler) {
   );
 }
 
-const CHART_TRANSITION_COMPILERS = {
+const MARK_TRANSITION_COMPILERS = {
   bar: {
     base: withDefaultBarSemanticKey,
     scenes: {
@@ -83,7 +88,7 @@ const CHART_TRANSITION_COMPILERS = {
       observation: applyBarObservation
     }
   },
-  scatter: {
+  point: {
     base: identitySpec,
     scenes: {
       focus: applyFilterFocus,

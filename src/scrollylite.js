@@ -1,20 +1,23 @@
-import {
-  designSpaceClasses,
-  designSpaceSignature,
-  normalizeDesignSpace
-} from "./design-space.js";
 import { applyTransforms } from "./data/transforms.js";
 import { keyAccessor } from "./identity/semantic-key.js";
-import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-10";
+import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-17";
 import {
   barCollapseIntermediateSpec,
   barSplitIntermediateSpec,
   resolveBarTransitionPlan
-} from "./charts/bar/state.js";
+} from "./charts/bar/state.js?v=semantic-key-17";
+import { diffViewStates } from "./grammar/diff.js?v=semantic-key-11";
 import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-10";
-import { createScatterRenderer } from "./charts/scatter/render.js?v=semantic-key-10";
-import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-10";
-import { createChartRegistry, normalizeChartType } from "./charts/index.js";
+import { createPointRenderer } from "./charts/scatter/render.js?v=semantic-key-11";
+import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-11";
+import {
+  createMarkRendererRegistry,
+  resolveMarkRendererKey
+} from "./charts/index.js?v=semantic-key-2";
+import {
+  dataName,
+  normalizeScrollyViewSpec
+} from "./scrolly-meta.js?v=semantic-key-5";
 import { layoutClasses } from "./layouts/index.js";
 import {
   createScrollDriver,
@@ -32,7 +35,7 @@ import {
   hasScene,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "./transitions/index.js?v=semantic-key-10";
+} from "./transitions/index.js?v=semantic-key-13";
 
 const DEFAULT_PALETTE = [
   "#2f7d7e",
@@ -52,14 +55,22 @@ const SEMANTIC_CATEGORY_COLORS = {
   "cold days": "#536a9e"
 };
 
-const BUILT_IN_CHARTS = createChartRegistry();
+const BUILT_IN_MARK_RENDERERS = createMarkRendererRegistry();
+
+export function registerMarkRenderer(markOrRenderer, renderer) {
+  BUILT_IN_MARK_RENDERERS.register(markOrRenderer, renderer);
+}
+
+export function availableMarkRenderers() {
+  return BUILT_IN_MARK_RENDERERS.types();
+}
 
 export function registerChart(type, renderer) {
-  BUILT_IN_CHARTS.register(type, renderer);
+  registerMarkRenderer(type, renderer);
 }
 
 export function availableChartTypes() {
-  return BUILT_IN_CHARTS.types();
+  return availableMarkRenderers();
 }
 
 export async function createStory(spec, options = {}) {
@@ -72,8 +83,7 @@ export async function createStory(spec, options = {}) {
   target.innerHTML = "";
   target.className = [
     "sl-root",
-    ...designSpaceClasses(compiled.designSpace),
-    ...layoutClasses(compiled.designSpace)
+    ...layoutClasses(compiled.layout)
   ].join(" ");
 
   const data = await loadData(compiled.data);
@@ -89,7 +99,7 @@ export async function createStory(spec, options = {}) {
   return {
     spec: compiled,
     data,
-    signature: designSpaceSignature(compiled),
+    signature: storySignature(compiled),
     renderStep: renderer.renderStep,
     renderScrollProgress: renderer.renderScrollProgress,
     scrollDriver,
@@ -111,8 +121,6 @@ function compileSpec(spec) {
     throw new Error("ScrollyLite spec must contain at least one step.");
   }
 
-  const baseDesignSpace = normalizeDesignSpace(spec.designSpace || {});
-
   const layout = {
     offset: 0.55,
     nav: true,
@@ -120,28 +128,98 @@ function compileSpec(spec) {
     scroll: {},
     ...(spec.layout || {})
   };
+  layout.preset = layout.preset || "floatToText";
   layout.scroll = normalizeScrollDriverConfig(layout.scroll);
+
+  const normalizedSteps = steps.map((step, index) => ({
+    ...step,
+    id: step.id || `step-${index + 1}`,
+    transition: normalizeStepTransition(step.transition),
+    action: normalizeStepAction(step, index),
+    views: normalizeStepViews(step)
+  }));
+  const viewData = collectViewDataSources(normalizedSteps);
 
   return {
     ...spec,
-    data: spec.data || {},
-    designSpace: baseDesignSpace,
+    data: {
+      ...(spec.data || {}),
+      ...viewData.data
+    },
     views: spec.views || { main: {} },
     theme: spec.theme || {},
     layout,
-    steps: steps.map((step, index) => ({
-      ...step,
-      id: step.id || `step-${index + 1}`,
-      designSpace: normalizeDesignSpace(step.designSpace || {}, baseDesignSpace),
-      views: normalizeStepViews(step)
-    }))
+    steps: viewData.steps
   };
+}
+
+function normalizeStepTransition(transition = {}) {
+  return {
+    scene: uniqueTokens(transition.scene)
+  };
+}
+
+function normalizeStepAction(step = {}, index = 0) {
+  const fallback = index === 0 ? ["step", "tooltip", "enter"] : ["step", "tooltip"];
+  return uniqueTokens(step.action?.length ? step.action : fallback);
+}
+
+function uniqueTokens(values = []) {
+  return Array.from(new Set(asArray(values).filter(Boolean)));
+}
+
+function asArray(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function storySignature(spec) {
+  return (spec.steps || []).map((step, index) => ({
+    index,
+    id: step.id,
+    title: step.title,
+    transition: step.transition?.scene || [],
+    action: step.action || []
+  }));
 }
 
 function normalizeStepViews(step) {
   if (step.views) return step.views;
   if (step.view) return { main: step.view };
   return {};
+}
+
+function collectViewDataSources(steps) {
+  const data = {};
+  const normalizedSteps = steps.map((step, stepIndex) => ({
+    ...step,
+    views: Object.fromEntries(
+      Object.entries(step.views || {}).map(([viewId, viewSpec]) => {
+        if (!viewSpec?.data?.url) return [viewId, viewSpec];
+        const name = viewSpec.data.name || `__step_${stepIndex + 1}_${viewId}`;
+        data[name] = normalizeUrlDataSource(viewSpec.data);
+        return [
+          viewId,
+          {
+            ...viewSpec,
+            data: { name }
+          }
+        ];
+      })
+    )
+  }));
+  return { data, steps: normalizedSteps };
+}
+
+function normalizeUrlDataSource(dataSpec) {
+  return {
+    ...dataSpec,
+    type: dataSpec.type || dataSpec.format?.type || dataTypeFromUrl(dataSpec.url)
+  };
+}
+
+function dataTypeFromUrl(url = "") {
+  return String(url).toLowerCase().endsWith(".json") ? "json" : "csv";
 }
 
 async function loadData(dataSpec) {
@@ -169,6 +247,99 @@ async function loadData(dataSpec) {
   return Object.fromEntries(entries);
 }
 
+function viewRows(dataSpec, datasets) {
+  if (Array.isArray(dataSpec)) return dataSpec;
+  if (Array.isArray(dataSpec?.values)) return dataSpec.values;
+  const name = dataName(dataSpec);
+  return name ? datasets[name] || [] : [];
+}
+
+function prepareVegaLiteBarSpec(spec = {}) {
+  if (spec.mark !== "bar") return spec;
+
+  const next = cloneSpec(spec);
+  const enc = next.encoding || {};
+  inferChannelTypes(enc);
+  const timeUnitTransforms = timeUnitTransformsFromEncoding(enc);
+
+  const aggregate = aggregateTransformFromEncoding(enc);
+  if (timeUnitTransforms.length || aggregate) {
+    next.transform = [
+      ...(next.transform || []),
+      ...timeUnitTransforms,
+      ...(aggregate ? [{ aggregate }] : [])
+    ];
+  }
+
+  if (!next.barLayout) {
+    const offsetField = enc.xOffset?.field || enc.yOffset?.field;
+    if (offsetField) next.barLayout = "grouped";
+    else if (enc.color?.field && aggregate) next.barLayout = "stacked";
+  }
+
+  return next;
+}
+
+function timeUnitTransformsFromEncoding(encoding = {}) {
+  return Object.values(encoding).flatMap((channel) => {
+    if (!channel?.timeUnit || !channel.field) return [];
+    const as = `${channel.field}_${channel.timeUnit}`;
+    const transform = {
+      timeUnit: {
+        field: channel.field,
+        unit: channel.timeUnit,
+        as
+      }
+    };
+    channel.field = as;
+    delete channel.timeUnit;
+    return [transform];
+  });
+}
+
+function inferChannelTypes(encoding = {}) {
+  Object.entries(encoding).forEach(([channelName, channel]) => {
+    if (!channel || typeof channel !== "object" || !channel.field || channel.type) return;
+    if (channel.aggregate) {
+      channel.type = "quantitative";
+      return;
+    }
+    channel.type = channelName === "x" || channelName === "y" ? "nominal" : "nominal";
+  });
+}
+
+function aggregateTransformFromEncoding(encoding = {}) {
+  const measureEntry = ["x", "y"].find((channelName) => encoding[channelName]?.aggregate);
+  if (!measureEntry) return null;
+
+  const measure = encoding[measureEntry];
+  const as = measure.field || `${measure.aggregate}_value`;
+  const groupby = uniqueTokens(
+    ["x", "y", "color", "xOffset", "yOffset"]
+      .filter((channelName) => channelName !== measureEntry)
+      .map((channelName) => encoding[channelName]?.field)
+  );
+  const op = measure.aggregate === true ? "count" : measure.aggregate;
+  const fieldSpec = {
+    op,
+    as
+  };
+  if (measure.field) fieldSpec.field = measure.field;
+
+  delete measure.aggregate;
+  measure.field = as;
+  measure.type = "quantitative";
+
+  return {
+    groupby,
+    fields: [fieldSpec]
+  };
+}
+
+function cloneSpec(spec) {
+  return spec == null ? spec : JSON.parse(JSON.stringify(spec));
+}
+
 function renderShell(target, spec) {
   const intro = document.createElement("section");
   intro.className = "sl-intro";
@@ -189,18 +360,20 @@ function renderShell(target, spec) {
 
   spec.steps.forEach((step, index) => {
     const node = document.createElement("section");
-    node.className = ["sl-step", ...designSpaceClasses(step.designSpace)].join(" ");
+    node.className = ["sl-step", ...stepClasses(step)].join(" ");
     node.id = step.id;
     node.dataset.stepIndex = String(index);
-    node.dataset.layout = Object.values(step.designSpace.layout || {}).filter(Boolean).join(" ");
-    node.dataset.transitionScene = (step.designSpace.transition?.scene || []).join(" ");
-    node.dataset.transitionSegue = (step.designSpace.transition?.segue || []).join(" ");
-    node.dataset.action = (step.designSpace.action || []).join(" ");
+    node.dataset.transitionScene = (step.transition?.scene || []).join(" ");
+    node.dataset.action = (step.action || []).join(" ");
     node.innerHTML = `
-      <div class="sl-step-card">
-        <div class="sl-step-number">${String(index + 1).padStart(2, "0")}</div>
-        <h2>${escapeHtml(step.title || `Step ${index + 1}`)}</h2>
-        <p>${escapeHtml(step.body || "")}</p>
+      <div class="sl-step-stack">
+        ${renderStepTransitionInspector(spec.steps, index)}
+        <div class="sl-step-card">
+          <div class="sl-step-number">${String(index + 1).padStart(2, "0")}</div>
+          <h2>${escapeHtml(step.title || `Step ${index + 1}`)}</h2>
+          <p>${escapeHtml(step.body || "")}</p>
+          ${renderStepInspector(step)}
+        </div>
       </div>
     `;
     steps.append(node);
@@ -266,6 +439,125 @@ function renderShell(target, spec) {
   };
 }
 
+function renderStepInspector(step = {}) {
+  const authoringCode = step.inspector?.authoringCode;
+  const compiledSpec = stepCompiledViewSpec(step);
+
+  if (!authoringCode && !compiledSpec) return "";
+
+  return `
+    <details class="sl-step-inspector">
+      <summary>Authoring / compiled spec</summary>
+      <div class="sl-step-inspector-grid">
+        ${authoringCode ? renderCodePanel("Authoring", authoringCode) : ""}
+        ${compiledSpec ? renderCodePanel("Compiled spec", JSON.stringify(compiledSpec, null, 2)) : ""}
+      </div>
+    </details>
+  `;
+}
+
+function renderStepTransitionInspector(steps = [], index) {
+  if (index <= 0) return "";
+  const previousStep = steps[index - 1];
+  const currentStep = steps[index];
+  const previousSpec = stepCompiledViewSpec(previousStep);
+  const currentSpec = stepCompiledViewSpec(currentStep);
+  if (!previousSpec || !currentSpec) return "";
+
+  const diff = diffViewStates(previousSpec, currentSpec);
+  const transitionScenes = currentStep.transition?.scene || [];
+  const barPlan = resolveBarTransitionPlan(previousSpec, currentSpec);
+  const summary = transitionScenes.length ? transitionScenes.join(" + ") : "ordinary update";
+  const transitionDebug = {
+    from: stepLabel(index - 1),
+    to: stepLabel(index),
+    inferredTransition: transitionScenes,
+    structuralDiff: diff.changed,
+    semanticDeltas: diff.deltas.map(summarizeDelta),
+    barTransitionPlan: compactTransitionPlan(barPlan)
+  };
+
+  return `
+    <details class="sl-transition-inspector">
+      <summary>
+        <span>${escapeHtml(stepLabel(index - 1))} → ${escapeHtml(stepLabel(index))}</span>
+        <strong>${escapeHtml(summary)}</strong>
+      </summary>
+      <div class="sl-step-inspector-grid">
+        ${renderCodePanel("Inferred transition", JSON.stringify(transitionScenes, null, 2))}
+        ${renderCodePanel("Diff result", JSON.stringify(transitionDebug, null, 2))}
+      </div>
+    </details>
+  `;
+}
+
+function renderCodePanel(title, code) {
+  return `
+    <section class="sl-code-panel" aria-label="${escapeHtml(title)}">
+      <h3>${escapeHtml(title)}</h3>
+      <pre><code>${escapeHtml(code)}</code></pre>
+    </section>
+  `;
+}
+
+function stepClasses(step = {}) {
+  return [
+    ...(step.transition?.scene || []).map((scene) => `sl-scene-${dash(scene)}`),
+    ...(step.action || []).map((action) => `sl-action-${dash(action)}`)
+  ];
+}
+
+function stepCompiledViewSpec(step = {}) {
+  const viewSpec = step.views?.main || Object.values(step.views || {})[0] || null;
+  if (!viewSpec?.mark || viewSpec.mark === "text") return null;
+  return compileEffectiveView(viewSpec, step.transition || {}).effectiveViewSpec;
+}
+
+function stepLabel(index) {
+  return `Step ${String(index + 1).padStart(2, "0")}`;
+}
+
+function summarizeDelta(delta = {}) {
+  return {
+    type: delta.type,
+    action: delta.action,
+    previous: compactDiffValue(delta.previous),
+    next: compactDiffValue(delta.next)
+  };
+}
+
+function compactTransitionPlan(plan = {}) {
+  const compact = { ...plan };
+  delete compact.diff;
+  if (plan.barStage) {
+    compact.barStage = {
+      reason: plan.barStage.reason,
+      order: plan.barStage.order,
+      changedAxes: plan.barStage.changedAxes,
+      fromOrientation: plan.barStage.fromOrientation,
+      toOrientation: plan.barStage.toOrientation,
+      fromLayout: plan.barStage.fromLayout,
+      toLayout: plan.barStage.toLayout
+    };
+  }
+  return compact;
+}
+
+function compactDiffValue(value) {
+  if (value == null || typeof value !== "object") return value ?? null;
+  const text = JSON.stringify(value);
+  if (text.length <= 320) return value;
+  if (Array.isArray(value)) return `[${value.length} items]`;
+  return {
+    keys: Object.keys(value),
+    summary: text.slice(0, 320)
+  };
+}
+
+function dash(value) {
+  return String(value).replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+}
+
 function createRenderer(shell, spec, datasets, d3) {
   let activeIndex = -1;
   let resizeFrame = null;
@@ -292,9 +584,9 @@ function createRenderer(shell, spec, datasets, d3) {
 
     const firstViewSpec = Object.values(step.views)[0] || {};
     shell.figureTitle.textContent = spec.views.main?.title || step.title || "";
-    const chartLabel = firstViewSpec.mark ? `chart: ${normalizeChartType(firstViewSpec.mark)}` : "";
-    shell.markName.dataset.chartLabel = chartLabel;
-    shell.markName.textContent = chartLabel;
+    const markLabel = firstViewSpec.mark ? `mark: ${firstViewSpec.mark}` : "";
+    shell.markName.dataset.chartLabel = markLabel;
+    shell.markName.textContent = markLabel;
 
     Object.entries(shell.views).forEach(([viewId, node]) => {
       const viewConfig = spec.views[viewId] || {};
@@ -304,9 +596,9 @@ function createRenderer(shell, spec, datasets, d3) {
       const previousViewSpec = previousStep
         ? previousStep.views[viewId] || previousStep.views.main || null
         : null;
-      drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, step.designSpace, {
+      drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, step.transition, step.action, {
         previousViewSpec,
-        previousDesignSpace: previousStep?.designSpace || {}
+        previousTransition: previousStep?.transition || {}
       });
     });
 
@@ -367,7 +659,7 @@ function createRenderer(shell, spec, datasets, d3) {
   };
 }
 
-function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}, options = {}) {
+function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, stepTransition = {}, stepAction = [], options = {}) {
   const scene = getScene(node, viewConfig, d3);
   scene.progressRoots = [
     node,
@@ -390,10 +682,10 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     return;
   }
 
-  const { sceneTransition, effectiveViewSpec } = compileEffectiveView(viewSpec, designSpace);
+  const { sceneTransition, effectiveViewSpec } = compileEffectiveView(viewSpec, stepTransition);
   const transitionSource = compileTransitionSource(
     options.previousViewSpec,
-    options.previousDesignSpace
+    options.previousTransition
   );
 
   if (scene.virtualRenderTimer) {
@@ -401,7 +693,11 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     scene.virtualRenderTimer = null;
   }
 
-  const sourceForTransitionPlan = hasScrollActionDesign(designSpace)
+  // Scroll is continuous, so each scroll step scrubs from its authored adjacent
+  // source. Stepped rendering is discrete and diffs from the currently rendered
+  // state held in scene.previousSpec.
+  const scrollDrivenStep = hasScrollAction(stepAction);
+  const sourceForTransitionPlan = scrollDrivenStep
     ? transitionSource.effectiveViewSpec
     : scene.previousSpec;
   const collapseIntermediateSpec = barCollapseIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec);
@@ -417,7 +713,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
         null
     };
 
-    if (hasScrollActionDesign(designSpace)) {
+    if (scrollDrivenStep) {
       scene.virtualScrollSequence = {
         phase: null,
         split: virtualRenderSplit(intermediateViewSpec, effectiveViewSpec),
@@ -428,7 +724,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
           datasets,
           tooltip,
           d3,
-          designSpace,
+          stepAction,
           sceneTransition: intermediateSceneTransition,
           transitionSource
         },
@@ -439,7 +735,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
           datasets,
           tooltip,
           d3,
-          designSpace,
+          stepAction,
           sceneTransition,
           transitionSource: {
             effectiveViewSpec: intermediateViewSpec,
@@ -452,13 +748,13 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
     }
 
     clearVirtualScrollSequence(scene);
-    renderCompiledView(node, intermediateViewSpec, viewConfig, datasets, tooltip, d3, designSpace, intermediateSceneTransition, {
+    renderCompiledView(node, intermediateViewSpec, viewConfig, datasets, tooltip, d3, stepAction, intermediateSceneTransition, {
       transitionSource
     });
 
     scene.virtualRenderTimer = window.setTimeout(() => {
       scene.virtualRenderTimer = null;
-      renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition, {
+      renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, stepAction, sceneTransition, {
         transitionSource
       });
     }, virtualRenderDelay(intermediateViewSpec));
@@ -466,33 +762,34 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, designSpace
   }
 
   clearVirtualScrollSequence(scene);
-  renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace, sceneTransition, {
+  renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, stepAction, sceneTransition, {
     transitionSource
   });
 }
 
-function compileEffectiveView(viewSpec, designSpace = {}) {
-  const sceneTransition = resolveSceneTransition(viewSpec, designSpace);
+function compileEffectiveView(viewSpec, stepTransition = {}) {
+  const runtimeViewSpec = normalizeScrollyViewSpec(viewSpec);
+  const sceneTransition = resolveSceneTransition(runtimeViewSpec, stepTransition);
   const effectiveViewSpec = compileSceneViewSpec(
-    withSceneTransitionDefaults(viewSpec, sceneTransition),
+    withSceneTransitionDefaults(runtimeViewSpec, sceneTransition),
     sceneTransition
   );
   return { sceneTransition, effectiveViewSpec };
 }
 
-function compileTransitionSource(viewSpec, designSpace = {}) {
+function compileTransitionSource(viewSpec, stepTransition = {}) {
   if (!viewSpec || !viewSpec.mark || viewSpec.mark === "text") {
     return {
       effectiveViewSpec: null,
       sceneTransition: {}
     };
   }
-  return compileEffectiveView(viewSpec, designSpace);
+  return compileEffectiveView(viewSpec, stepTransition);
 }
 
-function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, designSpace = {}, sceneTransition = {}, renderOptions = {}) {
+function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, stepAction = [], sceneTransition = {}, renderOptions = {}) {
   const scene = getScene(node, viewConfig, d3);
-  const scrollDriven = renderOptions.scrollDriven ?? hasScrollActionDesign(designSpace);
+  const scrollDriven = renderOptions.scrollDriven ?? hasScrollAction(stepAction);
   if (scrollDriven && !renderOptions.skipScrollSourcePrep) {
     prepareScrollSourceState(
       node,
@@ -504,9 +801,10 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
     );
   }
   clearSceneTransitionProgress(scene, { finish: !scrollDriven });
-  const source = effectiveViewSpec.data ? datasets[effectiveViewSpec.data] || [] : [];
-  const rows = applyTransforms(source, effectiveViewSpec.transform || []);
-  const domainRows = applyTransforms(source, domainTransforms(effectiveViewSpec.transform || []));
+  const renderSpec = prepareVegaLiteBarSpec(effectiveViewSpec);
+  const source = viewRows(renderSpec.data, datasets);
+  const rows = applyTransforms(source, renderSpec.transform || []);
+  const domainRows = applyTransforms(source, domainTransforms(renderSpec.transform || []));
   if (!rows.length) {
     scene.empty.style("display", "grid").text("No rows after transforms.");
     fadeLayers(scene, null);
@@ -517,13 +815,13 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
   const height = viewConfig.height || effectiveViewSpec.height || 500;
   resizeScene(scene, width, height);
 
-  const chartType = normalizeChartType(effectiveViewSpec.mark);
+  const rendererKey = resolveMarkRendererKey(renderSpec);
   const previousSpec = scrollDriven
     ? renderOptions.transitionSource?.effectiveViewSpec || null
     : scene.previousSpec;
   const chart = {
     scene,
-    type: chartType,
+    type: rendererKey,
     width,
     height,
     margin: {
@@ -533,8 +831,8 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
       left: 68,
       ...(effectiveViewSpec.margin || {})
     },
-    transition: transitionSpec(effectiveViewSpec, previousSpec, { scrollDriven }),
-    transitionPlan: resolveBarTransitionPlan(previousSpec, effectiveViewSpec),
+    transition: transitionSpec(renderSpec, previousSpec, { scrollDriven }),
+    transitionPlan: resolveBarTransitionPlan(previousSpec, renderSpec),
     sceneTransition,
     scrollDriven,
     scrollTransitionName: SCROLL_TRANSITION_NAME,
@@ -547,26 +845,26 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
     "transform",
     `translate(${chart.margin.left},${chart.margin.top})`
   );
-  chart.g = activeMarkLayer(scene, chartType, chart.transition);
+  chart.g = activeMarkLayer(scene, rendererKey, chart.transition);
   applyPlotClip(chart, true);
 
-  if (chartType !== "unit") {
+  if (rendererKey !== "unit") {
     scene.unitLabel.transition(chart.transition.base).style("opacity", 0);
   }
 
-  const renderer = BUILT_IN_CHARTS.get(chartType);
-  if (renderer) renderer(chart, rows, effectiveViewSpec, tooltip, d3);
-  else drawUnsupported(chart, effectiveViewSpec, BUILT_IN_CHARTS.types());
+  const renderer = BUILT_IN_MARK_RENDERERS.get(rendererKey);
+  if (renderer) renderer(chart, rows, renderSpec, tooltip, d3);
+  else drawUnsupported(chart, renderSpec, BUILT_IN_MARK_RENDERERS.types());
 
-  if (chartType === "unit") hideUnitMetaLabel(scene);
+  if (rendererKey === "unit") hideUnitMetaLabel(scene);
 
-  applySceneTransitions(chart, rows, effectiveViewSpec);
+  applySceneTransitions(chart, rows, renderSpec);
   if (scrollDriven) {
     scene.transitionProgress = createSceneTransitionProgress(scene, {
       transitionName: SCROLL_TRANSITION_NAME
     });
   }
-  scene.previousSpec = effectiveViewSpec;
+  scene.previousSpec = renderSpec;
 }
 
 function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, transitionSource = {}) {
@@ -601,6 +899,9 @@ function resetSceneToEmptySource(scene) {
   scene.grid.interrupt().selectAll("*").remove();
   scene.xAxis.interrupt().style("opacity", 0).selectAll("*").remove();
   scene.yAxis.interrupt().style("opacity", 0).selectAll("*").remove();
+  markAxisInactive(scene.grid);
+  markAxisInactive(scene.xAxis);
+  markAxisInactive(scene.yAxis);
   scene.xLabel.interrupt().style("opacity", 0).text("");
   scene.yLabel.interrupt().style("opacity", 0).text("");
   scene.legend.interrupt().style("opacity", 0).selectAll("*").remove();
@@ -647,7 +948,7 @@ function renderVirtualScrollPhase(scene, phase) {
     config.datasets,
     config.tooltip,
     config.d3,
-    config.designSpace,
+    config.stepAction,
     config.sceneTransition,
     {
       transitionSource: config.transitionSource
@@ -685,12 +986,9 @@ function updateStoryProgress(shell, spec, index, progress = 0) {
   shell.progressFill.style.width = `${Math.min(100, pct)}%`;
 }
 
-function hasScrollAction(step = {}) {
-  return (step.designSpace?.action || []).includes("scroll");
-}
-
-function hasScrollActionDesign(designSpace = {}) {
-  return (designSpace.action || []).includes("scroll");
+function hasScrollAction(stepOrAction = {}) {
+  const actions = Array.isArray(stepOrAction) ? stepOrAction : stepOrAction.action || [];
+  return actions.includes("scroll");
 }
 
 function domainTransforms(transforms = []) {
@@ -1135,7 +1433,7 @@ function drawUnsupported(chart, spec, availableTypes = []) {
     .attr("text-anchor", "middle")
     .attr("fill", "var(--sl-muted)")
     .text(
-      `Unsupported chart: ${spec.mark}${
+      `Unsupported mark renderer for "${spec.mark}"${
         availableTypes.length ? ` · available: ${availableTypes.join(", ")}` : ""
       }`
     );
@@ -1318,6 +1616,7 @@ function adjustLightness(color, offset, d3) {
 
 function drawXAxis(chart, scale, title, d3) {
   if (!scale) {
+    markAxisInactive(chart.scene.xAxis);
     chart.scene.xAxis.transition(chart.transition.base).style("opacity", 0);
     chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
     return;
@@ -1325,21 +1624,15 @@ function drawXAxis(chart, scale, title, d3) {
 
   applyXAxisClip(chart);
   const axis = typeof scale.bandwidth === "function" ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(6);
+  const transform = `translate(${chart.margin.left},${chart.margin.top + chart.innerHeight})`;
   const xAxis = chart.scene.xAxis
     .interrupt()
-    .style("opacity", 1);
+    .attr("transform", transform);
 
-  xAxis
-    .transition(chart.transition.base)
-    .attr("transform", `translate(${chart.margin.left},${chart.margin.top + chart.innerHeight})`)
-    .call(axis)
-    .on("end", () => {
-      xAxis.selectAll(".tick text").attr("dy", "0.8em");
-      alignEdgeTickLabels(xAxis, scale, d3);
-    });
-
+  renderAxisWithGuard(xAxis, axis, chart.transition.base, axisKind("bottom", scale));
   xAxis.selectAll(".tick text").attr("dy", "0.8em");
   alignEdgeTickLabels(xAxis, scale, d3);
+  xAxis.transition(chart.transition.base).style("opacity", 1);
 
   if (title) {
     chart.scene.xLabel
@@ -1377,18 +1670,19 @@ function alignEdgeTickLabels(axisGroup, scale, d3) {
 
 function drawYAxis(chart, scale, title, d3) {
   if (!scale) {
+    markAxisInactive(chart.scene.yAxis);
     chart.scene.yAxis.transition(chart.transition.base).style("opacity", 0);
     chart.scene.yLabel.transition(chart.transition.base).style("opacity", 0);
     return;
   }
 
   const axis = typeof scale.bandwidth === "function" ? d3.axisLeft(scale) : d3.axisLeft(scale).ticks(6);
-  chart.scene.yAxis
+  const yAxis = chart.scene.yAxis
     .interrupt()
-    .style("opacity", 1)
-    .transition(chart.transition.base)
-    .attr("transform", `translate(${chart.margin.left},${chart.margin.top})`)
-    .call(axis);
+    .attr("transform", `translate(${chart.margin.left},${chart.margin.top})`);
+
+  renderAxisWithGuard(yAxis, axis, chart.transition.base, axisKind("left", scale));
+  yAxis.transition(chart.transition.base).style("opacity", 1);
 
   if (title) {
     chart.scene.yLabel
@@ -1410,16 +1704,48 @@ function drawGrid(chart, y, d3) {
 
 function updateGrid(chart, y, d3) {
   if (!y) {
+    markAxisInactive(chart.scene.grid);
     chart.scene.grid.transition(chart.transition.base).style("opacity", 0);
     return;
   }
 
-  chart.scene.grid
+  const grid = chart.scene.grid
     .interrupt()
-    .style("opacity", 1)
-    .transition(chart.transition.base)
-    .attr("transform", null)
-    .call(d3.axisLeft(y).ticks(6).tickSize(-chart.innerWidth).tickFormat(""));
+    .attr("transform", null);
+
+  renderAxisWithGuard(
+    grid,
+    d3.axisLeft(y).ticks(6).tickSize(-chart.innerWidth).tickFormat(""),
+    chart.transition.base,
+    axisKind("grid-left", y)
+  );
+  grid.transition(chart.transition.base).style("opacity", 1);
+}
+
+function renderAxisWithGuard(axisGroup, axis, transition, kind) {
+  const node = axisGroup.node();
+  const canTransition = node?.__scrollyLiteAxisActive && node.__scrollyLiteAxisKind === kind;
+  if (node) {
+    node.__scrollyLiteAxisActive = true;
+    node.__scrollyLiteAxisKind = kind;
+  }
+
+  if (canTransition) {
+    axisGroup.transition(transition).call(axis);
+    return;
+  }
+
+  axisGroup.call(axis);
+}
+
+function markAxisInactive(axisGroup) {
+  const node = axisGroup.node();
+  if (!node) return;
+  node.__scrollyLiteAxisActive = false;
+}
+
+function axisKind(placement, scale) {
+  return `${placement}:${typeof scale.bandwidth === "function" ? "band" : "continuous"}`;
 }
 
 function drawLegend(chart, rows, channel, d3) {
@@ -1589,11 +1915,11 @@ function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null)
   } else {
     step.scrollIntoView({ behavior: "instant", block: "center" });
   }
-  renderer.renderStep(index, { force: true, scrollProgress: 1 });
-  waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop);
+  renderer.renderStep(index, navigationRenderOptions(step));
+  waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step);
 }
 
-function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop) {
+function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step) {
   const maxWait = 1800;
   const tolerance = 2;
   const start = performance.now();
@@ -1602,7 +1928,9 @@ function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, ta
 
   const finish = () => {
     if (cancelled || !isCurrentNavigation(shell, token)) return;
-    renderer.renderStep(index, { force: true, scrollProgress: 1 });
+    if (hasScrollAction(step)) {
+      renderer.renderStep(index, navigationRenderOptions(step));
+    }
     endNavigationLock(shell, token);
     scrollDriver?.refresh?.();
   };
@@ -1630,6 +1958,12 @@ function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, ta
   });
 
   frame = window.requestAnimationFrame(tick);
+}
+
+function navigationRenderOptions(step) {
+  return hasScrollAction(step)
+    ? { force: true, scrollProgress: 1 }
+    : { force: true };
 }
 
 function beginNavigationLock(shell, renderer, index) {
@@ -1705,10 +2039,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-BUILT_IN_CHARTS
+BUILT_IN_MARK_RENDERERS
   .register(
-    "scatter",
-    createScatterRenderer({
+    "point",
+    createPointRenderer({
       bandOrLinear,
       bindTooltip,
       colorScale,

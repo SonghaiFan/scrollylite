@@ -11,7 +11,7 @@ to the native controller.
   description,
   data,
   layout,
-  designSpace,
+  action,
   views,
   steps
 }
@@ -53,15 +53,11 @@ layout: {
 }
 ```
 
-`designSpace` records the thesis vocabulary:
+Top-level `action` can record story-level action metadata, but runtime behavior
+is controlled by each step's `action`:
 
 ```js
-designSpace: {
-  layout: {
-    preset: "floatToText" // or "textOverVis"
-  },
-  action: ["header", "step", "tooltip", "enter"]
-}
+action: ["header", "step", "tooltip", "enter"]
 ```
 
 Structure is intentionally out of scope for the current implementation.
@@ -74,12 +70,10 @@ Each step can declare a transition type and a view state:
 {
   title: "Guide: change scale",
   body: "Narrative copy.",
-  designSpace: {
-    transition: {
-      scene: ["guide"]
-    },
-    action: ["scroll", "tooltip"]
+  transition: {
+    scene: ["guide"]
   },
+  action: ["scroll", "tooltip"],
   views: {
     main: {
       mark: "bar",
@@ -101,19 +95,22 @@ Each step can declare a transition type and a view state:
 In stepped mode, transitions run with time. In scroll mode, transition steps add
 `action: ["scroll"]`, and the native controller scrubs the D3 transition.
 
-## Chart View Spec
+## View Spec
 
-Supported marks:
+Supported marks follow Vega-Lite primitive mark vocabulary:
 
 - `bar`
-- `scatter`
-- `line`
-- `unit`
+- `unit`, a ScrollyLite custom idiom for repeated unit marks
+
+Built-in mark renderers:
+
+- `bar`
+- `unit`, outside Vega-Lite's primitive marks by design
 
 Shared view fields:
 
 - `data`: dataset name
-- `mark`: chart type
+- `mark`: Vega-Lite primitive mark type
 - `key`: semantic identity key
 - `transform`: Arquero-backed transform list
 - `encoding`: visual channels
@@ -126,7 +123,8 @@ Supported encoding channels:
 - `y`
 - `color`
 - `tooltip`
-- `size` for scatter-style marks
+- `xOffset` / `yOffset` for grouped bar variants
+- `color` for grouped or stacked bar variants
 
 Color can be direct, categorical, or composite:
 
@@ -215,14 +213,24 @@ authoring convenience, not a second renderer.
 ## Runtime API
 
 ```js
+import {
+  availableMarkRenderers,
+  createStory,
+  registerMarkRenderer
+} from "./src/scrollylite.js";
+
+registerMarkRenderer("point", renderer);
 const story = await createStory(spec, { target: "#app" });
 ```
+
+`registerChart()` and `availableChartTypes()` remain compatibility aliases, but
+new code should use mark-renderer terminology.
 
 Returned fields:
 
 - `spec`: compiled spec
 - `data`: loaded datasets
-- `signature`: design-space signature
+- `signature`: step transition/action summary
 - `renderStep(index, options)`
 - `renderScrollProgress(index, progress, direction)`
 - `scrollDriver`: native scroll controller
@@ -233,12 +241,12 @@ Returned fields:
 - One native scroll controller only.
 - D3 remains the mark-rendering and transition engine.
 - Scroll mode scrubs D3 transition schedules instead of duplicating animation
-  logic in chart renderers.
+  logic in mark renderers.
 - Scroll-driven steps use authored source states, not last-rendered scene
   state: step `i` scrubs from step `i - 1`, while step 1 scrubs from an empty
   scene. This keeps forward and reverse scroll paths symmetric.
 - Semantic keys are the primary mechanism for object consistency.
-- Chart idioms extend through `BaseChart` and `src/charts/<type>/`.
+- Mark renderers extend through `BaseChart` and `src/charts/<type>/`.
 
 ## TODO
 

@@ -1,4 +1,5 @@
-import { normalizeChartType } from "../index.js";
+import { normalizeMarkRendererKey } from "../index.js";
+import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-11";
 
 export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   const previous = barState(previousSpec);
@@ -6,8 +7,11 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
 
   if (!previous || !next) return {};
 
-  const plan = {};
-  const crossesGranularity = previous.hasGranularity || next.hasGranularity;
+  const diff = diffViewStates(previousSpec, nextSpec);
+  const plan = {
+    diff: diff.deltas.map(({ type, action, previous, next }) => ({ type, action, previous, next }))
+  };
+  const crossesGranularity = diff.hasDelta("bar.granularity") || previous.hasGranularity || next.hasGranularity;
   if (crossesGranularity) {
     plan.barKey = {
       mode: "semantic",
@@ -15,7 +19,12 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     };
   }
 
-  if (previous.hasGranularity && next.hasAggregate && !next.hasGranularity) {
+  if (
+    diff.hasDelta("bar.granularity", "remove") &&
+    previous.hasGranularity &&
+    next.hasAggregate &&
+    !next.hasGranularity
+  ) {
     plan.barCollapse = {
       mode: "parent-child",
       reason: "granularity-parent-child-lineage",
@@ -25,7 +34,12 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     };
   }
 
-  if (previous.hasAggregate && next.hasGranularity && !previous.hasGranularity) {
+  if (
+    diff.hasDelta("bar.granularity", "add") &&
+    previous.hasAggregate &&
+    next.hasGranularity &&
+    !previous.hasGranularity
+  ) {
     plan.barSplit = {
       mode: "parent-child",
       reason: "granularity-parent-child-lineage",
@@ -35,44 +49,35 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     };
   }
 
-  const layoutChanged = previous.barLayout !== next.barLayout;
+  const layoutChanged = diff.hasDelta("bar.layout");
   const changesSegmentLayout =
     layoutChanged &&
     isSegmentLayout(previous.barLayout) &&
     isSegmentLayout(next.barLayout);
-  if (changesSegmentLayout && (previous.hasGuide || next.hasGuide)) {
-    const guideStaging = next.guideStaging || previous.guideStaging || {};
-    const order = next.hasGuide
-      ? segmentLayoutStageOrder(guideStaging, next.barLayout)
-      : segmentLayoutStageOrder(guideStaging, next.barLayout).reverse();
-
-    plan.barStage = {
-      reason: "guide-segment-layout",
-      fromLayout: previous.barLayout,
-      toLayout: next.barLayout,
-      order,
-      duration: guideStaging.duration,
-      ease: guideStaging.ease,
-      stagger: guideStaging.stagger
-    };
-
-    return plan;
-  }
-
-  const crossesGuide = previous.hasGuide || next.hasGuide;
-  const orientationChanged = previous.orientation !== next.orientation;
-  if (!crossesGuide || !orientationChanged) return plan;
+  const crossesGuide = diff.hasDelta("bar.guide") || previous.hasGuide || next.hasGuide;
+  const orientationChanged = diff.hasDelta("bar.orientation");
+  const geometryAxes = changedBarGeometryAxes(diff);
+  if (!geometryAxes.length) return plan;
 
   const guideStaging = next.guideStaging || previous.guideStaging || {};
-  const order = next.hasGuide
-    ? stageOrder(guideStaging, next.orientation)
-    : stageOrder(guideStaging, next.orientation).reverse();
+  const stagedOrder = geometryStageOrder({
+    staging: guideStaging,
+    target: next,
+    changesSegmentLayout,
+    reverse: crossesGuide && !next.hasGuide,
+    axes: geometryAxes
+  });
+
+  if (!stagedOrder.length) return plan;
 
   plan.barStage = {
-    reason: "guide-orientation",
+    reason: barStageReason({ changesSegmentLayout, crossesGuide, orientationChanged }),
     fromOrientation: previous.orientation,
     toOrientation: next.orientation,
-    order,
+    fromLayout: previous.barLayout,
+    toLayout: next.barLayout,
+    order: stagedOrder,
+    changedAxes: geometryAxes,
     duration: guideStaging.duration,
     ease: guideStaging.ease,
     stagger: guideStaging.stagger
@@ -106,7 +111,7 @@ export function barSplitIntermediateSpec(previousSpec, nextSpec) {
 }
 
 export function barState(spec) {
-  if (!spec || normalizeChartType(spec.mark) !== "bar") return null;
+  if (!spec || normalizeMarkRendererKey(spec.mark) !== "bar") return null;
 
   const enc = spec.encoding || {};
   const barLayout = spec.barLayout || spec.bar?.layout || "simple";
@@ -141,6 +146,34 @@ function segmentLayoutStageOrder(staging = {}, layout) {
     return staging.order.filter((axis) => axis === "x" || axis === "y");
   }
   return layout === "stacked" ? ["y", "x"] : ["x", "y"];
+}
+
+function changedBarGeometryAxes(diff) {
+  return [
+    diff.hasDelta("bar.x-geometry") ? "x" : null,
+    diff.hasDelta("bar.y-geometry") ? "y" : null
+  ].filter(Boolean);
+}
+
+function geometryStageOrder({ staging, target, changesSegmentLayout, reverse, axes }) {
+  const baseOrder = changesSegmentLayout
+    ? segmentLayoutStageOrder(staging, target.barLayout)
+    : stageOrder(staging, target.orientation);
+  const ordered = reverse ? baseOrder.slice().reverse() : baseOrder.slice();
+  const axisSet = new Set(axes);
+  const staged = ordered.filter((axis) => axisSet.has(axis));
+
+  for (const axis of axes) {
+    if (!staged.includes(axis)) staged.push(axis);
+  }
+
+  return staged;
+}
+
+function barStageReason({ changesSegmentLayout, crossesGuide, orientationChanged }) {
+  if (changesSegmentLayout && crossesGuide) return "guide-segment-layout";
+  if (orientationChanged && crossesGuide) return "guide-orientation";
+  return "bar-geometry";
 }
 
 function isSegmentLayout(layout) {

@@ -10,21 +10,18 @@ export function registerLayout(name, preset) {
   });
 }
 
-export function resolveLayout(designSpace = {}) {
-  const layout = designSpace.layout || {};
+export function resolveLayout(layout = {}) {
   const requested = layout.preset || layout.name;
 
   if (requested) {
     return layoutRegistry.get(normalizeLayoutName(requested)) || layoutRegistry.get("floatToText");
   }
 
-  if (layout.layering === "textOverVis") return layoutRegistry.get("textOverVis");
-  if (layout.binding === "floatToText") return layoutRegistry.get("floatToText");
   return layoutRegistry.get("floatToText");
 }
 
-export function layoutClasses(designSpace = {}) {
-  return resolveLayout(designSpace)?.classes || [];
+export function layoutClasses(layout = {}) {
+  return resolveLayout(layout)?.classes || [];
 }
 
 export function availableLayouts() {
