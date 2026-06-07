@@ -1,4 +1,4 @@
-import { diffViewStates } from "./diff.js";
+import { diffViewStates } from "./diff.js?v=semantic-key-13";
 
 export function inferTransition(previous, next) {
   if (!previous) return [];
@@ -16,10 +16,13 @@ export function inferTransition(previous, next) {
     scenes.push("focus");
   }
   if (diff.has("observation")) scenes.push("observation");
-  if (diff.has("granularity") && !onlyGranularityLayoutChanged(diff.previous, diff.next)) {
+  if (
+    (diff.has("granularity") || diff.hasDelta("bar.granularity")) &&
+    !onlyGranularityLayoutChanged(diff.delta("bar.granularity") || diff.delta("granularity"))
+  ) {
     scenes.push("granularity");
   }
-  if (diff.has("guide")) scenes.push("guide");
+  if (diff.has("guide") || diff.hasDelta("bar.guide")) scenes.push("guide");
 
   return unique(scenes);
 }
@@ -34,17 +37,19 @@ function filterTransforms(transforms = []) {
     .map((transform) => transform.filter);
 }
 
-function onlyGranularityLayoutChanged(previous = {}, next = {}) {
-  const prevGranularity = previous.granularity || {};
-  const nextGranularity = next.granularity || {};
+function onlyGranularityLayoutChanged(delta = null) {
+  const prevGranularity = delta?.previous || {};
+  const nextGranularity = delta?.next || {};
+  const prevHasGranularity = Boolean(delta?.previous);
+  const nextHasGranularity = Boolean(delta?.next);
   const prevRest = { ...prevGranularity };
   const nextRest = { ...nextGranularity };
   delete prevRest.layout;
   delete nextRest.layout;
 
   return (
-    previous.granularity &&
-    next.granularity &&
+    prevHasGranularity &&
+    nextHasGranularity &&
     sameJSON(prevRest, nextRest) &&
     !sameJSON(prevGranularity.layout, nextGranularity.layout)
   );

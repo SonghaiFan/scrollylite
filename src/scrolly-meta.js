@@ -1,3 +1,5 @@
+import { defaultTransition } from "./timing.js";
+
 export const NARRATIVE_KEY = "narrative";
 export const LEGACY_SCROLLY_META_KEY = "scrollyLite";
 
@@ -25,6 +27,7 @@ export function withNarrative(spec = {}, extension = {}) {
 }
 
 export function externalizeScrollyViewSpec(spec = {}) {
+  if (!spec) return spec;
   const next = clonePlain(spec);
   const narrative = getNarrative(next);
   delete next[NARRATIVE_KEY];
@@ -73,6 +76,27 @@ export function externalizeScrollyViewSpec(spec = {}) {
       delete next[field];
     }
   }
+
+  const sceneState = { ...(state.sceneState || {}) };
+  if (next.barLayout !== undefined) {
+    sceneState.granularity = {
+      ...(sceneState.granularity || {}),
+      layout: next.barLayout
+    };
+    delete next.barLayout;
+  }
+  if (next.segmentField !== undefined || next.segmentDomain !== undefined) {
+    sceneState.granularity = {
+      ...(sceneState.granularity || {}),
+      ...(next.segmentField !== undefined ? { segmentField: next.segmentField } : {}),
+      ...(next.segmentDomain !== undefined ? { segments: next.segmentDomain } : {})
+    };
+    delete next.segmentField;
+    delete next.segmentDomain;
+  }
+  if (Object.keys(sceneState).length) state.sceneState = sceneState;
+  delete next.aggregate;
+
   if (Object.keys(state).length) narrative.state = state;
 
   if (narrative.transform?.length) {
@@ -82,6 +106,8 @@ export function externalizeScrollyViewSpec(spec = {}) {
     ]);
     delete narrative.transform;
   }
+
+  pruneDefaultNarrative(narrative);
 
   if (typeof next.data === "string") {
     next.data = { name: next.data };
@@ -124,6 +150,48 @@ export function normalizeScrollyViewSpec(spec = {}) {
     observation: state.observation || narrative.observation || spec.observation,
     sceneState: state.sceneState || narrative.sceneState || spec.sceneState,
     ...(transform.length ? { transform: dedupeArray(transform) } : {})
+  };
+}
+
+export function narrativeObjectKey(spec = {}) {
+  const narrative = getNarrative(spec);
+  return narrative.object?.key ?? narrative.key ?? spec.key ?? spec.encoding?.key?.field ?? null;
+}
+
+export function narrativeSemanticKey(spec = {}) {
+  const narrative = getNarrative(spec);
+  return (
+    semanticFromNarrative(narrative.object?.semantic) ||
+    narrative.semanticKey ||
+    spec.semanticKey ||
+    null
+  );
+}
+
+export function narrativeTransition(spec = {}) {
+  const narrative = getNarrative(spec);
+  return narrative.transition || spec.transition || {};
+}
+
+export function narrativeScroll(spec = {}) {
+  const narrative = getNarrative(spec);
+  return narrative.action?.scroll ?? narrative.scroll ?? spec.scroll ?? null;
+}
+
+export function narrativeUnit(spec = {}) {
+  const narrative = getNarrative(spec);
+  return narrative.unit || spec.unit || null;
+}
+
+export function narrativeState(spec = {}) {
+  const narrative = getNarrative(spec);
+  const state = narrative.state || {};
+  return {
+    focus: state.focus || narrative.focus || spec.focus || null,
+    guide: state.guide || narrative.guide || spec.guide || null,
+    granularity: state.granularity || narrative.granularity || spec.granularity || null,
+    observation: state.observation || narrative.observation || spec.observation || null,
+    sceneState: state.sceneState || narrative.sceneState || spec.sceneState || {}
   };
 }
 
@@ -215,6 +283,39 @@ function semanticPartFromNarrative(part) {
   if (part?.field) return part.field;
   if (part?.value) return { value: part.value };
   return clonePlain(part);
+}
+
+function pruneDefaultNarrative(narrative = {}) {
+  if (narrative.transition !== undefined) {
+    narrative.transition = diffFromDefaultTransition(narrative.transition);
+    if (!Object.keys(narrative.transition).length) delete narrative.transition;
+  }
+}
+
+function diffFromDefaultTransition(transition = {}) {
+  const defaults = defaultTransition();
+  const diff = {};
+  for (const [key, value] of Object.entries(transition || {})) {
+    if (key === "stagger" && isPlainObject(value) && isPlainObject(defaults.stagger)) {
+      const staggerDiff = diffPlain(value, defaults.stagger);
+      if (Object.keys(staggerDiff).length) diff.stagger = staggerDiff;
+    } else if (!sameValue(value, defaults[key])) {
+      diff[key] = clonePlain(value);
+    }
+  }
+  return diff;
+}
+
+function diffPlain(value = {}, defaults = {}) {
+  const diff = {};
+  for (const [key, child] of Object.entries(value || {})) {
+    if (!sameValue(child, defaults[key])) diff[key] = clonePlain(child);
+  }
+  return diff;
+}
+
+function sameValue(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
 
 function clonePlain(value) {

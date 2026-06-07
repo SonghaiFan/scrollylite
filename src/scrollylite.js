@@ -1,23 +1,26 @@
 import { applyTransforms } from "./data/transforms.js";
-import { keyAccessor } from "./identity/semantic-key.js";
-import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-17";
+import { keyAccessor } from "./identity/semantic-key.js?v=semantic-key-1";
+import { createBarRenderer } from "./charts/bar/render.js?v=semantic-key-20";
 import {
   barCollapseIntermediateSpec,
   barSplitIntermediateSpec,
   resolveBarTransitionPlan
-} from "./charts/bar/state.js?v=semantic-key-17";
-import { diffViewStates } from "./grammar/diff.js?v=semantic-key-11";
-import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-10";
-import { createPointRenderer } from "./charts/scatter/render.js?v=semantic-key-11";
-import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-11";
+} from "./charts/bar/state.js?v=semantic-key-20";
+import { diffViewStates } from "./grammar/diff.js?v=semantic-key-14";
+import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-11";
+import { createPointRenderer } from "./charts/scatter/render.js?v=semantic-key-12";
+import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-12";
 import {
   createMarkRendererRegistry,
   resolveMarkRendererKey
-} from "./charts/index.js?v=semantic-key-2";
+} from "./charts/index.js?v=semantic-key-3";
 import {
   dataName,
-  normalizeScrollyViewSpec
-} from "./scrolly-meta.js?v=semantic-key-5";
+  externalizeScrollyViewSpec,
+  narrativeScroll,
+  narrativeState,
+  narrativeTransition
+} from "./scrolly-meta.js?v=semantic-key-10";
 import { layoutClasses } from "./layouts/index.js";
 import {
   createScrollDriver,
@@ -35,7 +38,7 @@ import {
   hasScene,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "./transitions/index.js?v=semantic-key-13";
+} from "./transitions/index.js?v=semantic-key-15";
 
 const DEFAULT_PALETTE = [
   "#2f7d7e",
@@ -271,12 +274,6 @@ function prepareVegaLiteBarSpec(spec = {}) {
     ];
   }
 
-  if (!next.barLayout) {
-    const offsetField = enc.xOffset?.field || enc.yOffset?.field;
-    if (offsetField) next.barLayout = "grouped";
-    else if (enc.color?.field && aggregate) next.barLayout = "stacked";
-  }
-
   return next;
 }
 
@@ -460,8 +457,8 @@ function renderStepTransitionInspector(steps = [], index) {
   if (index <= 0) return "";
   const previousStep = steps[index - 1];
   const currentStep = steps[index];
-  const previousSpec = stepCompiledViewSpec(previousStep);
-  const currentSpec = stepCompiledViewSpec(currentStep);
+  const previousSpec = stepEffectiveViewSpec(previousStep);
+  const currentSpec = stepEffectiveViewSpec(currentStep);
   if (!previousSpec || !currentSpec) return "";
 
   const diff = diffViewStates(previousSpec, currentSpec);
@@ -510,6 +507,12 @@ function stepClasses(step = {}) {
 function stepCompiledViewSpec(step = {}) {
   const viewSpec = step.views?.main || Object.values(step.views || {})[0] || null;
   if (!viewSpec?.mark || viewSpec.mark === "text") return null;
+  return externalizeScrollyViewSpec(viewSpec);
+}
+
+function stepEffectiveViewSpec(step = {}) {
+  const viewSpec = stepCompiledViewSpec(step);
+  if (!viewSpec) return null;
   return compileEffectiveView(viewSpec, step.transition || {}).effectiveViewSpec;
 }
 
@@ -538,6 +541,16 @@ function compactTransitionPlan(plan = {}) {
       toOrientation: plan.barStage.toOrientation,
       fromLayout: plan.barStage.fromLayout,
       toLayout: plan.barStage.toLayout
+    };
+  }
+  if (plan.update) {
+    compact.update = {
+      mode: plan.update.mode,
+      reason: plan.update.reason,
+      target: plan.update.target,
+      changedAxes: plan.update.changedAxes,
+      stages: plan.update.stages,
+      timing: plan.update.timing
     };
   }
   return compact;
@@ -700,16 +713,17 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, stepTransit
   const sourceForTransitionPlan = scrollDrivenStep
     ? transitionSource.effectiveViewSpec
     : scene.previousSpec;
-  const collapseIntermediateSpec = barCollapseIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec);
-  const splitIntermediateSpec = barSplitIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec);
+  const collapseIntermediateSpec = externalizeScrollyViewSpec(barCollapseIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec));
+  const splitIntermediateSpec = externalizeScrollyViewSpec(barSplitIntermediateSpec(sourceForTransitionPlan, effectiveViewSpec));
   const intermediateViewSpec = collapseIntermediateSpec || splitIntermediateSpec;
   if (intermediateViewSpec) {
     const intermediateSceneType = collapseIntermediateSpec ? "guide" : "granularity";
+    const intermediateState = narrativeState(intermediateViewSpec);
     const intermediateSceneTransition = {
       scene: [intermediateSceneType],
       [intermediateSceneType]:
-        intermediateViewSpec[intermediateSceneType] ||
-        intermediateViewSpec.sceneState?.[intermediateSceneType] ||
+        intermediateState[intermediateSceneType] ||
+        intermediateState.sceneState?.[intermediateSceneType] ||
         null
     };
 
@@ -768,13 +782,13 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, stepTransit
 }
 
 function compileEffectiveView(viewSpec, stepTransition = {}) {
-  const runtimeViewSpec = normalizeScrollyViewSpec(viewSpec);
-  const sceneTransition = resolveSceneTransition(runtimeViewSpec, stepTransition);
+  const authoredViewSpec = externalizeScrollyViewSpec(viewSpec);
+  const sceneTransition = resolveSceneTransition(authoredViewSpec, stepTransition);
   const effectiveViewSpec = compileSceneViewSpec(
-    withSceneTransitionDefaults(runtimeViewSpec, sceneTransition),
+    withSceneTransitionDefaults(authoredViewSpec, sceneTransition),
     sceneTransition
   );
-  return { sceneTransition, effectiveViewSpec };
+  return { sceneTransition, effectiveViewSpec: externalizeScrollyViewSpec(effectiveViewSpec) };
 }
 
 function compileTransitionSource(viewSpec, stepTransition = {}) {
@@ -829,6 +843,7 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
       right: 34,
       bottom: 64,
       left: 68,
+      ...defaultMarginForSpec(renderSpec),
       ...(effectiveViewSpec.margin || {})
     },
     transition: transitionSpec(renderSpec, previousSpec, { scrollDriven }),
@@ -865,6 +880,15 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
     });
   }
   scene.previousSpec = renderSpec;
+}
+
+function defaultMarginForSpec(spec = {}) {
+  const enc = spec.encoding || {};
+  const horizontalBar =
+    String(spec.mark || "").toLowerCase() === "bar" &&
+    enc.x?.type === "quantitative" &&
+    ["nominal", "ordinal"].includes(enc.y?.type);
+  return horizontalBar ? { left: 86, right: 42 } : {};
 }
 
 function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, transitionSource = {}) {
@@ -916,8 +940,9 @@ function resetSceneToEmptySource(scene) {
 }
 
 function virtualRenderDelay(spec = {}) {
-  const duration = Number(spec.transition?.duration);
-  const stagger = spec.transition?.stagger;
+  const transition = effectiveTransitionSpec(spec);
+  const duration = Number(transition.duration);
+  const stagger = transition.stagger;
   const staggerMax =
     typeof stagger === "object"
       ? Number(stagger.max ?? 0)
@@ -1013,7 +1038,7 @@ function applyScrollAction(node, viewSpec, progress) {
   const scene = node.__scrollyLiteScene;
   if (!scene || !viewSpec?.mark) return;
 
-  const action = normalizeScrollAction(viewSpec.scroll);
+  const action = normalizeScrollAction(narrativeScroll(viewSpec));
   const eased = easeProgress(progress, action.ease);
   if (applyVirtualScrollSequence(scene, eased)) return;
   scene.transitionProgress?.progress(eased);
@@ -1041,10 +1066,11 @@ function easeProgress(progress, name = "linear") {
 
 function applySceneTransitions(chart, rows, spec) {
   const sceneTypes = chart.sceneTransition?.scene || [];
+  const state = narrativeState(spec);
   chart.scene.node.dataset.sceneTransition = sceneTypes.join(" ");
-  chart.scene.node.dataset.sceneState = Object.keys(spec.sceneState || {}).join(" ");
-  chart.scene.node.dataset.transitionPlan = chart.transitionPlan?.barStage
-    ? chart.transitionPlan.barStage.order.join(" ")
+  chart.scene.node.dataset.sceneState = Object.keys(state.sceneState || {}).join(" ");
+  chart.scene.node.dataset.transitionPlan = chart.transitionPlan?.update?.stages
+    ? chart.transitionPlan.update.stages.map((stage) => stage.axis).join(" ")
     : "";
 
   clearSceneLayer(chart.scene.granularityLayer, chart.transition.base);
@@ -1053,7 +1079,7 @@ function applySceneTransitions(chart, rows, spec) {
 
 function applyGuideScene(chart, rows, spec) {
   const enabled = hasScene(chart.sceneTransition, "guide");
-  const cue = spec.guide?.cue;
+  const cue = narrativeState(spec).guide?.cue;
   const layer = chart.scene.guideLayer;
 
   if (!enabled || !cue || !chart.position || !rows.length) {
@@ -1248,8 +1274,8 @@ function resizeScene(scene, width, height) {
 }
 
 function transitionSpec(spec, previousSpec, { scrollDriven = false } = {}) {
-  const local = spec.transition || {};
-  const previous = previousSpec?.transition || {};
+  const local = narrativeTransition(spec);
+  const previous = previousSpec ? narrativeTransition(previousSpec) : {};
   const transition = {
     ...defaultTransition(),
     ...previous,
@@ -1261,6 +1287,10 @@ function transitionSpec(spec, previousSpec, { scrollDriven = false } = {}) {
     .duration(transition.duration)
     .ease(ease);
   return { ...transition, base };
+}
+
+function effectiveTransitionSpec(spec = {}) {
+  return defaultTransition(narrativeTransition(spec));
 }
 
 function easeFor(name, d3) {
@@ -1303,7 +1333,7 @@ function fadeLayers(scene, activeMark, transition = { base: getD3().transition()
 }
 
 function staggerDelay(spec, datum, index, override) {
-  const stagger = override === undefined ? spec.transition?.stagger : override;
+  const stagger = override === undefined ? effectiveTransitionSpec(spec).stagger : override;
   if (!stagger) return 0;
   if (typeof stagger === "number") return index * stagger;
 
@@ -1826,10 +1856,23 @@ function bindTooltip(selection, spec, tooltip) {
 }
 
 function tooltipHtml(row, tooltipSpec) {
-  if (!Array.isArray(tooltipSpec)) return "";
-  return tooltipSpec
-    .map((item) => `<strong>${escapeHtml(item.title || item.field)}</strong>: ${escapeHtml(row[item.field])}`)
+  if (tooltipSpec === false) return "";
+  const source = row?.__row && typeof row.__row === "object" ? row.__row : row;
+  const items = Array.isArray(tooltipSpec)
+    ? tooltipSpec
+    : Object.keys(source || {})
+        .filter((field) => !field.startsWith("__") && (source[field] == null || typeof source[field] !== "object"))
+        .map((field) => ({ field, title: titleize(field) }));
+
+  return items
+    .map((item) => `<strong>${escapeHtml(item.title || titleize(item.field))}</strong>: ${escapeHtml(source[item.field])}`)
     .join("<br>");
+}
+
+function titleize(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function showTooltip(tooltip, event, html) {

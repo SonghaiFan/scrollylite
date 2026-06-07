@@ -3,10 +3,11 @@ import {
   semanticKeyForDatum,
   semanticMeasureForDatum
 } from "../../identity/semantic-key.js";
+import { narrativeSemanticKey } from "../../scrolly-meta.js?v=semantic-key-10";
 
 export function barKeyAccessor(chart, spec, fallbackField = "id") {
   const fallback = keyAccessor(spec, fallbackField);
-  if (chart.transitionPlan?.barKey?.mode !== "semantic" || !spec.semanticKey) {
+  if (chart.transitionPlan?.barKey?.mode !== "semantic" || !narrativeSemanticKey(spec)) {
     return fallback;
   }
 

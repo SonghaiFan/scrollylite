@@ -1,9 +1,9 @@
 import { cloneState } from "./view-state.js?v=semantic-key-10";
-import { inferTransition } from "./infer-transition.js?v=semantic-key-11";
+import { inferTransition } from "./infer-transition.js?v=semantic-key-13";
 import {
   externalizeScrollyViewSpec,
   withNarrative
-} from "../scrolly-meta.js?v=semantic-key-5";
+} from "../scrolly-meta.js?v=semantic-key-10";
 
 export function story(initialSpec = {}) {
   return new StoryBuilder(initialSpec);
@@ -155,16 +155,7 @@ function compileStep(definition, view, scenes, isFirst, action) {
 
 function compileView(view) {
   const spec = view?.toSpec ? view.toSpec() : cloneState(view || {});
-  const compiled = {
-    ...spec
-  };
-
-  if (compiled.filter) {
-    compiled.focus = compiled.filter;
-    delete compiled.filter;
-  }
-
-  return externalizeScrollyViewSpec(compiled);
+  return externalizeScrollyViewSpec(spec);
 }
 
 function layoutPreset(name) {

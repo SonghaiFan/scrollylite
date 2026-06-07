@@ -1,8 +1,9 @@
-import { keyAccessor } from "../../identity/semantic-key.js";
+import { keyAccessor } from "../../identity/semantic-key.js?v=semantic-key-1";
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
 
 export function scatterKeyAccessor(spec, fallbackField = "id") {
   const rawKey = keyAccessor(spec, fallbackField);
-  const mode = spec.sceneState?.granularity?.mode;
+  const mode = narrativeState(spec).sceneState?.granularity?.mode;
   if (!mode) return rawKey;
   return (row, index) => `${mode}:${rawKey(row, index)}`;
 }

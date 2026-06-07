@@ -2,12 +2,12 @@ import { BaseChart } from "../base.js";
 import {
   linePointKeyAccessor,
   lineSeriesKey
-} from "./keys.js";
+} from "./keys.js?v=semantic-key-1";
 import {
   focusedLineXScale,
   lineSeries,
   lineState
-} from "./state.js";
+} from "./state.js?v=semantic-key-1";
 
 export function createLineRenderer(deps) {
   return new LineChart(deps).renderer();

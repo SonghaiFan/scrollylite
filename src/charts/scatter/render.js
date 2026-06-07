@@ -3,13 +3,13 @@ import {
   applyScatterIdentity,
   scatterKeyAccessor,
   scatterStoredKey
-} from "./keys.js";
+} from "./keys.js?v=semantic-key-1";
 import {
   parentAnchors,
   parentKey,
   radiusScale,
   scatterState
-} from "./state.js";
+} from "./state.js?v=semantic-key-1";
 
 export function createPointRenderer(deps) {
   return new PointMarkRenderer(deps).renderer();

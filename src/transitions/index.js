@@ -1,4 +1,13 @@
 import { DEFAULT_TIMING } from "../timing.js";
+import {
+  externalizeScrollyViewSpec,
+  narrativeObjectKey,
+  narrativeSemanticKey,
+  narrativeState,
+  narrativeTransition,
+  narrativeUnit,
+  withNarrative
+} from "../scrolly-meta.js?v=semantic-key-10";
 
 export const SCENE_TRANSITIONS = ["focus", "guide", "granularity", "observation"];
 const STATE_APPLICATION_ORDER = ["focus", "observation", "granularity", "guide"];
@@ -16,6 +25,7 @@ const ALIASES = new Map(
 export function resolveSceneTransition(viewSpec = {}, stepTransition = {}) {
   const rendererKey = transitionRendererKey(viewSpec);
   const supportedScenes = supportedSceneTypes(rendererKey);
+  const state = narrativeState(viewSpec);
   const scene = uniqueTokens([
     ...(stepTransition.scene || []),
     ...asArray(viewSpec.scene),
@@ -23,35 +33,33 @@ export function resolveSceneTransition(viewSpec = {}, stepTransition = {}) {
 
   return {
     scene,
-    focus: scene.includes("focus") ? viewSpec.focus || null : null,
-    guide: scene.includes("guide") ? viewSpec.guide || null : null,
-    granularity: scene.includes("granularity") ? viewSpec.granularity || null : null,
-    observation: scene.includes("observation") ? viewSpec.observation || null : null
+    focus: scene.includes("focus") ? state.focus || null : null,
+    guide: scene.includes("guide") ? state.guide || null : null,
+    granularity: scene.includes("granularity") ? state.granularity || null : null,
+    observation: scene.includes("observation") ? state.observation || null : null
   };
 }
 
 export function withSceneTransitionDefaults(viewSpec, sceneTransition) {
-  const transition = { ...(viewSpec.transition || {}) };
+  const transition = { ...narrativeTransition(viewSpec) };
 
   if ((hasScene(sceneTransition, "observation") || hasScene(sceneTransition, "granularity")) && transition.stagger == null) {
     transition.stagger = { ...DEFAULT_TIMING.scene.stagger };
   }
 
-  return {
-    ...viewSpec,
-    transition,
-    sceneTransition
-  };
+  return withNarrative(viewSpec, { transition });
 }
 
 export function compileSceneViewSpec(viewSpec, sceneTransition) {
   const compiler = MARK_TRANSITION_COMPILERS[transitionRendererKey(viewSpec)];
   if (!compiler) return viewSpec;
 
-  return stateApplicationOrder(viewSpec, sceneTransition, compiler).reduce((compiled, sceneType) => {
+  const compiled = stateApplicationOrder(viewSpec, sceneTransition, compiler).reduce((compiledSpec, sceneType) => {
     const handler = compiler.scenes[sceneType];
-    return handler ? handler(compiled, viewSpec[sceneType] || sceneTransition[sceneType] || {}) : compiled;
+    const state = narrativeState(viewSpec);
+    return handler ? handler(compiledSpec, state[sceneType] || sceneTransition[sceneType] || {}) : compiledSpec;
   }, compiler.base(cloneViewSpec(viewSpec)));
+  return externalizeScrollyViewSpec(compiled);
 }
 
 export function hasScene(sceneTransition, type) {
@@ -65,16 +73,17 @@ function supportedSceneTypes(mark) {
 
 function transitionRendererKey(viewSpec = {}) {
   const mark = String(viewSpec.mark || "").toLowerCase();
-  if (viewSpec.unit) return "unit";
+  if (narrativeUnit(viewSpec)) return "unit";
   if (mark === "point" || mark === "circle" || mark === "square") return "point";
   return mark;
 }
 
 function stateApplicationOrder(viewSpec, sceneTransition, compiler) {
   const supported = Object.keys(compiler.scenes);
+  const state = narrativeState(viewSpec);
   return STATE_APPLICATION_ORDER.filter((type) =>
     supported.includes(type) &&
-    (viewSpec[type] != null || sceneTransition[type] != null)
+    (state[type] != null || sceneTransition[type] != null)
   );
 }
 
@@ -119,30 +128,36 @@ function applyFilterFocus(spec, focusSpec = {}) {
   const filter = focusSpec.filter || selectorToFilter(focusSpec);
   if (!filter) return spec;
 
-  return {
+  return withSceneState({
     ...spec,
-    transform: [{ filter }, ...(spec.transform || [])],
-    sceneState: {
-      ...(spec.sceneState || {}),
-      focus: { filter }
-    }
-  };
+    transform: [{ filter }, ...(spec.transform || [])]
+  }, {
+    focus: { filter }
+  });
 }
 
 function applyBarGuide(spec, guideSpec = {}) {
   if (guideSpec.layout || guideSpec.barLayout) {
     const layout = guideSpec.layout || guideSpec.barLayout;
-    return {
+    const segmentField = barSegmentField(spec);
+    const granularity = narrativeState(spec).sceneState?.granularity || narrativeState(spec).granularity || {};
+    return withSceneState({
       ...spec,
-      barLayout: layout,
-      sceneState: {
-        ...(spec.sceneState || {}),
-        guide: {
-          layout,
-          staging: resolveGuideStaging(guideSpec, "vertical")
-        }
-      }
-    };
+      encoding: encodingWithBarLayout(spec.encoding, layout, segmentField)
+    }, {
+      guide: {
+        layout,
+        staging: resolveGuideStaging(guideSpec, "vertical")
+      },
+      ...(segmentField
+        ? {
+            granularity: {
+              ...granularity,
+              layout
+            }
+          }
+        : {})
+    });
   }
 
   const encoding = cloneEncoding(spec.encoding);
@@ -166,23 +181,22 @@ function applyBarGuide(spec, guideSpec = {}) {
     encoding.y = { ...measure, ...(guideSpec.scale ? { domain: guideSpec.scale.domain } : {}) };
   }
 
-  return {
+  return withSceneState(withObject({
     ...spec,
-    key: guideSpec.key || spec.key || category.field,
     margin: {
       ...(orientation === "horizontal" ? { left: 86, right: 42 } : {}),
       ...(spec.margin || {})
     },
-    encoding,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      guide: {
-        orientation,
-        scale: guideSpec.scale || null,
-        staging: resolveGuideStaging(guideSpec, orientation)
-      }
+    encoding
+  }, {
+    key: guideSpec.key || narrativeObjectKey(spec) || category.field
+  }), {
+    guide: {
+      orientation,
+      scale: guideSpec.scale || null,
+      staging: resolveGuideStaging(guideSpec, orientation)
     }
-  };
+  });
 }
 
 function applyBarGranularity(spec, granularitySpec = {}) {
@@ -219,41 +233,52 @@ function applyBarGranularity(spec, granularitySpec = {}) {
     });
   }
 
-  return {
+  const layout = granularitySpec.layout || "stacked";
+  const encoding = {
+    ...cloneEncoding(spec.encoding),
+    x: channelFromField(categoryField, granularitySpec.categoryTitle || spec.encoding?.x?.title, "nominal"),
+    y: channelFromField(valueField, granularitySpec.valueTitle || spec.encoding?.y?.title, "quantitative"),
+    color:
+      granularitySpec.color || {
+        field: segmentField,
+        type: "nominal",
+        ...(segmentDomain.length ? { domain: segmentDomain } : {}),
+        range: granularitySpec.range || ["#b05d3b", "#536a9e"]
+      }
+  };
+  if (layout === "grouped") {
+    encoding.xOffset = {
+      field: segmentField,
+      type: "nominal"
+    };
+  } else {
+    delete encoding.xOffset;
+    delete encoding.yOffset;
+  }
+
+  return withSceneState(withObject({
     ...spec,
+    transform,
+    encoding
+  }, {
     key: granularitySpec.key || [categoryField, segmentField],
-    semanticKey:
+    semantic:
+      granularitySpec.semantic ||
       granularitySpec.semanticKey ||
       semanticKeyFromParts(
         { field: categoryField },
         { field: sourceField }
-      ),
-    barLayout: granularitySpec.layout || "stacked",
-    transform,
-    encoding: {
-      ...cloneEncoding(spec.encoding),
-      x: channelFromField(categoryField, granularitySpec.categoryTitle || spec.encoding?.x?.title, "nominal"),
-      y: channelFromField(valueField, granularitySpec.valueTitle || spec.encoding?.y?.title, "quantitative"),
-      color:
-        granularitySpec.color || {
-          field: segmentField,
-          type: "nominal",
-          ...(segmentDomain.length ? { domain: segmentDomain } : {}),
-          range: granularitySpec.range || ["#b05d3b", "#536a9e"]
-        }
-    },
-    sceneState: {
-      ...(spec.sceneState || {}),
-      granularity: {
-        layout: granularitySpec.layout || "stacked",
-        fields,
-        segmentField,
-        sourceField,
-        segments: segmentDomain.length ? segmentDomain : null,
-        valueField
-      }
+      )
+  }), {
+    granularity: {
+      layout,
+      fields,
+      segmentField,
+      sourceField,
+      segments: segmentDomain.length ? segmentDomain : null,
+      valueField
     }
-  };
+  });
 }
 
 function applyBarObservation(spec, observationSpec = {}) {
@@ -278,25 +303,25 @@ function applyBarObservation(spec, observationSpec = {}) {
     ? semanticCategoryPart(observationSpec.category)
     : null;
 
-  return {
+  return withSceneState(withObject({
     ...spec,
-    semanticKey:
+    encoding
+  }, {
+    semantic:
+      observationSpec.semantic ||
       observationSpec.semanticKey ||
       (categoryKey
         ? semanticKeyFromParts(
-            spec.semanticKey?.entity || spec.semanticKey?.entities || categoryChannel(encoding),
+            narrativeSemanticKey(spec)?.entity || narrativeSemanticKey(spec)?.entities || categoryChannel(encoding),
             categoryKey
           )
-        : semanticKeyFromEncoding(encoding, spec.semanticKey)),
-    encoding,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      observation: {
-        measure: measure.field,
-        category: observationSpec.category || null
-      }
+        : semanticKeyFromEncoding(encoding, narrativeSemanticKey(spec)))
+  }), {
+    observation: {
+      measure: measure.field,
+      category: observationSpec.category || null
     }
-  };
+  });
 }
 
 function applyLineFocus(spec, focusSpec = {}) {
@@ -307,17 +332,15 @@ function applyLineFocus(spec, focusSpec = {}) {
     return applyFilterFocus(spec, focusSpec);
   }
 
-  return {
+  return withSceneState({
     ...spec,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      focus: {
-        filter,
-        mode: focusSpec.mode || "rangeCrop",
-        crop: focusSpec.crop !== false
-      }
+  }, {
+    focus: {
+      filter,
+      mode: focusSpec.mode || "rangeCrop",
+      crop: focusSpec.crop !== false
     }
-  };
+  });
 }
 
 function applyXYGuide(spec, guideSpec = {}) {
@@ -330,20 +353,19 @@ function applyXYGuide(spec, guideSpec = {}) {
   if (guideSpec.x) encoding.x = mergeXYChannel(encoding.x, guideSpec.x, "quantitative");
   if (guideSpec.y) encoding.y = mergeXYChannel(encoding.y, guideSpec.y, "quantitative");
 
-  return {
+  return withSceneState(withObject({
     ...spec,
-    encoding,
-    key: guideSpec.key || spec.key,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      guide: {
-        swap: Boolean(guideSpec.swap),
-        xScale: channelScaleType(encoding.x),
-        yScale: channelScaleType(encoding.y),
-        staging: resolveGuideStaging(guideSpec, "cartesian")
-      }
+    encoding
+  }, {
+    key: guideSpec.key || narrativeObjectKey(spec)
+  }), {
+    guide: {
+      swap: Boolean(guideSpec.swap),
+      xScale: channelScaleType(encoding.x),
+      yScale: channelScaleType(encoding.y),
+      staging: resolveGuideStaging(guideSpec, "cartesian")
     }
-  };
+  });
 }
 
 function applyXYObservation(spec, observationSpec = {}) {
@@ -351,23 +373,21 @@ function applyXYObservation(spec, observationSpec = {}) {
   if (observationSpec.x) encoding.x = mergeXYChannel(encoding.x, observationSpec.x, "quantitative");
   if (observationSpec.y) encoding.y = mergeXYChannel(encoding.y, observationSpec.y, "quantitative");
 
-  return {
+  return withSceneState({
     ...spec,
-    encoding,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      observation: {
-        x: encoding.x?.field,
-        y: encoding.y?.field
-      }
+    encoding
+  }, {
+    observation: {
+      x: encoding.x?.field,
+      y: encoding.y?.field
     }
-  };
+  });
 }
 
 function applyScatterGranularity(spec, granularitySpec = {}) {
   const mode = granularitySpec.mode || "detail";
   const parentField = granularitySpec.parentField || granularitySpec.groupby?.[0] || spec.encoding?.color?.field;
-  const detailField = granularitySpec.detailField || spec.key || spec.encoding?.key?.field || spec.encoding?.x?.field;
+  const detailField = granularitySpec.detailField || narrativeObjectKey(spec) || spec.encoding?.key?.field || spec.encoding?.x?.field;
 
   if (mode === "aggregate") {
     const groupby = granularitySpec.groupby || [parentField].filter(Boolean);
@@ -382,9 +402,8 @@ function applyScatterGranularity(spec, granularitySpec = {}) {
       { op: "count", as: countAs }
     ];
 
-    return {
+    return withSceneState(withObject({
       ...spec,
-      key: granularitySpec.key || groupby,
       transform: [
         ...(spec.transform || []),
         {
@@ -407,31 +426,30 @@ function applyScatterGranularity(spec, granularitySpec = {}) {
               }
             }
           : {})
-      },
-      sceneState: {
-        ...(spec.sceneState || {}),
-        granularity: {
-          mode,
-          parentField,
-          detailField,
-          countAs
-        }
       }
-    };
+    }, {
+      key: granularitySpec.key || groupby
+    }), {
+      granularity: {
+        mode,
+        parentField,
+        detailField,
+        countAs
+      }
+    });
   }
 
-  return {
+  return withSceneState(withObject({
     ...spec,
-    key: granularitySpec.key || detailField,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      granularity: {
-        mode: "detail",
-        parentField,
-        detailField
-      }
+  }, {
+    key: granularitySpec.key || detailField
+  }), {
+    granularity: {
+      mode: "detail",
+      parentField,
+      detailField
     }
-  };
+  });
 }
 
 function applyLineGranularity(spec, granularitySpec = {}) {
@@ -454,22 +472,20 @@ function applyLineGranularity(spec, granularitySpec = {}) {
     if (granularitySpec.color) encoding.color = granularitySpec.color;
   }
 
-  return {
+  return withSceneState({
     ...spec,
-    encoding,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      granularity: {
-        mode,
-        seriesField: mode === "series" ? seriesField : null
-      }
+    encoding
+  }, {
+    granularity: {
+      mode,
+      seriesField: mode === "series" ? seriesField : null
     }
-  };
+  });
 }
 
 function applyUnitGuide(spec, guideSpec = {}) {
   const unit = {
-    ...(spec.unit || {}),
+    ...(narrativeUnit(spec) || {}),
     ...copyDefined(guideSpec, [
       "layout",
       "columns",
@@ -489,23 +505,89 @@ function applyUnitGuide(spec, guideSpec = {}) {
   const encoding = cloneEncoding(spec.encoding);
   if (guideSpec.color) encoding.color = guideSpec.color;
 
-  return {
+  return withSceneState(withObject(withNarrative({
     ...spec,
-    unit,
-    key: guideSpec.key || spec.key,
-    encoding,
-    sceneState: {
-      ...(spec.sceneState || {}),
-      guide: {
-        layout: unit.layout || "grid",
-        xField: unit.xField || null,
-        yField: unit.yField || null,
-        groupField: unit.groupField || null,
-        valueField: unit.valueField || null,
-        staging: resolveGuideStaging(guideSpec, "unit")
-      }
+    encoding
+  }, {
+    unit
+  }), {
+    key: guideSpec.key || narrativeObjectKey(spec)
+  }), {
+    guide: {
+      layout: unit.layout || "grid",
+      xField: unit.xField || null,
+      yField: unit.yField || null,
+      groupField: unit.groupField || null,
+      valueField: unit.valueField || null,
+      staging: resolveGuideStaging(guideSpec, "unit")
     }
+  });
+}
+
+function withObject(spec, objectSpec = {}) {
+  const object = {};
+  if (objectSpec.key != null) object.key = objectSpec.key;
+  if (objectSpec.semantic != null) object.semantic = semanticToNarrative(objectSpec.semantic);
+  return Object.keys(object).length ? withNarrative(spec, { object }) : spec;
+}
+
+function withSceneState(spec, sceneStatePatch = {}) {
+  return withNarrative(spec, {
+    state: {
+      sceneState: sceneStatePatch
+    }
+  });
+}
+
+function barSegmentField(spec = {}) {
+  const state = narrativeState(spec);
+  return (
+    state.sceneState?.granularity?.segmentField ||
+    state.granularity?.segmentField ||
+    spec.encoding?.xOffset?.field ||
+    spec.encoding?.yOffset?.field ||
+    spec.encoding?.color?.field ||
+    null
+  );
+}
+
+function encodingWithBarLayout(encoding = {}, layout = "stacked", segmentField = null) {
+  const next = cloneEncoding(encoding);
+  if (layout === "grouped" && segmentField) {
+    next.xOffset = {
+      field: segmentField,
+      type: "nominal"
+    };
+    return next;
+  }
+
+  delete next.xOffset;
+  delete next.yOffset;
+  return next;
+}
+
+function semanticToNarrative(semanticKey = {}) {
+  return {
+    ...(semanticKey.entity !== undefined
+      ? { entity: semanticPartToNarrative(semanticKey.entity) }
+      : {}),
+    ...(semanticKey.entities !== undefined
+      ? { entity: semanticPartToNarrative(semanticKey.entities) }
+      : {}),
+    ...(semanticKey.measure !== undefined
+      ? { measure: semanticPartToNarrative(semanticKey.measure) }
+      : {}),
+    ...(semanticKey.measures !== undefined
+      ? { measure: semanticPartToNarrative(semanticKey.measures) }
+      : {})
   };
+}
+
+function semanticPartToNarrative(part) {
+  if (Array.isArray(part)) return part.map(semanticPartToNarrative);
+  if (typeof part === "string") return { field: part };
+  if (part == null || typeof part !== "object") return part;
+  return { ...part };
 }
 
 function identitySpec(spec) {
@@ -513,9 +595,9 @@ function identitySpec(spec) {
 }
 
 function withDefaultBarSemanticKey(spec) {
-  if (spec.semanticKey) return spec;
+  if (narrativeSemanticKey(spec)) return spec;
   const semanticKey = semanticKeyFromEncoding(spec.encoding || {});
-  return semanticKey ? { ...spec, semanticKey } : spec;
+  return semanticKey ? withObject(spec, { semantic: semanticKey }) : spec;
 }
 
 function semanticKeyFromEncoding(encoding = {}, previousSemanticKey = null) {

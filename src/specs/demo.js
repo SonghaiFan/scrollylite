@@ -1,6 +1,6 @@
-import { createBarStory } from "./weather/bar-story.js?v=semantic-key-16";
-import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-15";
-import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-16";
+import { createBarStory } from "./weather/bar-story.js?v=semantic-key-18";
+import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-16";
+import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-18";
 
 const STORY_REGISTRY = {
   bar: {

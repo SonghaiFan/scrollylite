@@ -64,7 +64,8 @@ Structure is intentionally out of scope for the current implementation.
 
 ## Step Spec
 
-Each step can declare a transition type and a view state:
+Each step carries a view state. The transition type is inferred by comparing the
+previous and next compiled view specs:
 
 ```js
 {
@@ -77,9 +78,7 @@ Each step can declare a transition type and a view state:
   views: {
     main: {
       mark: "bar",
-      data: "weatherDays",
-      key: "decade",
-      guide: { orientation: "horizontal" },
+      data: { name: "weatherDays" },
       transform: [
         { filter: { field: "type", equal: "Hot days" } }
       ],
@@ -109,22 +108,22 @@ Built-in mark renderers:
 
 Shared view fields:
 
-- `data`: dataset name
+- `data`: `{ name }` dataset reference
 - `mark`: Vega-Lite primitive mark type
-- `key`: semantic identity key
 - `transform`: Arquero-backed transform list
 - `encoding`: visual channels
-- `transition`: timing override
-- `focus`, `guide`, `granularity`, `observation`: scene-state parameters
+- `narrative`: ScrollyLite extension for object identity, annotation, and timing
 
 Supported encoding channels:
 
 - `x`
 - `y`
 - `color`
-- `tooltip`
 - `xOffset` / `yOffset` for grouped bar variants
 - `color` for grouped or stacked bar variants
+
+Tooltips are a runtime default: when `encoding.tooltip` is absent, the runtime
+shows all displayable row fields.
 
 Color can be direct, categorical, or composite:
 
@@ -149,10 +148,9 @@ red/blue mapping. Explicit quantitative color fields use luminance.
 
 ## Scene Semantics
 
-Scene-state fields and transition labels are related but separate. A step can
-carry `granularity` state because the final chart is segmented while declaring
-only `scene: ["guide"]` because the authored delta is stacked-to-grouped
-repositioning.
+Scene labels are inferred after compilation. A step spec should describe the
+chart itself; derived scene state such as guide orientation or granularity layout
+belongs to the diff/transition plan.
 
 `focus`: change data size through filtering or unfiltering. Visual elements
 enter and exit.
@@ -202,7 +200,7 @@ const spec = story()
   .step("Flip coordinates", base.flip())
   .step("Cold days", base.where({ type: "Cold days" }))
   .step("Split", segmented)
-  .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
+  .step("Grouped", segmented.layout("grouped"))
   .step("Collapse", segmented.collapse("type", { title: "Total days" }))
   .toSpec();
 ```

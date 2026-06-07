@@ -1,5 +1,10 @@
 import { normalizeMarkRendererKey } from "../index.js";
-import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-11";
+import {
+  narrativeState,
+  narrativeTransition
+} from "../../scrolly-meta.js?v=semantic-key-10";
+import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-14";
+import { defaultTransition, stagedDuration } from "../../timing.js";
 
 export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   const previous = barState(previousSpec);
@@ -60,6 +65,12 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   if (!geometryAxes.length) return plan;
 
   const guideStaging = next.guideStaging || previous.guideStaging || {};
+  const reason = barStageReason({ changesSegmentLayout, crossesGuide, orientationChanged });
+  const timing = defaultTransition({
+    ...narrativeTransition(previousSpec || {}),
+    ...narrativeTransition(nextSpec || {}),
+    ...guideStaging
+  });
   const stagedOrder = geometryStageOrder({
     staging: guideStaging,
     target: next,
@@ -70,17 +81,38 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
 
   if (!stagedOrder.length) return plan;
 
+  const stageTiming = {
+    duration: guideStaging.duration || stagedDuration(timing.duration, stagedOrder.length),
+    ease: timing.ease,
+    stagger: timing.stagger
+  };
+
   plan.barStage = {
-    reason: barStageReason({ changesSegmentLayout, crossesGuide, orientationChanged }),
+    reason,
     fromOrientation: previous.orientation,
     toOrientation: next.orientation,
     fromLayout: previous.barLayout,
     toLayout: next.barLayout,
     order: stagedOrder,
     changedAxes: geometryAxes,
-    duration: guideStaging.duration,
-    ease: guideStaging.ease,
-    stagger: guideStaging.stagger
+    duration: timing.duration,
+    ease: timing.ease,
+    stagger: timing.stagger
+  };
+  plan.update = {
+    mode: "staged",
+    reason,
+    target: {
+      orientation: next.orientation,
+      layout: next.barLayout,
+      renderer: barRendererOrientation(next)
+    },
+    changedAxes: geometryAxes,
+    stages: stagedOrder.map((axis) => ({
+      axis,
+      attrs: axis === "x" ? ["x", "width"] : ["y", "height"]
+    })),
+    timing: stageTiming
   };
 
   return plan;
@@ -114,24 +146,85 @@ export function barState(spec) {
   if (!spec || normalizeMarkRendererKey(spec.mark) !== "bar") return null;
 
   const enc = spec.encoding || {};
-  const barLayout = spec.barLayout || spec.bar?.layout || "simple";
+  const state = narrativeState(spec);
+  const sceneState = state.sceneState || {};
+  const aggregate = barAggregateState(spec);
+  const barLayout = barLayoutState(spec, state, aggregate);
   const horizontal =
     barLayout === "simple" &&
     enc.x?.type === "quantitative" &&
     ["nominal", "ordinal"].includes(enc.y?.type);
   const orientation = horizontal ? "horizontal" : "vertical";
+  const segmentField =
+    sceneState.granularity?.segmentField ||
+    state.granularity?.segmentField ||
+    enc.xOffset?.field ||
+    enc.yOffset?.field ||
+    enc.color?.field ||
+    null;
+  const guideState = barGuideState({ orientation, barLayout, state });
+  const granularityState = barGranularityState({ barLayout, categoryField: horizontal ? enc.y?.field : enc.x?.field, measureField: horizontal ? enc.x?.field : enc.y?.field, segmentField, state });
 
   return {
     orientation,
     barLayout,
     categoryField: horizontal ? enc.y?.field : enc.x?.field,
     measureField: horizontal ? enc.x?.field : enc.y?.field,
-    hasGuide: Boolean(spec.sceneState?.guide),
-    hasGranularity: Boolean(spec.sceneState?.granularity),
-    hasAggregate: Boolean(spec.aggregate),
-    segmentField: spec.sceneState?.granularity?.segmentField || spec.segmentField || spec.segment || null,
-    guideStaging: spec.sceneState?.guide?.staging || null
+    hasGuide: Boolean(guideState),
+    hasGranularity: Boolean(granularityState),
+    hasAggregate: Boolean(aggregate),
+    segmentField,
+    guideStaging: guideState?.staging || null
   };
+}
+
+function barLayoutState(spec = {}, state = {}, aggregate = null) {
+  const enc = spec.encoding || {};
+  const stateLayout =
+    state.sceneState?.guide?.layout ||
+    state.sceneState?.granularity?.layout ||
+    state.guide?.layout ||
+    state.granularity?.layout;
+  if (stateLayout) return stateLayout;
+  if (enc.xOffset?.field || enc.yOffset?.field) return "grouped";
+  if (enc.color?.field && aggregate) return "stacked";
+  return "simple";
+}
+
+function barGuideState({ orientation, barLayout, state = {} }) {
+  const explicit = state.sceneState?.guide || state.guide;
+  if (explicit) return explicit;
+  if (orientation === "horizontal") {
+    return {
+      orientation,
+      staging: { order: ["y", "x"] }
+    };
+  }
+  if (barLayout === "grouped") {
+    return {
+      layout: barLayout,
+      staging: { order: ["x", "y"] }
+    };
+  }
+  return null;
+}
+
+function barGranularityState({ barLayout, categoryField, measureField, segmentField, state = {} }) {
+  const explicit = state.sceneState?.granularity || state.granularity;
+  if (explicit) return explicit;
+  if (!isSegmentLayout(barLayout) || !segmentField) return null;
+  return {
+    layout: barLayout,
+    categoryField: categoryField || null,
+    segmentField,
+    valueField: measureField || null
+  };
+}
+
+function barAggregateState(spec = {}) {
+  return (spec.transform || []).some((transform) => transform?.aggregate)
+    ? (spec.transform || []).filter((transform) => transform?.aggregate).map((transform) => transform.aggregate)
+    : null;
 }
 
 function stageOrder(staging = {}, orientation) {
@@ -176,40 +269,31 @@ function barStageReason({ changesSegmentLayout, crossesGuide, orientationChanged
   return "bar-geometry";
 }
 
+function barRendererOrientation(state) {
+  if (state.barLayout === "grouped") return "grouped-vertical";
+  if (state.barLayout === "stacked") return "stacked-vertical";
+  return state.orientation;
+}
+
 function isSegmentLayout(layout) {
   return layout === "grouped" || layout === "stacked";
 }
 
 function stackedSegmentSpec(spec, transitionPeerSpec) {
+  const next = cloneSpec(spec);
+  const encoding = { ...(next.encoding || {}) };
+  delete encoding.xOffset;
+  delete encoding.yOffset;
+
   return {
     ...cloneSpec(spec),
-    barLayout: "stacked",
-    guide: {
-      ...(spec.guide || {}),
-      layout: "stacked",
-      staging: {
-        ...(spec.guide?.staging || {}),
-        order: ["y", "x"]
+    encoding,
+    narrative: {
+      ...(next.narrative || {}),
+      transition: {
+        ...narrativeTransition(transitionPeerSpec || {}),
+        ...narrativeTransition(spec)
       }
-    },
-    sceneState: {
-      ...(spec.sceneState || {}),
-      granularity: {
-        ...(spec.sceneState?.granularity || {}),
-        layout: "stacked"
-      },
-      guide: {
-        ...(spec.sceneState?.guide || {}),
-        layout: "stacked",
-        staging: {
-          ...(spec.sceneState?.guide?.staging || {}),
-          order: ["y", "x"]
-        }
-      }
-    },
-    transition: {
-      ...(transitionPeerSpec?.transition || {}),
-      ...(spec.transition || {})
     }
   };
 }

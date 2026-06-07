@@ -1,6 +1,9 @@
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+
 export function lineState(spec = {}, enc = {}) {
+  const state = narrativeState(spec);
   return {
-    focus: spec.sceneState?.focus || null,
+    focus: state.sceneState?.focus || state.focus || null,
     seriesField: spec.lineSeries || spec.series || enc.series?.field || null
   };
 }

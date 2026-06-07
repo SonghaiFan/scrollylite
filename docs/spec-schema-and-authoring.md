@@ -16,14 +16,15 @@ authoring code
 ```
 
 The runtime renders the effective view spec. Raw authoring fields such as
-`focus`, `guide`, and `granularity` are scene-state instructions that are applied
-by `compileSceneViewSpec()` before D3 receives the effective view spec.
+`where`, `guide`, `granularity`, `key`, and `transition` should not survive as
+top-level view fields. The authoring compiler translates them into Vega-Lite-ish
+`transform`/`encoding` plus the ScrollyLite `narrative` extension before the
+runtime sees the step view.
 
 ## Top-Level Story Spec
 
 ```js
 {
-  $schema?: string,
   title?: string,
   description?: string,
   data: Record<string, DataSource>,
@@ -128,12 +129,6 @@ Step views override or complete this config.
   mark: "bar" | "unit",
   width?: number,
   height?: number,
-  margin?: {
-    top?: number,
-    right?: number,
-    bottom?: number,
-    left?: number
-  },
   transform?: TransformSpec[],
   encoding?: EncodingSpec,
   narrative?: NarrativeExtension
@@ -166,20 +161,13 @@ narrative: {
   action?: {
     scroll?: true | { ease?: "linear" | "cubic" | "cubicInOut" | "cubicOut" }
   },
-  state?: {
-    focus?: FocusSpec,
-    guide?: GuideSpec,
-    granularity?: GranularitySpec,
-    observation?: ObservationSpec,
-    sceneState?: Record<string, unknown>
-  },
-  transform?: TransformSpec[],
   unit?: UnitMarkSpec
 }
 ```
 
 Scene transition types are inferred by diffing the previous and next compiled
-view specs. Authors should not write `transition.scene` in the view spec.
+view specs. Authors should not write `transition.scene` or derived scene state
+in the view spec.
 
 ## Encoding Schema
 
@@ -188,7 +176,8 @@ encoding: {
   x?: ChannelSpec,
   y?: ChannelSpec,
   color?: ColorSpec,
-  tooltip?: TooltipItem[],
+  xOffset?: ChannelSpec,
+  yOffset?: ChannelSpec,
   size?: ChannelSpec
 }
 ```
@@ -229,14 +218,9 @@ Color:
 }
 ```
 
-Tooltip:
-
-```js
-[
-  { field: "decade", title: "Decade" },
-  { field: "count", title: "Count" }
-]
-```
+Tooltips are a runtime default: when `encoding.tooltip` is absent, ScrollyLite
+shows all displayable fields on the current row. Authors only set
+`encoding.tooltip` when they intentionally want to override that default.
 
 ## Transform Schema
 
@@ -278,15 +262,18 @@ The runtime uses a small transform vocabulary:
 Scroll mode creates ordinary D3 transitions and then scrubs them with scroll
 progress. Stepped mode lets D3 run them with time.
 
+The runtime default is `{ duration: 900, ease: "cubicInOut", stagger: { step:
+10, max: 120 } }`. Compiled specs only emit `narrative.transition` fields that
+are different from that default.
+
 ## Bar View Spec
 
 Minimal vertical bar:
 
 ```js
 {
-  data: "weatherDays",
+  data: { name: "weatherDays" },
   mark: "bar",
-  key: "decade",
   transform: [
     { filter: { field: "type", equal: "Hot days" } },
     { sort: { field: "year", order: "ascending" } }
@@ -294,83 +281,65 @@ Minimal vertical bar:
   encoding: {
     x: { field: "decade", title: "Decade", type: "nominal" },
     y: { field: "count", title: "Hot days", type: "quantitative" }
-  }
-}
-```
-
-Horizontal guide state before compilation:
-
-```js
-guide: {
-  orientation: "horizontal",
-  category: { field: "decade", title: "Decade", type: "nominal" },
-  measure: { field: "count", title: "Hot days", type: "quantitative" },
-  staging?: {
-    order?: ("x" | "y")[],
-    duration?: number,
-    ease?: string,
-    stagger?: object
-  }
-}
-```
-
-Compiled horizontal bar changes `encoding.x` to the quantitative measure and
-`encoding.y` to the category channel. It also writes:
-
-```js
-sceneState: {
-  guide: {
-    orientation: "horizontal",
-    scale: null,
-    staging: { order: ["y", "x"] }
-  }
-}
-```
-
-Segmented bar state before compilation:
-
-```js
-granularity: {
-  category?: string,
-  segment?: string,
-  value?: string,
-  layout?: "stacked" | "grouped",
-  color?: ColorSpec,
-  domain?: unknown[],
-  range?: string[],
-  groupby?: string[],
-  op?: "sum" | string,
-  aggregate?: boolean
-}
-```
-
-Compiled segmented bar writes:
-
-```js
-{
-  barLayout: "stacked" | "grouped",
-  key: [categoryField, segmentField],
-  semanticKey: {
-    entity: { field: categoryField },
-    measure: { field: sourceField }
   },
-  encoding: {
-    x: { field: categoryField, type: "nominal" },
-    y: { field: valueField, type: "quantitative" },
-    color: { field: segmentField, type: "nominal" }
-  },
-  sceneState: {
-    granularity: {
-      layout,
-      fields,
-      segmentField,
-      sourceField,
-      segments,
-      valueField
+  narrative: {
+    object: {
+      key: ["decade", "type"],
+      semantic: {
+        entity: { field: "decade" },
+        measure: { field: "type" }
+      }
     }
   }
 }
 ```
+
+Horizontal guide after authoring compilation:
+
+```js
+{
+  encoding: {
+    x: { field: "count", title: "Hot days", type: "quantitative" },
+    y: { field: "decade", title: "Decade", type: "nominal" }
+  }
+}
+```
+
+The `guide` transition is inferred later by diffing this horizontal spec against
+the previous vertical spec.
+
+Segmented bar after authoring compilation:
+
+```js
+{
+  transform: [
+    {
+      aggregate: {
+        groupby: [categoryField, segmentField],
+        fields: [{ op: "sum", field: valueField, as: valueField }]
+      }
+    }
+  ],
+  encoding: {
+    x: { field: categoryField, type: "nominal" },
+    y: { field: valueField, type: "quantitative" },
+    color: { field: segmentField, type: "nominal" },
+    xOffset?: { field: segmentField, type: "nominal" } // grouped only
+  },
+  narrative: {
+    object: {
+      key: [categoryField, segmentField],
+      semantic: {
+        entity: { field: categoryField },
+        measure: { field: sourceField }
+      }
+    }
+  }
+}
+```
+
+The `granularity` and grouped-layout `guide` state is inferred later from
+`transform.aggregate`, `encoding.color`, and `encoding.xOffset`.
 
 ## Authoring Grammar
 
@@ -386,9 +355,7 @@ Create a base bar state:
 const base = bar("weatherDays")
   .x("decade")
   .y("count")
-  .transition(sharedTiming)
-  .sort("year")
-  .tooltip(["decade", "period", "type", "count"]);
+  .sort("year");
 ```
 
 ### StoryBuilder
@@ -432,7 +399,6 @@ bar(data)
 .y(field, options?)
 .channel(name, field, options?)
 .color(valueOrField, options?)
-.tooltip(items)
 .key(fieldOrFields)
 .sort(field, order?)
 .transition(timing)
@@ -445,21 +411,19 @@ bar(data)
 .collapse(drop?, options?)
 .segment(fieldOrConfig?, config?)
 .layout(layout, options?)
-.stage(order, options?)
 .toSpec()
 ```
 
 Important mappings:
 
-| Authoring | Raw state effect | Scene operation |
+| Authoring | Compiled spec effect | Scene operation |
 | --- | --- | --- |
-| `.where({ type: "Hot days" })` | adds `where`, later compiled to filter transform | `focus` |
-| `.where({ period: "recent" })` | adds another filter constraint | `focus` |
-| `.flip()` | writes `guide.orientation = "horizontal"` | `guide` |
-| `.split("type")` | writes segmented `granularity` state | `granularity` |
-| `.layout("grouped")` | changes segmented layout through `guide` | `guide` |
-| `.collapse("type")` | writes aggregate transform and clears segment state | `granularity` |
-| `.stage(["y", "x"])` | writes guide staging order | `guide` |
+| `.where({ type: "Hot days" })` | adds `{ filter: { field, equal } }` to `transform` | `focus` |
+| `.where({ period: "recent" })` | adds another Vega-Lite-style filter transform | `focus` |
+| `.flip()` | swaps the bar orientation by materializing `encoding.x`/`encoding.y` | `guide` |
+| `.split("type")` | writes aggregate transform and color encoding | `granularity` |
+| `.layout("grouped")` | adds `encoding.xOffset` | `guide` |
+| `.collapse("type")` | writes aggregate transform grouped by the parent key | `granularity` |
 
 ## Bar Weather Story
 
@@ -469,9 +433,7 @@ Current authoring sequence:
 const base = bar("weatherDays")
   .x("decade")
   .y("count")
-  .transition(sharedTiming)
-  .sort("year")
-  .tooltip(["decade", "period", "type", "count"]);
+  .sort("year");
 
 story(createBaseDemo())
   .layout("floatToText")
@@ -558,36 +520,101 @@ x and y geometry changed -> staged x/y update
 The renderer maps x geometry to `x` and `width`, and y geometry to `y` and
 `height`.
 
-## Effective Versus Raw Spec
-
-Raw step view:
+The plan also emits an execution-oriented update block that the bar renderer
+consumes directly:
 
 ```js
 {
-  mark: "bar",
-  guide: { orientation: "horizontal" },
-  encoding: {
-    x: { field: "decade", type: "nominal" },
-    y: { field: "count", type: "quantitative" }
+  update: {
+    mode: "staged",
+    reason: "guide-orientation" | "guide-segment-layout" | "bar-geometry",
+    target: {
+      orientation: "vertical" | "horizontal",
+      layout: "simple" | "stacked" | "grouped",
+      renderer: "vertical" | "horizontal" | "stacked-vertical" | "grouped-vertical"
+    },
+    changedAxes: ["x", "y"],
+    stages: [
+      { axis: "y", attrs: ["y", "height"] },
+      { axis: "x", attrs: ["x", "width"] }
+    ],
+    timing: {
+      duration: 450,
+      ease: "cubicInOut",
+      stagger: { step: 10, max: 120 }
+    }
   }
 }
 ```
 
-Effective view after scene compilation:
+`barStage` remains a compact human-readable summary for the inspector. The
+renderer should prefer `update.stages` and `update.timing`, so transition
+decisions stay in the diff/plan layer instead of being re-inferred inside the
+D3 renderer.
+
+## Materialized Bar Specs
+
+`BarState` may use temporary authoring state internally while the chain is being
+built, but `.toSpec()` materializes that state into a Vega-ish view. For example,
+`.where(...).flip()` compiles to filters plus horizontal x/y encodings:
 
 ```js
 {
+  data: { name: "weatherDays" },
   mark: "bar",
+  transform: [
+    { filter: { field: "type", equal: "Hot days" } },
+    { filter: { field: "period", equal: "recent" } },
+    { sort: { field: "year", order: "ascending" } }
+  ],
   encoding: {
-    x: { field: "count", type: "quantitative" },
-    y: { field: "decade", type: "nominal" }
+    x: { field: "count", title: "Hot days", type: "quantitative" },
+    y: { field: "decade", title: "Decade", type: "nominal" }
   },
-  sceneState: {
-    guide: { orientation: "horizontal", scale: null, staging: { order: ["y", "x"] } }
+  narrative: {
+    object: {
+      key: ["decade", "type"],
+      semantic: {
+        entity: { field: "decade" },
+        measure: { field: "type" }
+      }
+    }
   }
 }
 ```
 
-Diff, transition planning, and rendering use the effective view. This is why
-direct jumps in stepped mode can compare step 1 to step 3 and still discover the
-real orientation and geometry changes.
+`base.split("type").layout("grouped")` materializes the grouped bar with
+Vega-Lite's `xOffset` vocabulary:
+
+```js
+{
+  data: { name: "weatherDays" },
+  mark: "bar",
+  transform: [
+    { sort: { field: "year", order: "ascending" } },
+    {
+      aggregate: {
+        groupby: ["decade", "type"],
+        fields: [{ op: "sum", field: "count", as: "count" }]
+      }
+    }
+  ],
+  encoding: {
+    x: { field: "decade", type: "nominal", title: "Decade" },
+    y: { field: "count", type: "quantitative", title: "Count" },
+    color: { field: "type", type: "nominal", range: ["#b05d3b", "#536a9e"] },
+    xOffset: { field: "type", type: "nominal" }
+  },
+  narrative: {
+    object: { ... }
+  }
+}
+```
+
+Diff, transition planning, and rendering use these materialized specs. The
+inspector's transition diff also compares materialized specs so guide transitions
+show the real `encoding.x`/`encoding.y` geometry changes. Derived guide and
+granularity state, including default staging order, appears in the diff and
+transition plan rather than in the step spec. This is why direct jumps in stepped
+mode can compare step 1 to step 3 and still discover the real orientation and
+geometry changes.

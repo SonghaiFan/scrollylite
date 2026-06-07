@@ -1,7 +1,12 @@
+import {
+  narrativeObjectKey,
+  narrativeUnit
+} from "../../scrolly-meta.js?v=semantic-key-10";
+
 export function expandUnits(rows, spec, d3) {
-  const unit = spec.unit || {};
+  const unit = narrativeUnit(spec) || {};
   const valueField = unit.valueField;
-  const rowKey = unit.key || spec.key || "id";
+  const rowKey = unit.key || narrativeObjectKey(spec) || "id";
   const maxUnits = unit.maxUnits || 240;
   const units = [];
 
@@ -23,7 +28,7 @@ export function expandUnits(rows, spec, d3) {
 
 export function unitLayout(units, chart, spec, deps) {
   const { bandOrLinear, d3, drawGrid, drawXAxis, drawYAxis, niceExtent, position, updateGrid } = deps;
-  const unit = spec.unit || {};
+  const unit = narrativeUnit(spec) || {};
   const layout = unit.layout || "grid";
   const columns = unit.columns || Math.max(8, Math.floor(Math.sqrt(units.length) * 1.4));
   const requestedRadius = unit.radius || 12;

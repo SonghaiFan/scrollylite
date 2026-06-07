@@ -1,16 +1,11 @@
-import { bar, story } from "../../grammar/index.js?v=semantic-key-15";
-import {
-  createBaseDemo,
-  sharedTiming
-} from "./shared.js?v=semantic-key-16";
+import { bar, story } from "../../grammar/index.js?v=semantic-key-16";
+import { createBaseDemo } from "./shared.js?v=semantic-key-18";
 
 export function createBarStory() {
   const base = bar("weatherDays")
     .x("decade")
     .y("count")
-    .transition(sharedTiming)
-    .sort("year")
-    .tooltip(["decade", "period", "type", "count"]);
+    .sort("year");
 
 
   return story(createBaseDemo())

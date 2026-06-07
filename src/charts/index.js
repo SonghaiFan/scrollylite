@@ -1,3 +1,5 @@
+import { narrativeUnit } from "../scrolly-meta.js?v=semantic-key-10";
+
 const MARK_RENDERER_ALIASES = new Map([
   ["circle", "point"],
   ["points", "point"],
@@ -60,7 +62,7 @@ export function normalizeChartType(type) {
 }
 
 export function resolveMarkRendererKey(viewSpec = {}) {
-  if (viewSpec?.unit) return "unit";
+  if (narrativeUnit(viewSpec)) return "unit";
   return normalizeMarkRendererKey(viewSpec?.mark);
 }
 

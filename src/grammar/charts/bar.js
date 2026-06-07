@@ -1,4 +1,6 @@
 import { ViewState, cloneState } from "../view-state.js?v=semantic-key-10";
+import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-10";
+import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-15";
 
 export function bar(data) {
   return new BarState({
@@ -11,18 +13,28 @@ export function bar(data) {
 export class BarState extends ViewState {
   toSpec() {
     const spec = super.toSpec();
-    if (spec.where?.length) {
+    const filters = [
+      ...(spec.where || []),
+      ...(spec.filter ? [spec.filter] : [])
+    ];
+    if (filters.length) {
       spec.transform = [
-        ...spec.where.map((filter) => ({ filter })),
+        ...filters.map((filter) => ({ filter })),
         ...(spec.transform || [])
       ];
     }
+    if (spec.where?.length) {
+      delete spec.where;
+    }
+    delete spec.filter;
     delete spec.where;
     if (spec.granularity == null) delete spec.granularity;
     if (spec.guide == null) delete spec.guide;
-    if (spec.aggregate == null) delete spec.aggregate;
+    delete spec.aggregate;
     if (spec.semanticKey == null) delete spec.semanticKey;
-    return spec;
+    return pruneAuthoringState(
+      compileSceneViewSpec(externalizeScrollyViewSpec(spec), { scene: [] })
+    );
   }
 
   x(field, options = {}) {
@@ -183,13 +195,13 @@ export class BarState extends ViewState {
         __grammar: {
           measureSelector: null
         },
-        encoding: {
-          tooltip: cloneState(normalized.tooltip || [
-            { field: normalized.category, title: titleize(normalized.category) },
-            { field: segment, title: titleize(segment) },
-            { field: normalized.value, title: normalized.valueTitle }
-          ])
-        }
+        ...(normalized.tooltip
+          ? {
+              encoding: {
+                tooltip: cloneState(normalized.tooltip)
+              }
+            }
+          : {})
       }, "granularity");
     }
 
@@ -201,12 +213,6 @@ export class BarState extends ViewState {
       where: normalized.drop
         ? clearConstraint(this.state.where || [], normalized.drop)
         : this.state.where,
-      aggregate: {
-        groupby,
-        value: normalized.value,
-        as: normalized.as,
-        op: normalized.op
-      },
       transform: [
         ...(this.state.transform || []),
         {
@@ -301,13 +307,13 @@ export class BarState extends ViewState {
         source: tidy ? segment : config.source,
         groupby: tidy ? [category, segment] : config.groupby
       },
-      encoding: {
-        tooltip: cloneState(config.tooltip || [
-          { field: category, title: titleize(category) },
-          { field: segment, title: "Segment" },
-          { field: value, title: titleize(value) }
-        ])
-      }
+      ...(config.tooltip
+        ? {
+            encoding: {
+              tooltip: cloneState(config.tooltip)
+            }
+          }
+        : {})
     }, "granularity");
   }
 
@@ -480,4 +486,21 @@ function normalizeAggregation(config = {}, state = {}) {
 function asArray(value) {
   if (Array.isArray(value)) return value;
   return value == null ? [] : [value];
+}
+
+function pruneAuthoringState(spec) {
+  const next = cloneState(spec);
+  delete next.margin;
+  const state = next.narrative?.state;
+  if (!state) return next;
+
+    delete state.focus;
+    delete state.guide;
+    delete state.granularity;
+    delete state.observation;
+    delete state.sceneState;
+
+    if (!Object.keys(state).length) delete next.narrative.state;
+  if (next.narrative && !Object.keys(next.narrative).length) delete next.narrative;
+  return next;
 }

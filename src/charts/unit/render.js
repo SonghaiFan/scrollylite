@@ -1,6 +1,10 @@
 import { BaseChart } from "../base.js";
 import { unitKey } from "./keys.js";
-import { expandUnits, unitLayout } from "./state.js";
+import { expandUnits, unitLayout } from "./state.js?v=semantic-key-1";
+import {
+  narrativeObjectKey,
+  narrativeUnit
+} from "../../scrolly-meta.js?v=semantic-key-10";
 import { DEFAULT_TIMING } from "../../timing.js";
 
 export function createUnitRenderer(deps) {
@@ -41,7 +45,8 @@ class UnitChart extends BaseChart {
     const hasXAxis = Boolean(layout.axes);
     const motion = unitMotionTiming(spec, chart, d3, hasXAxis);
     const previousPositions = chart.scene.unitPositions || new Map();
-    const rowKey = spec.unit?.key || spec.key || "id";
+    const unitSpec = narrativeUnit(spec) || {};
+    const rowKey = unitSpec.key || narrativeObjectKey(spec) || "id";
     const unitDelay = (datum, index) => Math.min(staggerDelay(spec, datum, index), motion.staggerMax);
     const xDelay = (datum, index) => Math.min(staggerDelay(spec, datum, index, motion.xStagger), motion.xStagger.max);
 
@@ -157,7 +162,7 @@ class UnitChart extends BaseChart {
     }
 
     function bindUnitTooltip(selection) {
-      const unit = spec.unit || {};
+      const unit = narrativeUnit(spec) || {};
       const valueField = unit.valueField;
       const labelField = unit.labelField;
       selection
@@ -175,8 +180,9 @@ class UnitChart extends BaseChart {
 }
 
 function unitMotionTiming(spec, chart, d3, hasXAxis) {
-  const motion = spec.unit?.motion || {};
-  const baseDuration = spec.unit?.duration || chart.transition.duration || DEFAULT_TIMING.transition.duration;
+  const unit = narrativeUnit(spec) || {};
+  const motion = unit.motion || {};
+  const baseDuration = unit.duration || chart.transition.duration || DEFAULT_TIMING.transition.duration;
   const duration =
     motion.duration || Math.round(baseDuration * (hasXAxis ? DEFAULT_TIMING.unit.axisDurationMultiplier : 1));
   const xRatio = motion.xRatio ?? DEFAULT_TIMING.unit.xRatio;
@@ -184,14 +190,14 @@ function unitMotionTiming(spec, chart, d3, hasXAxis) {
   const yDuration = motion.yDuration || duration - xDuration;
   const xStagger = mergeStagger(
     DEFAULT_TIMING.unit.xStagger,
-    motion.xStagger ?? spec.unit?.xStagger ?? motion.gravityStagger ?? spec.unit?.gravityStagger
+    motion.xStagger ?? unit.xStagger ?? motion.gravityStagger ?? unit.gravityStagger
   );
   const transition = () => chart.scrollDriven
     ? d3.transition(chart.scrollTransitionName)
     : d3.transition();
   return {
     duration,
-    staggerMax: motion.staggerMax ?? spec.unit?.staggerMax ?? DEFAULT_TIMING.unit.stagger.max,
+    staggerMax: motion.staggerMax ?? unit.staggerMax ?? DEFAULT_TIMING.unit.stagger.max,
     xStagger,
     whole: transition().duration(duration),
     xPhase: transition().duration(xDuration).ease(d3.easeCubicOut),

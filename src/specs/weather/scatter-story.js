@@ -1,4 +1,4 @@
-import { createBaseDemo, pointView } from "./shared.js?v=semantic-key-16";
+import { createBaseDemo, pointView } from "./shared.js?v=semantic-key-18";
 
 export function createPointStory() {
   return {
@@ -101,13 +101,7 @@ export function createPointStory() {
             encoding: {
               x: { field: "hot_days", type: "quantitative", title: "Mean hot days", domain: [0, 30] },
               y: { field: "cold_days", type: "quantitative", title: "Mean cold days", domain: [0, 30] },
-              size: { field: "decades", type: "quantitative", range: [12, 24] },
-              tooltip: [
-                { field: "period", title: "Period" },
-                { field: "decades", title: "Decades" },
-                { field: "hot_days", title: "Mean hot days" },
-                { field: "cold_days", title: "Mean cold days" }
-              ]
+              size: { field: "decades", type: "quantitative", range: [12, 24] }
             }
           })
         }

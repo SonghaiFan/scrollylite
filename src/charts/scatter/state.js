@@ -1,5 +1,8 @@
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+
 export function scatterState(spec = {}, enc = {}) {
-  const granularity = spec.sceneState?.granularity || spec.granularity || {};
+  const state = narrativeState(spec);
+  const granularity = state.sceneState?.granularity || state.granularity || {};
   return {
     parentField: granularity.parentField || enc.color?.field,
     granularityMode: granularity.mode || null

@@ -1,6 +1,6 @@
 import { BaseChart } from "../base.js";
-import { stagedDuration } from "../../timing.js";
-import { applyBarIdentity, barKeyAccessor } from "./keys.js";
+import { applyBarIdentity, barKeyAccessor } from "./keys.js?v=semantic-key-1";
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
 
 export function createBarRenderer(deps) {
   return new BarChart(deps, createLegacyBarRenderer(deps)).renderer();
@@ -39,7 +39,8 @@ function createLegacyBarRenderer(deps) {
     const enc = spec.encoding || {};
     const t = chart.transition.base;
     const key = barKeyAccessor(chart, spec, enc.x?.field || enc.y?.field);
-    const barLayout = spec.barLayout || spec.bar?.layout || "simple";
+    const state = narrativeState(spec);
+    const barLayout = barLayoutForSpec(spec, state);
     const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const horizontal =
       enc.x?.type === "quantitative" && ["nominal", "ordinal"].includes(enc.y?.type);
@@ -84,7 +85,7 @@ function createLegacyBarRenderer(deps) {
       drawXAxis(chart, x, enc.x.title, d3);
       drawYAxis(chart, y, enc.y.title, d3);
 
-      const guideStage = barGuideStage(chart, spec, "horizontal", d3);
+      const updatePlan = barUpdateStage(chart, "horizontal", d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(rows, key)
@@ -113,10 +114,10 @@ function createLegacyBarRenderer(deps) {
               .attr("data-orientation", "horizontal")
               .call(applyBarIdentity, spec, key, (d) => d[enc.y.field])
               .call(bindTooltip, spec, tooltip);
-            if (guideStage) {
+            if (updatePlan) {
               return stagedBarUpdate(
                 prepared,
-                guideStage,
+                updatePlan,
                 spec,
                 {
                   x: (selection) =>
@@ -168,7 +169,7 @@ function createLegacyBarRenderer(deps) {
       drawYAxis(chart, y, enc.y?.title, d3);
 
       const barWidth = typeof x.bandwidth === "function" ? x.bandwidth() : 10;
-      const guideStage = barGuideStage(chart, spec, "vertical", d3);
+      const updatePlan = barUpdateStage(chart, "vertical", d3);
       const collapseLineage = barCollapseLineage(chart, enc.x?.field);
       chart.g
         .selectAll("rect.sl-bar")
@@ -210,10 +211,10 @@ function createLegacyBarRenderer(deps) {
               .attr("data-orientation", "vertical")
               .call(applyBarIdentity, spec, key, (d) => d[enc.x.field])
               .call(bindTooltip, spec, tooltip);
-            if (guideStage) {
+            if (updatePlan) {
               return stagedBarUpdate(
                 prepared,
-                guideStage,
+                updatePlan,
                 spec,
                 {
                   x: (selection) =>
@@ -264,27 +265,21 @@ function createLegacyBarRenderer(deps) {
     drawLegend(chart, rows, enc.color, d3);
   }
 
-  function barGuideStage(chart, spec, orientation, d3) {
-    const staging = chart.transitionPlan?.barStage;
-    if (!staging) return null;
-    const matchesOrientation =
-      staging.toOrientation === orientation ||
-      (staging.toOrientation === "vertical" && orientation.endsWith("-vertical"));
-    const matchesSegmentLayout =
-      staging.toLayout &&
-      (orientation === `${staging.toLayout}-vertical` || orientation === staging.toLayout);
-    if (!matchesOrientation && !matchesSegmentLayout) return null;
-
-    const order = Array.isArray(staging.order)
-      ? staging.order.filter((axis) => axis === "x" || axis === "y")
+  function barUpdateStage(chart, rendererOrientation, d3) {
+    const update = chart.transitionPlan?.update;
+    if (update?.mode !== "staged") return null;
+    if (update.target?.renderer !== rendererOrientation) return null;
+    const stages = Array.isArray(update.stages)
+      ? update.stages.filter((stage) => stage.axis === "x" || stage.axis === "y")
       : [];
-    if (!order.length) return null;
+    if (!stages.length) return null;
+    const timing = update.timing || {};
 
     return {
-      order,
-      duration: staging.duration || stagedDuration(chart.transition.duration, order.length),
-      ease: easeFor(staging.ease || chart.transition.ease, d3),
-      stagger: staging.stagger,
+      stages,
+      duration: timing.duration || chart.transition.duration,
+      ease: easeFor(timing.ease || chart.transition.ease, d3),
+      stagger: timing.stagger,
       transitionName: chart.scrollDriven ? chart.scrollTransitionName : null
     };
   }
@@ -292,7 +287,8 @@ function createLegacyBarRenderer(deps) {
   function stagedBarUpdate(selection, stage, spec, dimensions, baseAttrs) {
     let current = null;
 
-    stage.order.forEach((axis, index) => {
+    stage.stages.forEach((step, index) => {
+      const axis = step.axis;
       const applyDimension = dimensions[axis];
       if (!applyDimension) return;
 
@@ -413,11 +409,12 @@ function createLegacyBarRenderer(deps) {
     const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
     const categoryField = enc.x?.field;
     const valueField = enc.y?.field;
-    const segmentField = barSegmentField(spec);
+    const state = narrativeState(spec);
+    const segmentField = barSegmentField(spec, state);
     const categories = channelDomain(rows, enc.x);
     const segments = channelDomain(rows, {
       field: segmentField,
-      domain: spec.sceneState?.granularity?.segments || spec.segmentDomain
+      domain: state.sceneState?.granularity?.segments || state.granularity?.segments
     });
     const color = colorScale(domainRows, enc.color, d3);
     const key = barKeyAccessor(chart, spec, [categoryField, segmentField]);
@@ -452,7 +449,7 @@ function createLegacyBarRenderer(deps) {
       drawXAxis(chart, x, enc.x?.title, d3);
       drawYAxis(chart, y, enc.y?.title, d3);
 
-      const guideStage = barGuideStage(chart, spec, "grouped-vertical", d3);
+      const updatePlan = barUpdateStage(chart, "grouped-vertical", d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(rows, key)
@@ -490,10 +487,10 @@ function createLegacyBarRenderer(deps) {
               .call(applyBarIdentity, spec, key, (d) => d[categoryField])
               .call(bindTooltip, spec, tooltip);
 
-            if (guideStage) {
+            if (updatePlan) {
               return stagedBarUpdate(
                 prepared,
-                guideStage,
+                updatePlan,
                 spec,
                 {
                   x: (selection) =>
@@ -552,7 +549,7 @@ function createLegacyBarRenderer(deps) {
       drawXAxis(chart, x, enc.x?.title, d3);
       drawYAxis(chart, y, enc.y?.title, d3);
 
-      const guideStage = barGuideStage(chart, spec, "stacked-vertical", d3);
+      const updatePlan = barUpdateStage(chart, "stacked-vertical", d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(stackedRows, key)
@@ -590,10 +587,10 @@ function createLegacyBarRenderer(deps) {
               .call(applyBarIdentity, spec, key, (d) => d[categoryField])
               .call(bindTooltip, spec, tooltip);
 
-            if (guideStage) {
+            if (updatePlan) {
               return stagedBarUpdate(
                 prepared,
-                guideStage,
+                updatePlan,
                 spec,
                 {
                   x: (selection) =>
@@ -637,17 +634,32 @@ function createLegacyBarRenderer(deps) {
     drawLegend(chart, rows, enc.color, d3);
   }
 
-  function barSegmentField(spec) {
+  function barLayoutForSpec(spec, state = narrativeState(spec)) {
+    const enc = spec.encoding || {};
+    const stateLayout =
+      state.sceneState?.guide?.layout ||
+      state.sceneState?.granularity?.layout ||
+      state.guide?.layout ||
+      state.granularity?.layout;
+    if (stateLayout) return stateLayout;
+    if (enc.xOffset?.field || enc.yOffset?.field) return "grouped";
+    if (enc.color?.field && hasAggregateTransform(spec)) return "stacked";
+    return "simple";
+  }
+
+  function barSegmentField(spec, state = narrativeState(spec)) {
     return (
-      spec.sceneState?.granularity?.segmentField ||
-      spec.segmentField ||
-      spec.segment ||
-      spec.bar?.segment ||
+      state.sceneState?.granularity?.segmentField ||
+      state.granularity?.segmentField ||
       spec.encoding?.xOffset?.field ||
       spec.encoding?.yOffset?.field ||
       spec.encoding?.color?.field ||
       null
     );
+  }
+
+  function hasAggregateTransform(spec = {}) {
+    return (spec.transform || []).some((transform) => transform?.aggregate);
   }
 
   return drawBar;

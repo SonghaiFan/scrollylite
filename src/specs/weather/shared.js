@@ -1,9 +1,9 @@
 import { defaultTransition } from "../../timing.js";
 import {
   externalizeScrollyViewSpec,
-  getScrollyMeta,
-  withScrollyMeta
-} from "../../scrolly-meta.js?v=semantic-key-5";
+  narrativeScroll,
+  withNarrative
+} from "../../scrolly-meta.js?v=semantic-key-10";
 
 export const sharedTiming = defaultTransition();
 
@@ -64,15 +64,7 @@ export const layoutCopy = {
 export const pointEncoding = {
   x: { field: "tmin", type: "quantitative", title: "Min temperature" },
   y: { field: "tmax", type: "quantitative", title: "Max temperature" },
-  color: PERIOD_LUMINANCE_COLOR,
-  tooltip: [
-    { field: "decade", title: "Decade" },
-    { field: "period", title: "Period" },
-    { field: "tmin", title: "Min temp" },
-    { field: "tmax", title: "Max temp" },
-    { field: "hot_days", title: "Hot days" },
-    { field: "cold_days", title: "Cold days" }
-  ]
+  color: PERIOD_LUMINANCE_COLOR
 };
 
 export function pointView(overrides = {}) {
@@ -101,15 +93,7 @@ export function scatterView(overrides = {}) {
 export const lineEncoding = {
   x: { field: "decade", type: "nominal", title: "Decade" },
   y: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
-  color: { value: HOT_COLOR },
-  tooltip: [
-    { field: "decade", title: "Decade" },
-    { field: "period", title: "Period" },
-    { field: "hot_days", title: "Hot days" },
-    { field: "cold_days", title: "Cold days" },
-    { field: "tmax", title: "Max temp" },
-    { field: "tmin", title: "Min temp" }
-  ]
+  color: { value: HOT_COLOR }
 };
 
 export function lineView(overrides = {}) {
@@ -133,13 +117,7 @@ export function lineView(overrides = {}) {
 export const unitEncoding = {
   x: { field: "year", type: "quantitative", title: "Year" },
   y: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
-  color: HOT_PERIOD_COLOR,
-  tooltip: [
-    { field: "decade", title: "Decade" },
-    { field: "period", title: "Period" },
-    { field: "hot_days", title: "Hot days" },
-    { field: "cold_days", title: "Cold days" }
-  ]
+  color: HOT_PERIOD_COLOR
 };
 
 export const unitDefaults = {
@@ -174,7 +152,6 @@ export function unitView(overrides = {}) {
 
 export function createBaseDemo() {
   return {
-    $schema: "https://example.local/scrolly-lite/v0.json",
     data: {
       weather: {
         url: "./src/data/weather_sample.csv",
@@ -214,8 +191,10 @@ export function withScrollActionMode(demo) {
         views: Object.fromEntries(
           Object.entries(step.views || {}).map(([viewId, viewSpec]) => [
             viewId,
-            withScrollyMeta(viewSpec, {
-              scroll: getScrollyMeta(viewSpec).scroll || viewSpec.scroll || { ease: "linear" }
+            withNarrative(viewSpec, {
+              action: {
+                scroll: narrativeScroll(viewSpec) || { ease: "linear" }
+              }
             })
           ])
         )

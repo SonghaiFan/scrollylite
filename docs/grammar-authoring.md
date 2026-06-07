@@ -36,8 +36,7 @@ const base = bar("weatherDays")
   .x("decade")
   .y("count")
   .where({ type: "Hot days" })
-  .sort("year")
-  .tooltip(["decade", "period", "type", "count"]);
+  .sort("year");
 ```
 
 Channel titles default from field names, so `.x("decade")` compiles to a
@@ -63,7 +62,7 @@ base.where({ period: "recent" })
 base.where({ type: "Cold days" })
 base.flip()
 base.split("type")
-base.split("type").layout("grouped").stage(["x", "y"])
+base.split("type").layout("grouped")
 base.split("type").collapse("type", { title: "Total days" })
 ```
 
@@ -75,10 +74,10 @@ called:
 - `.filter()` records `focus`
 - `.where()` records `focus`; `.where({ type: ... })` also contributes to the
   semantic object key
-- `.flip()` and `.guide()` record `guide`
+- `.flip()` and `.guide()` materialize guide-relevant encoding changes
 - `.agg()` records `granularity`
 - `.split()` and `.collapse()` are short `type/count` aliases for changing grain
-- `.layout()` and `.stage()` record `guide`
+- `.layout()` materializes grouped-bar offsets; default staged order is inferred
 
 `story().step()` converts those operations into the current runtime step shape.
 `authoredSteps()` remains available as the lower-level helper behind the builder:
@@ -138,7 +137,7 @@ return story()
   .step("Focus", base.where({ period: "recent" }))
   .step("Cold days", base.where({ type: "Cold days" }))
   .step("Split", segmented)
-  .step("Grouped", segmented.layout("grouped").stage(["x", "y"]))
+  .step("Grouped", segmented.layout("grouped"))
   .step("Collapse", segmented.collapse("type", { title: "Total days" }))
   .toSpec();
 ```
