@@ -1,12 +1,10 @@
 import { applyTransforms } from "./data/transforms.js";
-import { createBarIdiom } from "./charts/bar/idiom.js?v=semantic-key-6";
-import { createLineRenderer } from "./charts/line/render.js?v=semantic-key-11";
-import { createPointRenderer } from "./charts/scatter/render.js?v=semantic-key-12";
-import { createUnitRenderer } from "./charts/unit/render.js?v=semantic-key-12";
+import { chartModules } from "./charts/manifest.js?v=semantic-key-1";
 import {
   createChartIdiomRegistry,
+  registerChartModules,
   resolveMarkRendererKey
-} from "./charts/index.js?v=semantic-key-4";
+} from "./charts/index.js?v=semantic-key-5";
 import {
   externalizeScrollyViewSpec,
   narrativeScroll,
@@ -675,79 +673,30 @@ function resolveTarget(target) {
 
 
 
-BUILT_IN_MARK_RENDERERS
-  .register(
-    "point",
-    createPointRenderer({
-      bandOrLinear,
-      bindTooltip,
-      colorScale,
-      drawGrid,
-      drawLegend,
-      drawXAxis,
-      drawYAxis,
-      fadeNonPointShapes,
-      position,
-      quantitativeDomain,
-      quantitativeScale,
-      staggerDelay
-    })
-  )
-  .register(
-    "line",
-    createLineRenderer({
-      bandOrLinear,
-      bindTooltip,
-      colorScale,
-      curveFor,
-      drawGrid,
-      drawLegend,
-      drawPath,
-      drawXAxis,
-      drawYAxis,
-      fadeNonLineShapes,
-      niceExtent,
-      position,
-      quantitativeScale,
-      staggerDelay
-    })
-  )
-  .register(
-    "bar",
-    createBarIdiom({
-      bandOrLinear,
-      bindTooltip,
-      channelDomain,
-      colorScale,
-      drawGrid,
-      drawLegend,
-      drawXAxis,
-      drawYAxis,
-      easeFor,
-      fadeNonBarShapes,
-      position,
-      quantitativeDomain,
-      staggerDelay,
-      updateGrid
-    })
-  )
-  .register(
-    "unit",
-    createUnitRenderer({
-      bandOrLinear,
-      colorScale,
-      drawGrid,
-      drawLegend,
-      drawXAxis,
-      drawYAxis,
-      escapeHtml,
-      fadeNonUnitShapes,
-      hideTooltip,
-      moveTooltip,
-      niceExtent,
-      position,
-      showTooltip,
-      staggerDelay,
-      updateGrid
-    })
-  );
+registerChartModules(BUILT_IN_CHART_IDIOMS, chartModules, {
+  bandOrLinear,
+  bindTooltip,
+  channelDomain,
+  colorScale,
+  curveFor,
+  drawGrid,
+  drawLegend,
+  drawPath,
+  drawXAxis,
+  drawYAxis,
+  easeFor,
+  escapeHtml,
+  fadeNonBarShapes,
+  fadeNonLineShapes,
+  fadeNonPointShapes,
+  fadeNonUnitShapes,
+  hideTooltip,
+  moveTooltip,
+  niceExtent,
+  position,
+  quantitativeDomain,
+  quantitativeScale,
+  showTooltip,
+  staggerDelay,
+  updateGrid
+});

@@ -76,6 +76,14 @@ export function createChartRegistry() {
   return createChartIdiomRegistry();
 }
 
+export function registerChartModules(registry, modules = [], deps = {}) {
+  modules.forEach((module) => {
+    const idiom = chartIdiomFromModule(module, deps);
+    registry.register(idiom);
+  });
+  return registry;
+}
+
 export function normalizeMarkRendererKey(markOrRenderer) {
   const raw = String(markOrRenderer || "").trim();
   if (!raw) return "";
@@ -119,4 +127,12 @@ function normalizeChartIdiom(keyOrIdiom, maybeIdiom = null) {
     ...idiom,
     key
   };
+}
+
+function chartIdiomFromModule(module, deps) {
+  if (typeof module?.createChartIdiom === "function") return module.createChartIdiom(deps);
+  if (typeof module?.default === "function") return module.default(deps);
+  if (module?.chartIdiom) return module.chartIdiom;
+  if (module?.default && typeof module.default === "object") return module.default;
+  throw new Error("Chart module must export createChartIdiom(deps) or chartIdiom.");
 }

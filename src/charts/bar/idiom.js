@@ -1,4 +1,4 @@
-import { createBarRenderer } from "./render.js?v=semantic-key-26";
+import { createBarRenderer } from "./render.js?v=semantic-key-31";
 import {
   barCollapseIntermediateSpec,
   barIntermediateSpecs,

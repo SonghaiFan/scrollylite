@@ -1,4 +1,4 @@
-import { ViewState, cloneState } from "../view-state.js?v=semantic-key-10";
+import { ViewState, cloneState } from "../../grammar/view-state.js?v=semantic-key-10";
 import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-10";
 import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-16";
 

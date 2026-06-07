@@ -1,4 +1,5 @@
-import { bar, story } from "../../grammar/index.js?v=semantic-key-18";
+import { bar } from "../../charts/bar/index.js?v=semantic-key-1";
+import { story } from "../../grammar/index.js?v=semantic-key-19";
 import { createBaseDemo } from "./shared.js?v=semantic-key-18";
 
 export function createBarStory() {
