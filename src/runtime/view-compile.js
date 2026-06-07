@@ -3,7 +3,7 @@ import {
   compileSceneViewSpec,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "../transitions/index.js?v=semantic-key-16";
+} from "../transitions/index.js?v=semantic-key-17";
 
 export function compileEffectiveView(viewSpec, stepTransition = {}) {
   const authoredViewSpec = externalizeScrollyViewSpec(viewSpec);

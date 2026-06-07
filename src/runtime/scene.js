@@ -1,7 +1,7 @@
 import { keyAccessor } from "../identity/semantic-key.js?v=semantic-key-1";
 import { narrativeState } from "../scrolly-meta.js?v=semantic-key-10";
 import { clearSceneTransitionProgress } from "../transition-progress.js?v=scroll-transition-name-2";
-import { hasScene } from "../transitions/index.js?v=semantic-key-15";
+import { hasScene } from "../transitions/index.js?v=semantic-key-17";
 import { markAxisInactive } from "./marks.js";
 import { clamp } from "./utils.js";
 
@@ -234,4 +234,3 @@ function sceneRowKey(row, spec = {}) {
   const key = keyAccessor(spec, spec.encoding?.x?.field || spec.encoding?.y?.field);
   return String(key(row, 0));
 }
-

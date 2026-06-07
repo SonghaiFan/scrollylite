@@ -1,4 +1,4 @@
-import { diffViewStates } from "../grammar/diff.js?v=semantic-key-15";
+import { diffViewStates } from "../grammar/diff.js?v=semantic-key-16";
 import { layoutClasses } from "../layouts/index.js";
 import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-10";
 import { compileEffectiveView } from "./view-compile.js";
