@@ -180,7 +180,7 @@ const base = bar("weatherDays")
   .y("count")
   .where({ type: "Hot days" });
 
-const segmented = base.split("type");
+const segmented = base.breakdown("type");
 
 const spec = story()
   .data("weatherDays", {
@@ -199,9 +199,9 @@ const spec = story()
   .step("Focus recent", base.where({ period: "recent" }))
   .step("Flip coordinates", base.flip())
   .step("Cold days", base.where({ type: "Cold days" }))
-  .step("Split", segmented)
+  .step("Breakdown", segmented)
   .step("Grouped", segmented.layout("grouped"))
-  .step("Collapse", segmented.collapse("type", { title: "Total days" }))
+  .step("Rollup", segmented.rollup("type", { title: "Total days" }))
   .toSpec();
 ```
 
@@ -251,3 +251,7 @@ Returned fields:
 - Add a data-preparation API for converting wide tables into the long flavour
   expected by the bar grammar, for example folding `hot_days` and `cold_days`
   into `type` plus `count`.
+- Promote `point`, `line`, and `unit` from renderer-only idioms to full chart
+  idiom plugins. They currently register only renderer hooks; future work should
+  add idiom-level `prepareSpec`, `resolveTransitionPlan`, `intermediateSpec`,
+  `defaultMargin`, and inspector metadata where each mark needs them.

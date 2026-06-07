@@ -3,8 +3,17 @@ import {
   narrativeState,
   narrativeTransition
 } from "../../scrolly-meta.js?v=semantic-key-10";
-import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-14";
+import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-15";
 import { defaultTransition, stagedDuration } from "../../timing.js";
+import {
+  barCategoryChannel,
+  barLayoutTransitionRoute,
+  barMeasureChannel,
+  barOffsetChannelName,
+  barOrientationFromEncoding,
+  barRendererKey,
+  isSegmentLayout
+} from "./layout.js";
 
 export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   const previous = barState(previousSpec);
@@ -18,10 +27,11 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   };
   const crossesGranularity = diff.hasDelta("bar.granularity") || previous.hasGranularity || next.hasGranularity;
   if (crossesGranularity) {
-    plan.barKey = {
+    plan.key = {
       mode: "semantic",
       reason: "granularity-object-consistency"
     };
+    plan.barKey = plan.key;
   }
 
   if (
@@ -30,12 +40,35 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     next.hasAggregate &&
     !next.hasGranularity
   ) {
-    plan.barCollapse = {
+    const collapsePlan = {
       mode: "parent-child",
       reason: "granularity-parent-child-lineage",
       parentKey: next.categoryField,
       childKey: [previous.categoryField, previous.segmentField].filter(Boolean),
       fromLayout: previous.barLayout
+    };
+    plan.barCollapse = collapsePlan;
+    plan.enter = {
+      mode: "parent-child-lineage",
+      from: "child-bounds",
+      target: "parent",
+      reason: collapsePlan.reason,
+      parentKey: collapsePlan.parentKey,
+      childKey: collapsePlan.childKey,
+      sourceLayout: collapsePlan.fromLayout
+    };
+  }
+
+  if (diff.hasDelta("bar.granularity", "remove") && previous.hasGranularity) {
+    plan.exit = {
+      mode: "baseline",
+      to: previous.barLayout === "stacked" ? "stack-base" : "zero-baseline",
+      source: "child",
+      reason: "granularity-exit-baseline",
+      sourceLayout: previous.barLayout,
+      categoryKey: previous.categoryField,
+      segmentKey: previous.segmentField,
+      valueKey: previous.measureField
     };
   }
 
@@ -45,12 +78,35 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     next.hasGranularity &&
     !previous.hasGranularity
   ) {
-    plan.barSplit = {
+    const splitPlan = {
       mode: "parent-child",
       reason: "granularity-parent-child-lineage",
       parentKey: previous.categoryField,
       childKey: [next.categoryField, next.segmentField].filter(Boolean),
       toLayout: next.barLayout
+    };
+    plan.barSplit = splitPlan;
+    plan.enter = {
+      mode: "parent-child-lineage",
+      from: "parent-bounds",
+      target: "child",
+      reason: splitPlan.reason,
+      parentKey: splitPlan.parentKey,
+      childKey: splitPlan.childKey,
+      targetLayout: splitPlan.toLayout
+    };
+  }
+
+  if (diff.hasDelta("bar.granularity", "add") && next.hasGranularity && !plan.enter) {
+    plan.enter = {
+      mode: "baseline",
+      from: next.barLayout === "stacked" ? "stack-base" : "zero-baseline",
+      target: "child",
+      reason: "granularity-enter-baseline",
+      targetLayout: next.barLayout,
+      categoryKey: next.categoryField,
+      segmentKey: next.segmentField,
+      valueKey: next.measureField
     };
   }
 
@@ -120,26 +176,55 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
 
 export function barCollapseIntermediateSpec(previousSpec, nextSpec) {
   const plan = resolveBarTransitionPlan(previousSpec, nextSpec);
-  if (plan.barCollapse?.mode !== "parent-child" || plan.barCollapse.fromLayout !== "grouped") {
+  if (plan.barCollapse?.mode !== "parent-child") {
     return null;
   }
 
   const previous = barState(previousSpec);
   if (!previous?.hasGranularity) return null;
 
-  return stackedSegmentSpec(previousSpec, nextSpec);
+  const route = barLayoutTransitionRoute({
+    fromLayout: previous.barLayout,
+    toLayout: barState(nextSpec)?.barLayout,
+    change: "collapse"
+  });
+  const intermediateLayout = route[0];
+  return intermediateLayout ? segmentLayoutSpec(previousSpec, intermediateLayout, nextSpec) : null;
 }
 
 export function barSplitIntermediateSpec(previousSpec, nextSpec) {
   const plan = resolveBarTransitionPlan(previousSpec, nextSpec);
-  if (plan.barSplit?.mode !== "parent-child" || plan.barSplit.toLayout !== "grouped") {
+  if (plan.barSplit?.mode !== "parent-child") {
     return null;
   }
 
   const next = barState(nextSpec);
   if (!next?.hasGranularity) return null;
 
-  return stackedSegmentSpec(nextSpec, previousSpec);
+  const route = barLayoutTransitionRoute({
+    fromLayout: barState(previousSpec)?.barLayout,
+    toLayout: next.barLayout,
+    change: "split"
+  });
+  const intermediateLayout = route[0];
+  return intermediateLayout ? segmentLayoutSpec(nextSpec, intermediateLayout, previousSpec) : null;
+}
+
+export function barIntermediateSpecs(previousSpec, nextSpec) {
+  const direct = directBarIntermediateSpecs(previousSpec, nextSpec);
+  if (!direct.length) return [];
+
+  const previous = barState(previousSpec);
+  const next = barState(nextSpec);
+  if (!previous || !next || previous.orientation === next.orientation) return direct;
+
+  const orientedSource = orientBarSpec(previousSpec, next.orientation);
+  if (!orientedSource) return direct;
+
+  return [
+    { spec: orientedSource, scene: "guide" },
+    ...directBarIntermediateSpecs(orientedSource, nextSpec)
+  ];
 }
 
 export function barState(spec) {
@@ -150,11 +235,9 @@ export function barState(spec) {
   const sceneState = state.sceneState || {};
   const aggregate = barAggregateState(spec);
   const barLayout = barLayoutState(spec, state, aggregate);
-  const horizontal =
-    barLayout === "simple" &&
-    enc.x?.type === "quantitative" &&
-    ["nominal", "ordinal"].includes(enc.y?.type);
-  const orientation = horizontal ? "horizontal" : "vertical";
+  const orientation = barOrientationFromEncoding(enc);
+  const categoryChannel = barCategoryChannel(enc);
+  const measureChannel = barMeasureChannel(enc);
   const segmentField =
     sceneState.granularity?.segmentField ||
     state.granularity?.segmentField ||
@@ -163,13 +246,13 @@ export function barState(spec) {
     enc.color?.field ||
     null;
   const guideState = barGuideState({ orientation, barLayout, state });
-  const granularityState = barGranularityState({ barLayout, categoryField: horizontal ? enc.y?.field : enc.x?.field, measureField: horizontal ? enc.x?.field : enc.y?.field, segmentField, state });
+  const granularityState = barGranularityState({ barLayout, categoryField: categoryChannel?.field, measureField: measureChannel?.field, segmentField, state });
 
   return {
     orientation,
     barLayout,
-    categoryField: horizontal ? enc.y?.field : enc.x?.field,
-    measureField: horizontal ? enc.x?.field : enc.y?.field,
+    categoryField: categoryChannel?.field,
+    measureField: measureChannel?.field,
     hasGuide: Boolean(guideState),
     hasGranularity: Boolean(granularityState),
     hasAggregate: Boolean(aggregate),
@@ -270,26 +353,113 @@ function barStageReason({ changesSegmentLayout, crossesGuide, orientationChanged
 }
 
 function barRendererOrientation(state) {
-  if (state.barLayout === "grouped") return "grouped-vertical";
-  if (state.barLayout === "stacked") return "stacked-vertical";
-  return state.orientation;
+  return barRendererKey(state.barLayout, state.orientation);
 }
 
-function isSegmentLayout(layout) {
-  return layout === "grouped" || layout === "stacked";
+function directBarIntermediateSpecs(previousSpec, nextSpec) {
+  const collapseSpec = barCollapseIntermediateSpec(previousSpec, nextSpec);
+  if (collapseSpec) return [{ spec: collapseSpec, scene: "guide" }];
+
+  const splitSpec = barSplitIntermediateSpec(previousSpec, nextSpec);
+  if (splitSpec) return [{ spec: splitSpec, scene: "granularity" }];
+
+  return [];
 }
 
-function stackedSegmentSpec(spec, transitionPeerSpec) {
+function orientBarSpec(spec, orientation) {
+  const state = barState(spec);
+  if (!state || state.orientation === orientation) return null;
+
+  const next = cloneSpec(spec);
+  const encoding = { ...(next.encoding || {}) };
+  const category = cloneSpec(barCategoryChannel(encoding));
+  const measure = cloneSpec(barMeasureChannel(encoding));
+  if (!category?.field || !measure?.field) return null;
+
+  if (orientation === "horizontal") {
+    encoding.x = measure;
+    encoding.y = category;
+  } else {
+    encoding.x = category;
+    encoding.y = measure;
+  }
+
+  delete encoding.xOffset;
+  delete encoding.yOffset;
+  if (state.barLayout === "grouped" && state.segmentField) {
+    encoding[barOffsetChannelName(orientation)] = {
+      field: state.segmentField,
+      type: "nominal"
+    };
+  }
+
+  const narrative = { ...(next.narrative || {}) };
+  const narrativeStateBlock = { ...(narrative.state || {}) };
+  const sceneState = { ...(narrativeStateBlock.sceneState || {}) };
+  sceneState.guide = {
+    ...(sceneState.guide || {}),
+    ...(state.barLayout !== "simple" ? { layout: state.barLayout } : {}),
+    orientation,
+    staging: {
+      ...(sceneState.guide?.staging || {}),
+      order: orientation === "horizontal" ? ["y", "x"] : ["x", "y"]
+    }
+  };
+  if (state.hasGranularity || sceneState.granularity) {
+    sceneState.granularity = {
+      ...sceneState.granularity,
+      ...(state.barLayout !== "simple" ? { layout: state.barLayout } : {})
+    };
+  }
+  narrativeStateBlock.sceneState = sceneState;
+  narrative.state = narrativeStateBlock;
+
+  return {
+    ...next,
+    encoding,
+    margin: {
+      ...(orientation === "horizontal" ? { left: 86, right: 42 } : {}),
+      ...(next.margin || {})
+    },
+    narrative,
+    transition: {
+      ...narrativeTransition(spec)
+    }
+  };
+}
+
+function segmentLayoutSpec(spec, layout, transitionPeerSpec) {
+  const state = barState(spec);
   const next = cloneSpec(spec);
   const encoding = { ...(next.encoding || {}) };
   delete encoding.xOffset;
   delete encoding.yOffset;
+  if (layout === "grouped" && state?.segmentField) {
+    encoding[barOffsetChannelName(state.orientation)] = {
+      field: state.segmentField,
+      type: "nominal"
+    };
+  }
+
+  const narrative = { ...(next.narrative || {}) };
+  const narrativeStateBlock = { ...(narrative.state || {}) };
+  const sceneState = { ...(narrativeStateBlock.sceneState || {}) };
+  sceneState.granularity = {
+    ...(sceneState.granularity || {}),
+    layout
+  };
+  sceneState.guide = {
+    ...(sceneState.guide || {}),
+    layout
+  };
+  narrativeStateBlock.sceneState = sceneState;
+  narrative.state = narrativeStateBlock;
 
   return {
-    ...cloneSpec(spec),
+    ...next,
     encoding,
     narrative: {
-      ...(next.narrative || {}),
+      ...narrative,
       transition: {
         ...narrativeTransition(transitionPeerSpec || {}),
         ...narrativeTransition(spec)

@@ -1,6 +1,6 @@
 import { ViewState, cloneState } from "../view-state.js?v=semantic-key-10";
 import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-10";
-import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-15";
+import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-16";
 
 export function bar(data) {
   return new BarState({
@@ -100,6 +100,16 @@ export class BarState extends ViewState {
 
   filter(selector) {
     return this.with({ filter: normalizeSelector(selector) }, "focus");
+  }
+
+  highlight(selector, options = {}) {
+    return this.with({
+      focus: {
+        mode: "highlight",
+        filter: normalizeSelector(selector),
+        opacity: options.opacity
+      }
+    }, "focus");
   }
 
   where(selector) {
@@ -232,7 +242,7 @@ export class BarState extends ViewState {
     }, "granularity");
   }
 
-  split(segment = "type", options = {}) {
+  breakdown(segment = "type", options = {}) {
     const category = options.category || this.state.encoding?.x?.field;
     const value = options.value || this.state.encoding?.y?.field || "count";
     const {
@@ -255,7 +265,7 @@ export class BarState extends ViewState {
       : next.y(value, { title: options.title || titleize(value) });
   }
 
-  collapse(drop = "type", options = {}) {
+  rollup(drop = "type", options = {}) {
     const value = options.value || this.state.encoding?.y?.field || "count";
     const {
       color,
@@ -274,6 +284,18 @@ export class BarState extends ViewState {
     if (title) next = next.y(value, { title });
     if (color) next = next.color(color);
     return next;
+  }
+
+  split(segment = "type", options = {}) {
+    return this.breakdown(segment, options);
+  }
+
+  collapse(drop = "type", options = {}) {
+    return this.rollup(drop, options);
+  }
+
+  aggregate(drop = "type", options = {}) {
+    return this.rollup(drop, options);
   }
 
   segment(fieldOrConfig = {}, maybeConfig = {}) {
@@ -494,7 +516,7 @@ function pruneAuthoringState(spec) {
   const state = next.narrative?.state;
   if (!state) return next;
 
-    delete state.focus;
+    if (state.focus?.mode !== "highlight") delete state.focus;
     delete state.guide;
     delete state.granularity;
     delete state.observation;

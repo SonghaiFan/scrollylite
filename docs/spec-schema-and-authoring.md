@@ -138,6 +138,10 @@ Step views override or complete this config.
 `mark` follows Vega-Lite's primitive mark vocabulary where possible. The current
 runtime intentionally supports bar-chart variants first. `unit` is the one
 ScrollyLite custom mark/idiom that remains outside Vega-Lite's primitive marks.
+At the plugin layer, `bar` is currently the complete chart idiom: it owns its
+renderer, spec preparation, transition plan, intermediate staged specs, default
+margin, and inspector metadata. `point`, `line`, and `unit` are temporarily
+renderer-only idioms and should gain their own plan/preparation hooks later.
 
 Narrative-specific view fields live in one `narrative` block. Removing that
 block leaves a Vega-Lite-shaped UnitSpec for bar views. `narrative` should carry
@@ -404,11 +408,14 @@ bar(data)
 .transition(timing)
 .filter(selector)
 .where(selector)
+.highlight(selector, options?)
 .guide(config)
 .flip(options?)
 .agg(config?)
-.split(segment?, options?)
-.collapse(drop?, options?)
+.breakdown(segment?, options?)
+.rollup(drop?, options?)
+.split(segment?, options?) // alias
+.collapse(drop?, options?) // alias
 .segment(fieldOrConfig?, config?)
 .layout(layout, options?)
 .toSpec()
@@ -420,10 +427,11 @@ Important mappings:
 | --- | --- | --- |
 | `.where({ type: "Hot days" })` | adds `{ filter: { field, equal } }` to `transform` | `focus` |
 | `.where({ period: "recent" })` | adds another Vega-Lite-style filter transform | `focus` |
-| `.flip()` | swaps the bar orientation by materializing `encoding.x`/`encoding.y` | `guide` |
-| `.split("type")` | writes aggregate transform and color encoding | `granularity` |
-| `.layout("grouped")` | adds `encoding.xOffset` | `guide` |
-| `.collapse("type")` | writes aggregate transform grouped by the parent key | `granularity` |
+| `.highlight({ type: "Cold days" })` | keeps rows in the data and stores a focus highlight selector in `narrative.state.sceneState.focus` | `focus` |
+| `.flip()` | swaps the bar orientation by materializing `encoding.x`/`encoding.y`; grouped offsets move with the category axis | `guide` |
+| `.breakdown("type")` | writes aggregate transform and color encoding | `granularity` |
+| `.layout("grouped")` | adds grouped offset on the category axis (`xOffset` for vertical bars, `yOffset` for horizontal bars) | `guide` |
+| `.rollup("type")` | writes aggregate transform grouped by the parent key | `granularity` |
 
 ## Bar Weather Story
 
@@ -457,17 +465,17 @@ story(createBaseDemo())
     body: "...",
     authoring: 'base.where({ type: "Hot days" })'
   })
-  .step("Granularity: split into hot/cold segments", base.split("type"), {
+  .step("Granularity: break down into hot/cold segments", base.breakdown("type"), {
     body: "...",
-    authoring: 'base.split("type")'
+    authoring: 'base.breakdown("type")'
   })
-  .step("Guide: stacked to grouped segments", base.split("type").layout("grouped"), {
+  .step("Guide: stacked to grouped segments", base.breakdown("type").layout("grouped"), {
     body: "...",
-    authoring: 'base.split("type").layout("grouped")'
+    authoring: 'base.breakdown("type").layout("grouped")'
   })
-  .step("Granularity: collapse to total days", base.collapse("type", { title: "Total days" }), {
+  .step("Granularity: roll up to total days", base.rollup("type", { title: "Total days" }), {
     body: "...",
-    authoring: 'base.collapse("type", { title: "Total days" })'
+    authoring: 'base.rollup("type", { title: "Total days" })'
   })
   .toSpec();
 ```
@@ -525,6 +533,30 @@ consumes directly:
 
 ```js
 {
+  key: {
+    mode: "semantic",
+    reason: "granularity-object-consistency"
+  },
+  enter: {
+    mode: "baseline",
+    from: "stack-base",
+    target: "child",
+    reason: "granularity-enter-baseline",
+    targetLayout: "stacked",
+    categoryKey: "decade",
+    segmentKey: "type",
+    valueKey: "count"
+  },
+  exit: {
+    mode: "baseline",
+    to: "stack-base",
+    source: "child",
+    reason: "granularity-exit-baseline",
+    sourceLayout: "stacked",
+    categoryKey: "decade",
+    segmentKey: "type",
+    valueKey: "count"
+  },
   update: {
     mode: "staged",
     reason: "guide-orientation" | "guide-segment-layout" | "bar-geometry",
@@ -547,10 +579,77 @@ consumes directly:
 }
 ```
 
-`barStage` remains a compact human-readable summary for the inspector. The
-renderer should prefer `update.stages` and `update.timing`, so transition
-decisions stay in the diff/plan layer instead of being re-inferred inside the
-D3 renderer.
+`enter.mode = "baseline"` covers ordinary segment entry. For stacked bars,
+`from: "stack-base"` means each segment grows from its own stack base.
+`exit.mode = "baseline"` is the matching exit-side instruction; stacked segment
+exits use `to: "stack-base"`. For parent-child granularity changes,
+`enter.mode = "parent-child-lineage"` points to either `from: "parent-bounds"`
+or `from: "child-bounds"`.
+
+`barStage`, `barSplit`, `barCollapse`, and `barKey` remain compact compatibility
+summaries for the inspector and intermediate-spec helpers. The renderer should
+prefer `key`, `enter`, `exit`, `update.stages`, and `update.timing`, so transition
+decisions stay in the diff/plan layer instead of being re-inferred inside the D3
+renderer.
+
+## Transition Plan Source Rules
+
+Every chart idiom should derive its transition plan from the same contract:
+
+```js
+const preparedSource = idiom.prepareSpec(sourceSpec);
+const preparedTarget = idiom.prepareSpec(targetSpec);
+const diff = diffViewStates(preparedSource, preparedTarget);
+const plan = idiom.resolveTransitionPlan(preparedSource, preparedTarget);
+```
+
+The plan is therefore a property of two real compiled specs, not of the current
+DOM shape. Renderers consume the plan; they should not re-infer semantic changes
+from scratch.
+
+Scroll and stepped modes differ only in how they choose `sourceSpec`:
+
+| Mode | Source spec | Target spec | Notes |
+| --- | --- | --- | --- |
+| Scroll forward | authored adjacent previous step | current step | The scroll progress scrubs 0 -> 1. |
+| Scroll backward | authored adjacent previous step | current step | Same plan as forward; only the progress moves 1 -> 0. |
+| Scroll nav jump | authored adjacent previous step | target step | The target is rendered at complete progress. It does not diff against an arbitrary on-screen step. |
+| Stepped next/previous | last rendered scene spec | target step | Discrete mode transitions from what the user is actually seeing. |
+| Stepped nav jump | last rendered scene spec | target step | Jumping Step 01 -> Step 03 computes `diff(Step 01, Step 03)`, so skipped intermediate deltas cancel out. |
+
+This is why scroll mode can use one authored adjacent mechanism for both
+directions: scrolling between steps is continuous, so Step 03 is always reached
+through the Step 02 -> Step 03 interval. Stepped mode is discrete, so a jump can
+skip Step 02 and must compare the true rendered source with the target.
+
+When a bar transition needs intermediate phases and also changes orientation,
+the bar idiom prioritizes orientation first. For example, collapsing from a
+horizontal grouped bar to a vertical aggregate bar becomes:
+
+```txt
+grouped-horizontal -> grouped-vertical -> stacked-vertical -> aggregate-vertical
+```
+
+This keeps the staged layout/collapse transition in the target orientation,
+instead of mixing orientation and grouped/stacked layout changes in the same
+phase.
+
+Layout-specific intermediate routes are owned by the layout definition, not by
+the renderer. In code, `src/charts/bar/layout.js` defines routes such as:
+
+```js
+grouped: {
+  transition: {
+    collapse: { to: { simple: { via: ["stacked"] } } },
+    split: { from: { simple: { via: ["stacked"] } } }
+  }
+}
+```
+
+The planner reads this metadata to build phase specs. That means adding another
+bar layout should also add its preferred transition route there, so the planner
+can infer which intermediate layouts to visit without hard-coding layout names
+inside collapse/split logic.
 
 ## Materialized Bar Specs
 
@@ -583,7 +682,7 @@ built, but `.toSpec()` materializes that state into a Vega-ish view. For example
 }
 ```
 
-`base.split("type").layout("grouped")` materializes the grouped bar with
+`base.breakdown("type").layout("grouped")` materializes the grouped bar with
 Vega-Lite's `xOffset` vocabulary:
 
 ```js

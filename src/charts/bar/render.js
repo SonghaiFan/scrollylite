@@ -1,6 +1,12 @@
 import { BaseChart } from "../base.js";
-import { applyBarIdentity, barKeyAccessor } from "./keys.js?v=semantic-key-1";
+import { applyBarIdentity, barKeyAccessor } from "./keys.js?v=semantic-key-2";
 import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+import {
+  barCategoryChannel,
+  barMeasureChannel,
+  barOrientationFromEncoding,
+  barRendererKey
+} from "./layout.js";
 
 export function createBarRenderer(deps) {
   return new BarChart(deps, createLegacyBarRenderer(deps)).renderer();
@@ -42,8 +48,7 @@ function createLegacyBarRenderer(deps) {
     const state = narrativeState(spec);
     const barLayout = barLayoutForSpec(spec, state);
     const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
-    const horizontal =
-      enc.x?.type === "quantitative" && ["nominal", "ordinal"].includes(enc.y?.type);
+    const horizontal = barOrientationFromEncoding(enc) === "horizontal";
 
     fadeNonBarShapes(chart);
 
@@ -91,23 +96,30 @@ function createLegacyBarRenderer(deps) {
         .data(rows, key)
         .join(
           (enter) =>
-            enter
-              .append("rect")
-              .attr("class", "sl-bar")
-              .attr("data-orientation", "horizontal")
-              .call(applyBarIdentity, spec, key, (d) => d[enc.y.field])
-              .attr("x", x(0))
-              .attr("y", (d) => y(d[enc.y.field]))
-              .attr("height", y.bandwidth())
-              .attr("width", 0)
-              .attr("rx", 3)
-              .attr("fill", (d) => color(d))
-              .style("opacity", 0)
-              .call(bindTooltip, spec, tooltip)
-              .transition(t)
-              .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
-              .attr("width", (d) => Math.abs(x(d[enc.x.field]) - x(0))),
+            transitionBarEnter(enter, {
+              className: "sl-bar",
+              orientation: "horizontal",
+              spec,
+              key,
+              category: (d) => d[enc.y.field],
+              rx: 3,
+              fill: (d) => color(d),
+              tooltip,
+              d3,
+              transition: t,
+              startGeometry: {
+                x: x(0),
+                y: (d) => y(d[enc.y.field]),
+                height: y.bandwidth(),
+                width: 0
+              },
+              targetGeometry: {
+                x: x(0),
+                y: (d) => y(d[enc.y.field]),
+                height: y.bandwidth(),
+                width: (d) => Math.abs(x(d[enc.x.field]) - x(0))
+              }
+            }),
           (update) => {
             const prepared = update
               .attr("class", "sl-bar")
@@ -131,7 +143,7 @@ function createLegacyBarRenderer(deps) {
                 },
                 (selection) =>
                   selection
-                    .style("opacity", 1)
+                    .style("opacity", (d) => barFocusOpacity(d, spec))
                     .attr("fill", (d) => color(d))
               );
             }
@@ -139,14 +151,17 @@ function createLegacyBarRenderer(deps) {
             return prepared
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
+              .style("opacity", (d) => barFocusOpacity(d, spec))
               .attr("x", x(0))
               .attr("y", (d) => y(d[enc.y.field]))
               .attr("height", y.bandwidth())
               .attr("width", (d) => Math.abs(x(d[enc.x.field]) - x(0)))
               .attr("fill", (d) => color(d));
           },
-          (exit) => collapseSimpleBarExit(exit, t, chart)
+          (exit) => transitionBarExit(exit, {
+            transition: t,
+            geometry: simpleBarExitGeometry(chart)
+          })
         );
     } else {
       const x = bandOrLinear(rows, enc.x, [0, chart.innerWidth], d3);
@@ -176,34 +191,25 @@ function createLegacyBarRenderer(deps) {
         .data(rows, key)
         .join(
           (enter) => {
-            const entered = enter
-              .append("rect")
-              .attr("class", "sl-bar")
-              .attr("data-orientation", "vertical")
-              .call(applyBarIdentity, spec, key, (d) => d[enc.x.field])
-              .attr("rx", 3)
-              .attr("fill", (d) => color(d))
-              .style("opacity", 0)
-              .call(bindTooltip, spec, tooltip);
-
-            entered.each(function (d) {
-              const target = verticalBarGeometry(d, enc, x, y, chart, barWidth);
-              const start = collapseLineage?.start(d) || {
-                ...target,
+            const targetGeometry = (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth);
+            return transitionBarEnter(enter, {
+              className: "sl-bar",
+              orientation: "vertical",
+              spec,
+              key,
+              category: (d) => d[enc.x.field],
+              rx: 3,
+              fill: (d) => color(d),
+              tooltip,
+              d3,
+              transition: t,
+              startGeometry: (d) => collapseLineage?.start(d) || {
+                ...targetGeometry(d),
                 y: chart.innerHeight,
                 height: 0
-              };
-              setRectGeometry(d3.select(this), start);
+              },
+              targetGeometry
             });
-
-            return entered
-              .transition(t)
-              .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
-              .attr("x", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).x)
-              .attr("y", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).y)
-              .attr("width", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).width)
-              .attr("height", (d) => verticalBarGeometry(d, enc, x, y, chart, barWidth).height);
           },
           (update) => {
             const prepared = update
@@ -233,7 +239,7 @@ function createLegacyBarRenderer(deps) {
                 },
                 (selection) =>
                   selection
-                    .style("opacity", 1)
+                    .style("opacity", (d) => barFocusOpacity(d, spec))
                     .attr("fill", (d) => color(d))
               );
             }
@@ -241,7 +247,7 @@ function createLegacyBarRenderer(deps) {
             return prepared
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
+              .style("opacity", (d) => barFocusOpacity(d, spec))
               .attr(
                 "x",
                 (d) =>
@@ -255,9 +261,15 @@ function createLegacyBarRenderer(deps) {
           },
           (exit) => {
             if (!collapseLineage) {
-              return collapseSimpleBarExit(exit, t, chart);
+              return transitionBarExit(exit, {
+                transition: t,
+                geometry: simpleBarExitGeometry(chart)
+              });
             }
-            return exit.transition(t).style("opacity", 0).remove();
+            return transitionBarExit(exit, {
+              transition: t,
+              geometry: null
+            });
           }
         );
     }
@@ -310,6 +322,41 @@ function createLegacyBarRenderer(deps) {
     return current || selection;
   }
 
+  function transitionBarEnter(enter, options) {
+    const entered = enter
+      .append("rect")
+      .attr("class", options.className || "sl-bar")
+      .call((selection) => {
+        if (options.orientation) selection.attr("data-orientation", options.orientation);
+      })
+      .call(applyBarIdentity, options.spec, options.key, options.category)
+      .attr("rx", options.rx ?? 3)
+      .attr("fill", options.fill)
+      .style("opacity", 0)
+      .call(bindTooltip, options.spec, options.tooltip);
+
+    entered.each(function (d) {
+      setRectGeometry(options.d3.select(this), options.startGeometry, d);
+    });
+
+    return applyRectGeometry(
+      entered
+        .transition(options.transition)
+        .delay((d, i) => staggerDelay(options.spec, d, i))
+        .style("opacity", (d) => barFocusOpacity(d, options.spec)),
+      options.targetGeometry
+    );
+  }
+
+  function transitionBarExit(exit, options) {
+    const leaving = exit
+      .transition(options.transition)
+      .style("opacity", 0);
+
+    if (options.geometry) applyRectGeometry(leaving, options.geometry);
+    return leaving.remove();
+  }
+
   function verticalBarGeometry(d, enc, x, y, chart, barWidth) {
     return {
       x:
@@ -321,41 +368,47 @@ function createLegacyBarRenderer(deps) {
     };
   }
 
-  function collapseSimpleBarExit(exit, transition, chart) {
-    exit
-      .filter(function () {
-        return this.dataset.orientation === "horizontal";
-      })
-      .transition(transition)
-      .style("opacity", 0)
-      .attr("width", 0)
-      .remove();
-
-    exit
-      .filter(function () {
-        return this.dataset.orientation !== "horizontal";
-      })
-      .transition(transition)
-      .style("opacity", 0)
-      .attr("y", chart.innerHeight)
-      .attr("height", 0)
-      .remove();
-
-    return exit;
+  function setRectGeometry(selection, geometry, datum) {
+    const rect = resolveGeometryObject(geometry, datum);
+    selection
+      .attr("x", rect.x)
+      .attr("y", rect.y)
+      .attr("width", Math.max(0, rect.width))
+      .attr("height", Math.max(0, rect.height));
   }
 
-  function setRectGeometry(selection, geometry) {
-    selection
-      .attr("x", geometry.x)
-      .attr("y", geometry.y)
-      .attr("width", Math.max(0, geometry.width))
-      .attr("height", Math.max(0, geometry.height));
+  function applyRectGeometry(selection, geometry) {
+    ["x", "y", "width", "height"].forEach((attr) => {
+      if (typeof geometry === "function") {
+        selection.attr(attr, (d) => resolveGeometryObject(geometry, d)[attr]);
+      } else if (geometry[attr] !== undefined) {
+        selection.attr(attr, geometry[attr]);
+      }
+    });
+    return selection;
+  }
+
+  function resolveGeometry(geometry, datum) {
+    return typeof geometry === "function" ? geometry(datum) : geometry;
+  }
+
+  function resolveGeometryObject(geometry, datum) {
+    const rect = resolveGeometry(geometry, datum) || {};
+    return {
+      x: resolveGeometryValue(rect.x, datum),
+      y: resolveGeometryValue(rect.y, datum),
+      width: resolveGeometryValue(rect.width, datum),
+      height: resolveGeometryValue(rect.height, datum)
+    };
+  }
+
+  function resolveGeometryValue(value, datum) {
+    return typeof value === "function" ? value(datum) : value;
   }
 
   function barCollapseLineage(chart, parentField) {
-    const hasCollapsePlan = chart.transitionPlan?.barCollapse?.mode === "parent-child";
-    const hasSegmentChildren = chart.g.selectAll("rect.sl-bar-segment").size() > 0;
-    if ((!hasCollapsePlan && !hasSegmentChildren) || !parentField) {
+    const enterPlan = chart.transitionPlan?.enter;
+    if (enterPlan?.mode !== "parent-child-lineage" || enterPlan.from !== "child-bounds" || !parentField) {
       return null;
     }
 
@@ -381,7 +434,8 @@ function createLegacyBarRenderer(deps) {
   }
 
   function barSplitLineage(chart, parentField) {
-    if (chart.transitionPlan?.barSplit?.mode !== "parent-child" || !parentField) {
+    const enterPlan = chart.transitionPlan?.enter;
+    if (enterPlan?.mode !== "parent-child-lineage" || enterPlan.from !== "parent-bounds" || !parentField) {
       return null;
     }
 
@@ -403,15 +457,30 @@ function createLegacyBarRenderer(deps) {
     };
   }
 
+  function baselineEnterPlan(chart, from) {
+    const enterPlan = chart.transitionPlan?.enter;
+    return enterPlan?.mode === "baseline" && enterPlan.from === from ? enterPlan : null;
+  }
+
+  function baselineExitPlan(chart, to) {
+    const exitPlan = chart.transitionPlan?.exit;
+    return exitPlan?.mode === "baseline" && exitPlan.to === to ? exitPlan : null;
+  }
+
   function drawSegmentedBar(chart, rows, spec, tooltip, d3, barLayout) {
     const enc = spec.encoding || {};
     const t = chart.transition.base;
     const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
-    const categoryField = enc.x?.field;
-    const valueField = enc.y?.field;
+    const orientation = barOrientationFromEncoding(enc);
+    const horizontal = orientation === "horizontal";
+    const rendererOrientation = barRendererKey(barLayout, orientation);
+    const categoryChannel = barCategoryChannel(enc);
+    const measureChannel = barMeasureChannel(enc);
+    const categoryField = categoryChannel?.field;
+    const valueField = measureChannel?.field;
     const state = narrativeState(spec);
     const segmentField = barSegmentField(spec, state);
-    const categories = channelDomain(rows, enc.x);
+    const categories = channelDomain(rows, categoryChannel);
     const segments = channelDomain(rows, {
       field: segmentField,
       domain: state.sceneState?.granularity?.segments || state.granularity?.segments
@@ -419,68 +488,70 @@ function createLegacyBarRenderer(deps) {
     const color = colorScale(domainRows, enc.color, d3);
     const key = barKeyAccessor(chart, spec, [categoryField, segmentField]);
     const splitLineage = barSplitLineage(chart, categoryField);
+    const zeroBaselineEnter = baselineEnterPlan(chart, "zero-baseline");
+    const stackBaseEnter = baselineEnterPlan(chart, "stack-base");
+    const zeroBaselineExit = baselineExitPlan(chart, "zero-baseline");
+    const stackBaseExit = baselineExitPlan(chart, "stack-base");
 
-    const x = d3
+    const categoryScale = d3
       .scaleBand()
       .domain(categories)
-      .range([0, chart.innerWidth])
+      .range(horizontal ? [0, chart.innerHeight] : [0, chart.innerWidth])
       .padding(0.24);
 
     if (barLayout === "grouped") {
-      const x1 = d3
+      const segmentScale = d3
         .scaleBand()
         .domain(segments)
-        .range([0, x.bandwidth()])
+        .range([0, categoryScale.bandwidth()])
         .padding(0.08);
-      const y = d3
+      const measureScale = d3
         .scaleLinear()
-        .domain(quantitativeDomain(domainRows, enc.y, 0))
-        .range([chart.innerHeight, 0])
+        .domain(quantitativeDomain(domainRows, measureChannel, 0))
+        .range(horizontal ? [0, chart.innerWidth] : [chart.innerHeight, 0])
         .nice();
+      const x = horizontal ? measureScale : categoryScale;
+      const y = horizontal ? categoryScale : measureScale;
+      const x1 = horizontal ? null : segmentScale;
+      const y1 = horizontal ? segmentScale : null;
 
-      chart.scales = { x, x1, y, color, orientation: "grouped-vertical" };
+      chart.scales = { x, ...(x1 ? { x1 } : {}), y, ...(y1 ? { y1 } : {}), color, orientation: rendererOrientation };
       chart.channels = enc;
       chart.position = {
-        x: (d) => x(d[categoryField]) + x1(d[segmentField]) + x1.bandwidth() / 2,
-        y: (d) => y(d[valueField])
+        x: (d) => horizontal
+          ? x(d[valueField])
+          : x(d[categoryField]) + x1(d[segmentField]) + x1.bandwidth() / 2,
+        y: (d) => horizontal
+          ? y(d[categoryField]) + y1(d[segmentField]) + y1.bandwidth() / 2
+          : y(d[valueField])
       };
 
-      drawGrid(chart, y, d3);
+      if (horizontal) updateGrid(chart, null, d3);
+      else drawGrid(chart, y, d3);
       drawXAxis(chart, x, enc.x?.title, d3);
       drawYAxis(chart, y, enc.y?.title, d3);
 
-      const updatePlan = barUpdateStage(chart, "grouped-vertical", d3);
+      const updatePlan = barUpdateStage(chart, rendererOrientation, d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(rows, key)
         .join(
           (enter) =>
-            enter
-              .append("rect")
-              .attr("class", "sl-bar sl-bar-segment sl-bar-grouped")
-              .call(applyBarIdentity, spec, key, (d) => d[categoryField])
-              .call((selection) =>
-                selection.each(function (d) {
-                  setRectGeometry(
-                    d3.select(this),
-                    splitLineage?.start(d) || {
-                      x: x(d[categoryField]) + x1(d[segmentField]),
-                      y: chart.innerHeight,
-                      width: Math.max(1, x1.bandwidth()),
-                      height: 0
-                    }
-                  );
-                })
-              )
-              .attr("rx", 2)
-              .attr("fill", (d) => color(d))
-              .style("opacity", 0)
-              .call(bindTooltip, spec, tooltip)
-              .transition(t)
-              .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
-              .attr("y", (d) => y(d[valueField]))
-              .attr("height", (d) => chart.innerHeight - y(d[valueField])),
+            transitionBarEnter(enter, {
+              className: "sl-bar sl-bar-segment sl-bar-grouped",
+              spec,
+              key,
+              category: (d) => d[categoryField],
+              rx: 2,
+              fill: (d) => color(d),
+              tooltip,
+              d3,
+              transition: t,
+              startGeometry: (d) =>
+                splitLineage?.start(d) ||
+                groupedSegmentEnterGeometry(d, { x, y, x1, y1, categoryField, segmentField, valueField, chart, horizontal }, zeroBaselineEnter),
+              targetGeometry: groupedSegmentGeometry({ x, y, x1, y1, categoryField, segmentField, valueField, chart, horizontal })
+            }),
           (update) => {
             const prepared = update
               .attr("class", "sl-bar sl-bar-segment sl-bar-grouped")
@@ -494,17 +565,13 @@ function createLegacyBarRenderer(deps) {
                 spec,
                 {
                   x: (selection) =>
-                    selection
-                      .attr("x", (d) => x(d[categoryField]) + x1(d[segmentField]))
-                      .attr("width", Math.max(1, x1.bandwidth())),
+                    applyGroupedSegmentX(selection, { x, x1, categoryField, segmentField, valueField, horizontal }),
                   y: (selection) =>
-                    selection
-                      .attr("y", (d) => y(d[valueField]))
-                      .attr("height", (d) => chart.innerHeight - y(d[valueField]))
+                    applyGroupedSegmentY(selection, { y, y1, categoryField, segmentField, valueField, chart, horizontal })
                 },
                 (selection) =>
                   selection
-                    .style("opacity", 1)
+                    .style("opacity", (d) => barFocusOpacity(d, spec))
                     .attr("fill", (d) => color(d))
               );
             }
@@ -512,75 +579,65 @@ function createLegacyBarRenderer(deps) {
             return prepared
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
-              .attr("x", (d) => x(d[categoryField]) + x1(d[segmentField]))
-              .attr("width", Math.max(1, x1.bandwidth()))
-              .attr("y", (d) => y(d[valueField]))
-              .attr("height", (d) => chart.innerHeight - y(d[valueField]))
+              .style("opacity", (d) => barFocusOpacity(d, spec))
+              .call((selection) =>
+                applyGroupedSegmentGeometry(selection, { x, y, x1, y1, categoryField, segmentField, valueField, chart, horizontal })
+              )
               .attr("fill", (d) => color(d));
           },
           (exit) => {
-            const leaving = exit.transition(t).style("opacity", 0);
-            if (!splitLineage) {
-              leaving
-                .attr("y", chart.innerHeight)
-                .attr("height", 0);
-            }
-            return leaving.remove();
+            return transitionBarExit(exit, {
+              transition: t,
+              geometry: splitLineage
+                ? null
+                : groupedSegmentExitGeometry({ chart, horizontal }, zeroBaselineExit)
+            });
           }
         );
     } else {
       const stackedRows = stackBarRows(rows, categoryField, segmentField, valueField, segments);
       const domainStackedRows = stackBarRows(domainRows, categoryField, segmentField, valueField, segments);
-      const y = d3
+      const measureScale = d3
         .scaleLinear()
-        .domain(enc.y?.domain || [0, d3.max(domainStackedRows, (d) => d.__stack1) || 1])
-        .range([chart.innerHeight, 0])
+        .domain(measureChannel?.domain || [0, d3.max(domainStackedRows, (d) => d.__stack1) || 1])
+        .range(horizontal ? [0, chart.innerWidth] : [chart.innerHeight, 0])
         .nice();
+      const x = horizontal ? measureScale : categoryScale;
+      const y = horizontal ? categoryScale : measureScale;
 
-      chart.scales = { x, y, color, orientation: "stacked-vertical" };
+      chart.scales = { x, y, color, orientation: rendererOrientation };
       chart.channels = enc;
       chart.position = {
-        x: (d) => position(x, d[categoryField]),
-        y: (d) => y((d.__stack0 + d.__stack1) / 2)
+        x: (d) => horizontal ? x((d.__stack0 + d.__stack1) / 2) : position(x, d[categoryField]),
+        y: (d) => horizontal ? position(y, d[categoryField]) : y((d.__stack0 + d.__stack1) / 2)
       };
 
-      drawGrid(chart, y, d3);
+      if (horizontal) updateGrid(chart, null, d3);
+      else drawGrid(chart, y, d3);
       drawXAxis(chart, x, enc.x?.title, d3);
       drawYAxis(chart, y, enc.y?.title, d3);
 
-      const updatePlan = barUpdateStage(chart, "stacked-vertical", d3);
+      const updatePlan = barUpdateStage(chart, rendererOrientation, d3);
       chart.g
         .selectAll("rect.sl-bar")
         .data(stackedRows, key)
         .join(
           (enter) =>
-            enter
-              .append("rect")
-              .attr("class", "sl-bar sl-bar-segment sl-bar-stacked")
-              .call(applyBarIdentity, spec, key, (d) => d[categoryField])
-              .call((selection) =>
-                selection.each(function (d) {
-                  setRectGeometry(
-                    d3.select(this),
-                    splitLineage?.start(d) || {
-                      x: x(d[categoryField]),
-                      y: y(d.__stack0),
-                      width: Math.max(1, x.bandwidth()),
-                      height: 0
-                    }
-                  );
-                })
-              )
-              .attr("rx", 2)
-              .attr("fill", (d) => color(d))
-              .style("opacity", 0)
-              .call(bindTooltip, spec, tooltip)
-              .transition(t)
-              .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
-              .attr("y", (d) => y(d.__stack1))
-              .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1))),
+            transitionBarEnter(enter, {
+              className: "sl-bar sl-bar-segment sl-bar-stacked",
+              spec,
+              key,
+              category: (d) => d[categoryField],
+              rx: 2,
+              fill: (d) => color(d),
+              tooltip,
+              d3,
+              transition: t,
+              startGeometry: (d) =>
+                splitLineage?.start(d) ||
+                stackedSegmentEnterGeometry(d, { x, y, categoryField, chart, horizontal }, stackBaseEnter),
+              targetGeometry: stackedSegmentGeometry({ x, y, categoryField, chart, horizontal })
+            }),
           (update) => {
             const prepared = update
               .attr("class", "sl-bar sl-bar-segment sl-bar-stacked")
@@ -594,17 +651,13 @@ function createLegacyBarRenderer(deps) {
                 spec,
                 {
                   x: (selection) =>
-                    selection
-                      .attr("x", (d) => x(d[categoryField]))
-                      .attr("width", Math.max(1, x.bandwidth())),
+                    applyStackedSegmentX(selection, { x, categoryField, horizontal }),
                   y: (selection) =>
-                    selection
-                      .attr("y", (d) => y(d.__stack1))
-                      .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)))
+                    applyStackedSegmentY(selection, { y, categoryField, chart, horizontal })
                 },
                 (selection) =>
                   selection
-                    .style("opacity", 1)
+                    .style("opacity", (d) => barFocusOpacity(d, spec))
                     .attr("fill", (d) => color(d))
               );
             }
@@ -612,21 +665,19 @@ function createLegacyBarRenderer(deps) {
             return prepared
               .transition(t)
               .delay((d, i) => staggerDelay(spec, d, i))
-              .style("opacity", 1)
-              .attr("x", (d) => x(d[categoryField]))
-              .attr("width", Math.max(1, x.bandwidth()))
-              .attr("y", (d) => y(d.__stack1))
-              .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)))
+              .style("opacity", (d) => barFocusOpacity(d, spec))
+              .call((selection) =>
+                applyStackedSegmentGeometry(selection, { x, y, categoryField, chart, horizontal })
+              )
               .attr("fill", (d) => color(d));
           },
           (exit) => {
-            const leaving = exit.transition(t).style("opacity", 0);
-            if (!splitLineage) {
-              leaving
-                .attr("y", (d) => y(d.__stack0))
-                .attr("height", 0);
-            }
-            return leaving.remove();
+            return transitionBarExit(exit, {
+              transition: t,
+              geometry: splitLineage
+                ? null
+                : stackedSegmentExitGeometry({ x, y, chart, horizontal }, stackBaseExit)
+            });
           }
         );
     }
@@ -708,6 +759,209 @@ function unionRect(a, b) {
 
 function parentFromChildKey(key = "") {
   return String(key).includes("|") ? String(key).split("|")[0] : null;
+}
+
+function simpleBarExitGeometry(chart) {
+  return {
+    width: function () {
+      return this.dataset.orientation === "horizontal" ? 0 : Number(this.getAttribute("width")) || 0;
+    },
+    y: function () {
+      return this.dataset.orientation === "horizontal" ? Number(this.getAttribute("y")) || 0 : chart.innerHeight;
+    },
+    height: function () {
+      return this.dataset.orientation === "horizontal" ? Number(this.getAttribute("height")) || 0 : 0;
+    }
+  };
+}
+
+function groupedSegmentEnterGeometry(d, geom, _enterPlan = null) {
+  const { x, y, x1, y1, categoryField, segmentField, chart, horizontal } = geom;
+  if (horizontal) {
+    return {
+      x: x(0),
+      y: y(d[categoryField]) + y1(d[segmentField]),
+      width: 0,
+      height: Math.max(1, y1.bandwidth())
+    };
+  }
+
+  return {
+    x: x(d[categoryField]) + x1(d[segmentField]),
+    y: chart.innerHeight,
+    width: Math.max(1, x1.bandwidth()),
+    height: 0
+  };
+}
+
+function applyGroupedSegmentGeometry(selection, geom) {
+  applyGroupedSegmentX(selection, geom);
+  applyGroupedSegmentY(selection, geom);
+  return selection;
+}
+
+function groupedSegmentGeometry(geom) {
+  const { x, y, x1, y1, categoryField, segmentField, valueField, chart, horizontal } = geom;
+  if (horizontal) {
+    return {
+      x: x(0),
+      width: (d) => Math.abs(x(d[valueField]) - x(0)),
+      y: (d) => y(d[categoryField]) + y1(d[segmentField]),
+      height: Math.max(1, y1.bandwidth())
+    };
+  }
+
+  return {
+    x: (d) => x(d[categoryField]) + x1(d[segmentField]),
+    width: Math.max(1, x1.bandwidth()),
+    y: (d) => y(d[valueField]),
+    height: (d) => chart.innerHeight - y(d[valueField])
+  };
+}
+
+function applyGroupedSegmentX(selection, geom) {
+  const { x, x1, categoryField, segmentField, valueField, horizontal } = geom;
+  if (horizontal) {
+    return selection
+      .attr("x", x(0))
+      .attr("width", (d) => Math.abs(x(d[valueField]) - x(0)));
+  }
+
+  return selection
+    .attr("x", (d) => x(d[categoryField]) + x1(d[segmentField]))
+    .attr("width", Math.max(1, x1.bandwidth()));
+}
+
+function applyGroupedSegmentY(selection, geom) {
+  const { y, y1, categoryField, segmentField, valueField, chart, horizontal } = geom;
+  if (horizontal) {
+    return selection
+      .attr("y", (d) => y(d[categoryField]) + y1(d[segmentField]))
+      .attr("height", Math.max(1, y1.bandwidth()));
+  }
+
+  return selection
+    .attr("y", (d) => y(d[valueField]))
+    .attr("height", (d) => chart.innerHeight - y(d[valueField]));
+}
+
+function stackedSegmentEnterGeometry(d, geom, enterPlan = null) {
+  const { x, y, categoryField, chart, horizontal } = geom;
+  const fromStackBase = !enterPlan || enterPlan.from === "stack-base";
+  if (horizontal) {
+    return {
+      x: fromStackBase ? x(d.__stack0) : x(0),
+      y: y(d[categoryField]),
+      width: 0,
+      height: Math.max(1, y.bandwidth())
+    };
+  }
+
+  return {
+    x: x(d[categoryField]),
+    y: fromStackBase ? y(d.__stack0) : chart.innerHeight,
+    width: Math.max(1, x.bandwidth()),
+    height: 0
+  };
+}
+
+function applyStackedSegmentGeometry(selection, geom) {
+  applyStackedSegmentX(selection, geom);
+  applyStackedSegmentY(selection, geom);
+  return selection;
+}
+
+function stackedSegmentGeometry(geom) {
+  const { x, y, categoryField, chart, horizontal } = geom;
+  if (horizontal) {
+    return {
+      x: (d) => x(d.__stack0),
+      width: (d) => Math.max(0, x(d.__stack1) - x(d.__stack0)),
+      y: (d) => y(d[categoryField]),
+      height: Math.max(1, y.bandwidth())
+    };
+  }
+
+  return {
+    x: (d) => x(d[categoryField]),
+    width: Math.max(1, x.bandwidth()),
+    y: (d) => y(d.__stack1),
+    height: (d) => Math.max(0, y(d.__stack0) - y(d.__stack1))
+  };
+}
+
+function applyStackedSegmentX(selection, geom) {
+  const { x, categoryField, horizontal } = geom;
+  if (horizontal) {
+    return selection
+      .attr("x", (d) => x(d.__stack0))
+      .attr("width", (d) => Math.max(0, x(d.__stack1) - x(d.__stack0)));
+  }
+
+  return selection
+    .attr("x", (d) => x(d[categoryField]))
+    .attr("width", Math.max(1, x.bandwidth()));
+}
+
+function applyStackedSegmentY(selection, geom) {
+  const { y, categoryField, chart, horizontal } = geom;
+  if (horizontal) {
+    return selection
+      .attr("y", (d) => y(d[categoryField]))
+      .attr("height", Math.max(1, y.bandwidth()));
+  }
+
+  return selection
+    .attr("y", (d) => y(d.__stack1))
+    .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)));
+}
+
+function groupedSegmentExitGeometry({ chart, horizontal }, _exitPlan = null) {
+  if (horizontal) {
+    return { width: 0 };
+  }
+
+  return {
+    y: chart.innerHeight,
+    height: 0
+  };
+}
+
+function stackedSegmentExitGeometry(geom, exitPlan = null) {
+  const { x, y, chart, horizontal } = geom;
+  const toStackBase = !exitPlan || exitPlan.to === "stack-base";
+  if (horizontal) {
+    return {
+      x: (d) => (toStackBase ? x(d.__stack0) : x(0)),
+      width: 0
+    };
+  }
+
+  return {
+    y: (d) => (toStackBase ? y(d.__stack0) : chart.innerHeight),
+    height: 0
+  };
+}
+
+function barFocusOpacity(row, spec = {}) {
+  const focus = narrativeState(spec).sceneState?.focus || narrativeState(spec).focus || null;
+  if (focus?.mode !== "highlight" || !focus.filter) return 1;
+  return rowMatchesFilter(row?.__row || row, focus.filter)
+    ? 1
+    : Number(focus.opacity ?? 0.22);
+}
+
+function rowMatchesFilter(row = {}, filter = {}) {
+  if (!filter?.field) return true;
+  const value = row[filter.field];
+  if ("equal" in filter) return value === filter.equal;
+  if ("notEqual" in filter) return value !== filter.notEqual;
+  if ("oneOf" in filter) return filter.oneOf.includes(value);
+  if ("gte" in filter && value < filter.gte) return false;
+  if ("gt" in filter && value <= filter.gt) return false;
+  if ("lte" in filter && value > filter.lte) return false;
+  if ("lt" in filter && value >= filter.lt) return false;
+  return true;
 }
 
 function drawBarDataError(chart, message) {

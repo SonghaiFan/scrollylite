@@ -61,9 +61,9 @@ State transforms:
 base.where({ period: "recent" })
 base.where({ type: "Cold days" })
 base.flip()
-base.split("type")
-base.split("type").layout("grouped")
-base.split("type").collapse("type", { title: "Total days" })
+base.breakdown("type")
+base.breakdown("type").layout("grouped")
+base.rollup("type", { title: "Total days" })
 ```
 
 ## Inference
@@ -74,9 +74,14 @@ called:
 - `.filter()` records `focus`
 - `.where()` records `focus`; `.where({ type: ... })` also contributes to the
   semantic object key
-- `.flip()` and `.guide()` materialize guide-relevant encoding changes
+- `.highlight()` records `focus` without filtering data; renderers fade
+  non-matching marks instead of excluding rows
+- `.flip()` and `.guide()` materialize guide-relevant encoding changes. `.flip()`
+  is layout-agnostic: it swaps x/y for simple, stacked, and grouped bars, and
+  grouped offsets follow the category axis (`xOffset` vertically, `yOffset`
+  horizontally).
 - `.agg()` records `granularity`
-- `.split()` and `.collapse()` are short `type/count` aliases for changing grain
+- `.breakdown()` and `.rollup()` are the preferred granularity verbs; `.split()` and `.collapse()` remain aliases
 - `.layout()` materializes grouped-bar offsets; default staged order is inferred
 
 `story().step()` converts those operations into the current runtime step shape.
@@ -98,7 +103,7 @@ This avoids relying only on structural diff. A pure diff would also mark
 "leaving focus" or "leaving guide" as new transition intent. The operation log
 better matches the author's authored delta, and the compiler compares the next
 operation chain with the previous one so a derived state like
-`base.split("type").layout("grouped")` records only the new
+`base.breakdown("type").layout("grouped")` records only the new
 `guide` transition after the segmented state.
 
 The compiled final view state is still complete. For example, the grouped bar
@@ -115,7 +120,7 @@ const base = bar("weatherDays")
   .y("count")
   .where({ type: "Hot days" });
 
-const segmented = base.split("type");
+const segmented = base.breakdown("type");
 
 return story()
   .data("weatherDays", {
@@ -136,9 +141,9 @@ return story()
   .step("Baseline", base)
   .step("Focus", base.where({ period: "recent" }))
   .step("Cold days", base.where({ type: "Cold days" }))
-  .step("Split", segmented)
+  .step("Breakdown", segmented)
   .step("Grouped", segmented.layout("grouped"))
-  .step("Collapse", segmented.collapse("type", { title: "Total days" }))
+  .step("Rollup", segmented.rollup("type", { title: "Total days" }))
   .toSpec();
 ```
 

@@ -7,7 +7,8 @@ import { narrativeSemanticKey } from "../../scrolly-meta.js?v=semantic-key-10";
 
 export function barKeyAccessor(chart, spec, fallbackField = "id") {
   const fallback = keyAccessor(spec, fallbackField);
-  if (chart.transitionPlan?.barKey?.mode !== "semantic" || !narrativeSemanticKey(spec)) {
+  const keyPlan = chart.transitionPlan?.key || chart.transitionPlan?.barKey;
+  if (keyPlan?.mode !== "semantic" || !narrativeSemanticKey(spec)) {
     return fallback;
   }
 

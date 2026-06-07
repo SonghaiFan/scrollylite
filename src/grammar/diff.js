@@ -3,6 +3,12 @@ import {
   narrativeSemanticKey,
   narrativeState
 } from "../scrolly-meta.js?v=semantic-key-10";
+import {
+  barCategoryChannel,
+  barMeasureChannel,
+  barOrientationFromEncoding,
+  isSegmentLayout
+} from "../charts/bar/layout.js";
 
 export function diffViewStates(previous, next) {
   const prev = comparableSpec(previous);
@@ -116,13 +122,9 @@ function semanticBarState(spec = {}, state = semanticState(spec)) {
   const enc = spec.encoding || {};
   const aggregate = barAggregateState(spec);
   const layout = barLayoutState(spec, state, aggregate);
-  const horizontal =
-    layout === "simple" &&
-    enc.x?.type === "quantitative" &&
-    ["nominal", "ordinal"].includes(enc.y?.type);
-  const orientation = horizontal ? "horizontal" : "vertical";
-  const categoryField = horizontal ? enc.y?.field : enc.x?.field;
-  const measureField = horizontal ? enc.x?.field : enc.y?.field;
+  const orientation = barOrientationFromEncoding(enc);
+  const categoryField = barCategoryChannel(enc)?.field;
+  const measureField = barMeasureChannel(enc)?.field;
   const segmentField =
     state.granularity?.segmentField ||
     enc.xOffset?.field ||
@@ -188,10 +190,6 @@ function barGranularityState({ layout, categoryField, measureField, segmentField
     valueField: measureField || null,
     categoryField: categoryField || null
   };
-}
-
-function isSegmentLayout(layout) {
-  return layout === "stacked" || layout === "grouped";
 }
 
 function barAggregateState(spec = {}) {

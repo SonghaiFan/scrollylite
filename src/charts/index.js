@@ -45,8 +45,35 @@ export function createMarkRendererRegistry() {
   };
 }
 
+export function createChartIdiomRegistry() {
+  const idioms = new Map();
+
+  return {
+    register(keyOrIdiom, idiom = null) {
+      const normalized = normalizeChartIdiom(keyOrIdiom, idiom);
+      idioms.set(normalized.key, normalized);
+      return this;
+    },
+
+    get(markOrSpec) {
+      const key = typeof markOrSpec === "object"
+        ? resolveMarkRendererKey(markOrSpec)
+        : normalizeMarkRendererKey(markOrSpec);
+      return idioms.get(key);
+    },
+
+    has(markOrSpec) {
+      return Boolean(this.get(markOrSpec));
+    },
+
+    types() {
+      return Array.from(idioms.keys()).sort();
+    }
+  };
+}
+
 export function createChartRegistry() {
-  return createMarkRendererRegistry();
+  return createChartIdiomRegistry();
 }
 
 export function normalizeMarkRendererKey(markOrRenderer) {
@@ -68,4 +95,28 @@ export function resolveMarkRendererKey(viewSpec = {}) {
 
 export function resolveChartType(viewSpec = {}) {
   return resolveMarkRendererKey(viewSpec);
+}
+
+function normalizeChartIdiom(keyOrIdiom, maybeIdiom = null) {
+  const idiom = maybeIdiom || keyOrIdiom;
+  const key = normalizeMarkRendererKey(
+    maybeIdiom ? keyOrIdiom : idiom.key || idiom.mark || idiom.type
+  );
+  if (!key) throw new Error("Chart idiom key is required.");
+  if (!idiom || typeof idiom !== "object") {
+    throw new Error(`Chart idiom "${key}" must be an object.`);
+  }
+  if (typeof idiom.renderer !== "function") {
+    throw new Error(`Chart idiom "${key}" must provide a renderer function.`);
+  }
+
+  return {
+    prepareSpec: (spec) => spec,
+    resolveTransitionPlan: () => ({}),
+    intermediateSpec: () => null,
+    defaultMargin: () => ({}),
+    inspect: {},
+    ...idiom,
+    key
+  };
 }

@@ -1,4 +1,4 @@
-import { bar, story } from "../../grammar/index.js?v=semantic-key-16";
+import { bar, story } from "../../grammar/index.js?v=semantic-key-18";
 import { createBaseDemo } from "./shared.js?v=semantic-key-18";
 
 export function createBarStory() {
@@ -54,27 +54,35 @@ export function createBarStory() {
       }
     )
     .step(
-      "Granularity: split into hot/cold segments",
-      base.split("type"),
+      "Granularity: break down into hot/cold segments",
+      base.breakdown("type"),
       {
         body: "The granularity scene changes one aggregate bar into hot/cold segments for each decade.",
-        authoring: 'base.split("type")'
+        authoring: 'base.breakdown("type")'
+      }
+    )
+    .step(
+      "Focus: highlight cold days",
+      base.breakdown("type").highlight({ type: "Cold days" }),
+      {
+        body: "The focus scene keeps both hot and cold segments visible while fading the non-selected type.",
+        authoring: 'base.breakdown("type").highlight({ type: "Cold days" })'
       }
     )
     .step(
       "Guide: stacked to grouped segments",
-      base.split("type").layout("grouped"),
+      base.breakdown("type").layout("grouped").flip(),
       {
         body: "The guide scene keeps the same hot/cold segments but changes their position and scale from stacked to grouped.",
-        authoring: 'base.split("type").layout("grouped")'
+        authoring: 'base.breakdown("type").layout("grouped").flip()'
       }
     )
     .step(
-      "Granularity: collapse to total days",
-      base.collapse("type", { title: "Total days" }),
+      "Granularity: roll up to average days",
+      base.rollup("type", { title: "Average days", op: "mean" }),
       {
-        body: "The granularity scene collapses child segment keys into one parent total-days bar per decade.",
-        authoring: 'base.collapse("type", { title: "Total days" })'
+        body: "The granularity scene rolls child segment keys up into one parent average-days bar per decade.",
+        authoring: 'base.rollup("type", { title: "Average days", op: "mean" })'
       }
     )
     .toSpec();

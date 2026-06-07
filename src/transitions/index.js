@@ -8,6 +8,10 @@ import {
   narrativeUnit,
   withNarrative
 } from "../scrolly-meta.js?v=semantic-key-10";
+import {
+  barOffsetChannelName,
+  barOrientationFromEncoding
+} from "../charts/bar/layout.js";
 
 export const SCENE_TRANSITIONS = ["focus", "guide", "granularity", "observation"];
 const STATE_APPLICATION_ORDER = ["focus", "observation", "granularity", "guide"];
@@ -128,6 +132,16 @@ function applyFilterFocus(spec, focusSpec = {}) {
   const filter = focusSpec.filter || selectorToFilter(focusSpec);
   if (!filter) return spec;
 
+  if (focusSpec.mode === "highlight") {
+    return withSceneState(spec, {
+      focus: {
+        mode: "highlight",
+        filter,
+        ...(focusSpec.opacity != null ? { opacity: focusSpec.opacity } : {})
+      }
+    });
+  }
+
   return withSceneState({
     ...spec,
     transform: [{ filter }, ...(spec.transform || [])]
@@ -137,17 +151,20 @@ function applyFilterFocus(spec, focusSpec = {}) {
 }
 
 function applyBarGuide(spec, guideSpec = {}) {
+  let workingSpec = spec;
+  const layout = guideSpec.layout || guideSpec.barLayout || null;
   if (guideSpec.layout || guideSpec.barLayout) {
-    const layout = guideSpec.layout || guideSpec.barLayout;
-    const segmentField = barSegmentField(spec);
-    const granularity = narrativeState(spec).sceneState?.granularity || narrativeState(spec).granularity || {};
-    return withSceneState({
-      ...spec,
-      encoding: encodingWithBarLayout(spec.encoding, layout, segmentField)
+    const segmentField = barSegmentField(workingSpec);
+    const state = narrativeState(workingSpec);
+    const granularity = state.sceneState?.granularity || state.granularity || {};
+    const orientation = guideSpec.orientation || barOrientationFromEncoding(workingSpec.encoding || {});
+    workingSpec = withSceneState({
+      ...workingSpec,
+      encoding: encodingWithBarLayout(workingSpec.encoding, layout, segmentField, orientation)
     }, {
       guide: {
         layout,
-        staging: resolveGuideStaging(guideSpec, "vertical")
+        staging: resolveGuideStaging(guideSpec, orientation)
       },
       ...(segmentField
         ? {
@@ -158,9 +175,13 @@ function applyBarGuide(spec, guideSpec = {}) {
           }
         : {})
     });
+
+    if (!guideSpec.orientation && !guideSpec.category && !guideSpec.measure && !guideSpec.scale) {
+      return workingSpec;
+    }
   }
 
-  const encoding = cloneEncoding(spec.encoding);
+  let encoding = cloneEncoding(workingSpec.encoding);
   const category = channelFromField(
     guideSpec.category || encoding.x?.field || encoding.y?.field,
     guideSpec.categoryTitle || encoding.x?.title || encoding.y?.title,
@@ -181,17 +202,28 @@ function applyBarGuide(spec, guideSpec = {}) {
     encoding.y = { ...measure, ...(guideSpec.scale ? { domain: guideSpec.scale.domain } : {}) };
   }
 
+  const state = narrativeState(workingSpec);
+  const resolvedLayout =
+    layout ||
+    state.sceneState?.granularity?.layout ||
+    state.granularity?.layout ||
+    state.sceneState?.guide?.layout ||
+    state.guide?.layout ||
+    null;
+  encoding = encodingWithBarLayout(encoding, resolvedLayout, barSegmentField(workingSpec), orientation);
+
   return withSceneState(withObject({
-    ...spec,
+    ...workingSpec,
     margin: {
       ...(orientation === "horizontal" ? { left: 86, right: 42 } : {}),
-      ...(spec.margin || {})
+      ...(workingSpec.margin || {})
     },
     encoding
   }, {
-    key: guideSpec.key || narrativeObjectKey(spec) || category.field
+    key: guideSpec.key || narrativeObjectKey(workingSpec) || category.field
   }), {
     guide: {
+      ...(resolvedLayout ? { layout: resolvedLayout } : {}),
       orientation,
       scale: guideSpec.scale || null,
       staging: resolveGuideStaging(guideSpec, orientation)
@@ -551,10 +583,12 @@ function barSegmentField(spec = {}) {
   );
 }
 
-function encodingWithBarLayout(encoding = {}, layout = "stacked", segmentField = null) {
+function encodingWithBarLayout(encoding = {}, layout = "stacked", segmentField = null, orientation = barOrientationFromEncoding(encoding)) {
   const next = cloneEncoding(encoding);
   if (layout === "grouped" && segmentField) {
-    next.xOffset = {
+    delete next.xOffset;
+    delete next.yOffset;
+    next[barOffsetChannelName(orientation)] = {
       field: segmentField,
       type: "nominal"
     };
