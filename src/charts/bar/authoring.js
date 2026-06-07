@@ -1,6 +1,6 @@
 import { ViewState, cloneState } from "../../grammar/view-state.js?v=semantic-key-10";
 import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-10";
-import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-16";
+import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-17";
 
 export function bar(data) {
   return new BarState({
@@ -516,13 +516,42 @@ function pruneAuthoringState(spec) {
   const state = next.narrative?.state;
   if (!state) return next;
 
-    if (state.focus?.mode !== "highlight") delete state.focus;
-    delete state.guide;
-    delete state.granularity;
-    delete state.observation;
-    delete state.sceneState;
+  const sceneState = state.sceneState || {};
+  const preservedSceneState = {};
+  const focus = sceneState.focus || state.focus;
+  const guide = sceneState.guide || state.guide;
 
-    if (!Object.keys(state).length) delete next.narrative.state;
+  if (focus?.mode === "highlight") {
+    preservedSceneState.focus = focus;
+  }
+  if (hasCustomGuideStaging(guide)) {
+    preservedSceneState.guide = {
+      ...(guide.layout ? { layout: guide.layout } : {}),
+      ...(guide.orientation ? { orientation: guide.orientation } : {}),
+      staging: guide.staging
+    };
+  }
+
+  delete state.focus;
+  delete state.guide;
+  delete state.granularity;
+  delete state.observation;
+  state.sceneState = preservedSceneState;
+  if (!Object.keys(state.sceneState).length) delete state.sceneState;
+
+  if (!Object.keys(state).length) delete next.narrative.state;
   if (next.narrative && !Object.keys(next.narrative).length) delete next.narrative;
   return next;
+}
+
+function hasCustomGuideStaging(guide = null) {
+  if (!guide?.staging) return false;
+  const staging = guide.staging;
+  if (staging.duration != null || staging.stagger != null) return true;
+  if (!Array.isArray(staging.order)) return false;
+  return staging.order.join("|") !== defaultGuideOrder(guide).join("|");
+}
+
+function defaultGuideOrder(guide = {}) {
+  return guide.orientation === "horizontal" ? ["y", "x"] : ["x", "y"];
 }

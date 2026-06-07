@@ -3,7 +3,10 @@ import {
   narrativeSemanticKey,
   narrativeState
 } from "../scrolly-meta.js?v=semantic-key-10";
-import { semanticBarState } from "../charts/bar/diff.js?v=semantic-key-1";
+import {
+  appendBarSemanticDeltas,
+  semanticBarState
+} from "../charts/bar/diff.js?v=semantic-key-2";
 
 export function diffViewStates(previous, next) {
   const prev = comparableSpec(previous);
@@ -64,16 +67,7 @@ export function diffSemanticViewStates(previous = {}, next = {}) {
   pushStateDelta(deltas, "observation", prev.observation, curr.observation);
 
   if (prev.mark === "bar" || curr.mark === "bar") {
-    pushDelta(deltas, "bar.orientation", prev.bar?.orientation, curr.bar?.orientation);
-    pushDelta(deltas, "bar.layout", prev.bar?.layout, curr.bar?.layout);
-    pushDelta(deltas, "bar.category-field", prev.bar?.categoryField, curr.bar?.categoryField);
-    pushDelta(deltas, "bar.measure-field", prev.bar?.measureField, curr.bar?.measureField);
-    pushStateDelta(deltas, "bar.guide", prev.bar?.guide, curr.bar?.guide);
-    pushStateDelta(deltas, "bar.granularity", prev.bar?.granularity, curr.bar?.granularity);
-    pushStateDelta(deltas, "bar.aggregate", prev.bar?.aggregate, curr.bar?.aggregate);
-    pushDelta(deltas, "bar.segment-field", prev.bar?.segmentField, curr.bar?.segmentField);
-    pushDelta(deltas, "bar.x-geometry", prev.bar?.xGeometry, curr.bar?.xGeometry);
-    pushDelta(deltas, "bar.y-geometry", prev.bar?.yGeometry, curr.bar?.yGeometry);
+    appendBarSemanticDeltas(deltas, prev, curr, { pushDelta, pushStateDelta });
   }
 
   return {

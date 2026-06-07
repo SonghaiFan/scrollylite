@@ -1,5 +1,5 @@
 import { applyTransforms } from "./data/transforms.js";
-import { chartModules } from "./charts/manifest.js?v=semantic-key-1";
+import { chartModules } from "./charts/manifest.js?v=semantic-key-2";
 import {
   createChartIdiomRegistry,
   registerChartModules,
@@ -120,6 +120,10 @@ export function availableMarkRenderers() {
 
 export function registerChartIdiom(keyOrIdiom, idiom) {
   BUILT_IN_CHART_IDIOMS.register(keyOrIdiom, idiom);
+}
+
+export function registerChartModule(module) {
+  registerChartModules(BUILT_IN_CHART_IDIOMS, [module], CHART_RUNTIME_DEPS);
 }
 
 export function availableChartIdioms() {
@@ -673,7 +677,7 @@ function resolveTarget(target) {
 
 
 
-registerChartModules(BUILT_IN_CHART_IDIOMS, chartModules, {
+const CHART_RUNTIME_DEPS = {
   bandOrLinear,
   bindTooltip,
   channelDomain,
@@ -699,4 +703,6 @@ registerChartModules(BUILT_IN_CHART_IDIOMS, chartModules, {
   showTooltip,
   staggerDelay,
   updateGrid
-});
+};
+
+registerChartModules(BUILT_IN_CHART_IDIOMS, chartModules, CHART_RUNTIME_DEPS);

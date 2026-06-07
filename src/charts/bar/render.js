@@ -1,10 +1,10 @@
 import { BaseChart } from "../base.js";
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
 import { barCategoryChannel } from "./layout.js";
 import { createBarRenderKit } from "./render-pattern.js?v=semantic-key-1";
 import { createGroupedBarRenderer } from "./layout-grouped.js?v=semantic-key-2";
 import { createSimpleBarRenderer } from "./layout-simple.js?v=semantic-key-1";
 import { createStackedBarRenderer } from "./layout-stacked.js?v=semantic-key-1";
+import { semanticBarState } from "./semantic.js?v=semantic-key-1";
 
 export function createBarRenderer(deps) {
   return new BarChart(deps, createBarDraw(deps)).renderer();
@@ -31,10 +31,8 @@ function createBarDraw(deps) {
   };
 
   return function drawBar(chart, rows, spec, tooltip, d3) {
-    const state = narrativeState(spec);
-    const barLayout = barLayoutForSpec(spec, state);
-    const segmentField = barSegmentField(spec, state);
-    const renderer = renderers[isSegmentedLayout(barLayout, segmentField) ? barLayout : "simple"];
+    const bar = semanticBarState(spec);
+    const renderer = renderers[isSegmentedLayout(bar.layout, bar.segmentField) ? bar.layout : "simple"];
 
     fadeNonBarShapes(chart);
 
@@ -49,41 +47,13 @@ function createBarDraw(deps) {
       }
     }
 
-    renderer(chart, rows, spec, tooltip, d3, segmentField);
+    renderer(chart, rows, spec, tooltip, d3, bar.segmentField);
     drawLegend(chart, rows, spec.encoding?.color, d3);
   };
 }
 
 function isSegmentedLayout(layout, segmentField) {
   return Boolean(segmentField) && (layout === "grouped" || layout === "stacked");
-}
-
-function barLayoutForSpec(spec, state = narrativeState(spec)) {
-  const enc = spec.encoding || {};
-  const stateLayout =
-    state.sceneState?.guide?.layout ||
-    state.sceneState?.granularity?.layout ||
-    state.guide?.layout ||
-    state.granularity?.layout;
-  if (stateLayout) return stateLayout;
-  if (enc.xOffset?.field || enc.yOffset?.field) return "grouped";
-  if (enc.color?.field && hasAggregateTransform(spec)) return "stacked";
-  return "simple";
-}
-
-function barSegmentField(spec, state = narrativeState(spec)) {
-  return (
-    state.sceneState?.granularity?.segmentField ||
-    state.granularity?.segmentField ||
-    spec.encoding?.xOffset?.field ||
-    spec.encoding?.yOffset?.field ||
-    spec.encoding?.color?.field ||
-    null
-  );
-}
-
-function hasAggregateTransform(spec = {}) {
-  return (spec.transform || []).some((transform) => transform?.aggregate);
 }
 
 function duplicateCategory(rows, channel = {}) {

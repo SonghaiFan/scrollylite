@@ -1,8 +1,5 @@
 import { normalizeMarkRendererKey } from "../index.js";
-import {
-  narrativeState,
-  narrativeTransition
-} from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeTransition } from "../../scrolly-meta.js?v=semantic-key-10";
 import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-15";
 import { defaultTransition, stagedDuration } from "../../timing.js";
 import {
@@ -10,10 +7,10 @@ import {
   barLayoutTransitionRoute,
   barMeasureChannel,
   barOffsetChannelName,
-  barOrientationFromEncoding,
   barRendererKey,
   isSegmentLayout
 } from "./layout.js";
+import { semanticBarState } from "./semantic.js?v=semantic-key-1";
 
 export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   const previous = barState(previousSpec);
@@ -230,84 +227,19 @@ export function barIntermediateSpecs(previousSpec, nextSpec) {
 export function barState(spec) {
   if (!spec || normalizeMarkRendererKey(spec.mark) !== "bar") return null;
 
-  const enc = spec.encoding || {};
-  const state = narrativeState(spec);
-  const sceneState = state.sceneState || {};
-  const aggregate = barAggregateState(spec);
-  const barLayout = barLayoutState(spec, state, aggregate);
-  const orientation = barOrientationFromEncoding(enc);
-  const categoryChannel = barCategoryChannel(enc);
-  const measureChannel = barMeasureChannel(enc);
-  const segmentField =
-    sceneState.granularity?.segmentField ||
-    state.granularity?.segmentField ||
-    enc.xOffset?.field ||
-    enc.yOffset?.field ||
-    enc.color?.field ||
-    null;
-  const guideState = barGuideState({ orientation, barLayout, state });
-  const granularityState = barGranularityState({ barLayout, categoryField: categoryChannel?.field, measureField: measureChannel?.field, segmentField, state });
+  const semantic = semanticBarState(spec);
 
   return {
-    orientation,
-    barLayout,
-    categoryField: categoryChannel?.field,
-    measureField: measureChannel?.field,
-    hasGuide: Boolean(guideState),
-    hasGranularity: Boolean(granularityState),
-    hasAggregate: Boolean(aggregate),
-    segmentField,
-    guideStaging: guideState?.staging || null
+    orientation: semantic.orientation,
+    barLayout: semantic.layout,
+    categoryField: semantic.categoryField,
+    measureField: semantic.measureField,
+    hasGuide: Boolean(semantic.guide),
+    hasGranularity: Boolean(semantic.granularity),
+    hasAggregate: Boolean(semantic.aggregate),
+    segmentField: semantic.segmentField,
+    guideStaging: semantic.guide?.staging || null
   };
-}
-
-function barLayoutState(spec = {}, state = {}, aggregate = null) {
-  const enc = spec.encoding || {};
-  const stateLayout =
-    state.sceneState?.guide?.layout ||
-    state.sceneState?.granularity?.layout ||
-    state.guide?.layout ||
-    state.granularity?.layout;
-  if (stateLayout) return stateLayout;
-  if (enc.xOffset?.field || enc.yOffset?.field) return "grouped";
-  if (enc.color?.field && aggregate) return "stacked";
-  return "simple";
-}
-
-function barGuideState({ orientation, barLayout, state = {} }) {
-  const explicit = state.sceneState?.guide || state.guide;
-  if (explicit) return explicit;
-  if (orientation === "horizontal") {
-    return {
-      orientation,
-      staging: { order: ["y", "x"] }
-    };
-  }
-  if (barLayout === "grouped") {
-    return {
-      layout: barLayout,
-      staging: { order: ["x", "y"] }
-    };
-  }
-  return null;
-}
-
-function barGranularityState({ barLayout, categoryField, measureField, segmentField, state = {} }) {
-  const explicit = state.sceneState?.granularity || state.granularity;
-  if (explicit) return explicit;
-  if (!isSegmentLayout(barLayout) || !segmentField) return null;
-  return {
-    layout: barLayout,
-    categoryField: categoryField || null,
-    segmentField,
-    valueField: measureField || null
-  };
-}
-
-function barAggregateState(spec = {}) {
-  return (spec.transform || []).some((transform) => transform?.aggregate)
-    ? (spec.transform || []).filter((transform) => transform?.aggregate).map((transform) => transform.aggregate)
-    : null;
 }
 
 function stageOrder(staging = {}, orientation) {
