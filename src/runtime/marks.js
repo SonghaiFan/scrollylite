@@ -254,11 +254,11 @@ export function colorScale(rows, channel, d3) {
   return (row) => scale(row[channel.field]);
 }
 
-export function drawXAxis(chart, scale, title, d3) {
+export function drawXAxis(chart, scale, title, d3, transition = chart.transition.base) {
   if (!scale) {
     markAxisInactive(chart.scene.xAxis);
-    chart.scene.xAxis.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
+    chart.scene.xAxis.transition(transition).style("opacity", 0);
+    chart.scene.xLabel.transition(transition).style("opacity", 0);
     return;
   }
 
@@ -269,10 +269,10 @@ export function drawXAxis(chart, scale, title, d3) {
     .interrupt()
     .attr("transform", transform);
 
-  renderAxisWithGuard(xAxis, axis, chart.transition.base, axisKind("bottom", scale));
+  renderAxisWithGuard(xAxis, axis, transition, axisKind("bottom", scale));
   xAxis.selectAll(".tick text").attr("dy", "0.8em");
   alignEdgeTickLabels(xAxis, scale, d3);
-  xAxis.transition(chart.transition.base).style("opacity", 1);
+  xAxis.transition(transition).style("opacity", 1);
 
   if (title) {
     chart.scene.xLabel
@@ -281,18 +281,18 @@ export function drawXAxis(chart, scale, title, d3) {
       .attr("text-anchor", "middle")
       .attr("transform", `translate(${chart.margin.left},0)`)
       .text(title)
-      .transition(chart.transition.base)
+      .transition(transition)
       .style("opacity", 1);
   } else {
-    chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
+    chart.scene.xLabel.transition(transition).style("opacity", 0);
   }
 }
 
-export function drawYAxis(chart, scale, title, d3) {
+export function drawYAxis(chart, scale, title, d3, transition = chart.transition.base) {
   if (!scale) {
     markAxisInactive(chart.scene.yAxis);
-    chart.scene.yAxis.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.yLabel.transition(chart.transition.base).style("opacity", 0);
+    chart.scene.yAxis.transition(transition).style("opacity", 0);
+    chart.scene.yLabel.transition(transition).style("opacity", 0);
     return;
   }
 
@@ -301,8 +301,8 @@ export function drawYAxis(chart, scale, title, d3) {
     .interrupt()
     .attr("transform", `translate(${chart.margin.left},${chart.margin.top})`);
 
-  renderAxisWithGuard(yAxis, axis, chart.transition.base, axisKind("left", scale));
-  yAxis.transition(chart.transition.base).style("opacity", 1);
+  renderAxisWithGuard(yAxis, axis, transition, axisKind("left", scale));
+  yAxis.transition(transition).style("opacity", 1);
 
   if (title) {
     chart.scene.yLabel
@@ -311,21 +311,21 @@ export function drawYAxis(chart, scale, title, d3) {
       .attr("text-anchor", "middle")
       .attr("transform", `translate(0,${chart.margin.top}) rotate(-90)`)
       .text(title)
-      .transition(chart.transition.base)
+      .transition(transition)
       .style("opacity", 1);
   } else {
-    chart.scene.yLabel.transition(chart.transition.base).style("opacity", 0);
+    chart.scene.yLabel.transition(transition).style("opacity", 0);
   }
 }
 
-export function drawGrid(chart, y, d3) {
-  updateGrid(chart, y, d3);
+export function drawGrid(chart, y, d3, transition = chart.transition.base) {
+  updateGrid(chart, y, d3, transition);
 }
 
-export function updateGrid(chart, y, d3) {
+export function updateGrid(chart, y, d3, transition = chart.transition.base) {
   if (!y) {
     markAxisInactive(chart.scene.grid);
-    chart.scene.grid.transition(chart.transition.base).style("opacity", 0);
+    chart.scene.grid.transition(transition).style("opacity", 0);
     return;
   }
 
@@ -336,10 +336,10 @@ export function updateGrid(chart, y, d3) {
   renderAxisWithGuard(
     grid,
     d3.axisLeft(y).ticks(6).tickSize(-chart.innerWidth).tickFormat(""),
-    chart.transition.base,
+    transition,
     axisKind("grid-left", y)
   );
-  grid.transition(chart.transition.base).style("opacity", 1);
+  grid.transition(transition).style("opacity", 1);
 }
 
 export function drawLegend(chart, rows, channel, d3) {
@@ -489,6 +489,39 @@ function renderAxisWithGuard(axisGroup, axis, transition, kind) {
   }
 
   axisGroup.call(axis);
+}
+
+function transitionAxisLabel(label, attrs, text, transition, d3) {
+  const node = label.node();
+  const previousText = node?.__scrollyLiteAxisLabelText || "";
+  const textChanged = previousText && previousText !== text;
+
+  if (!textChanged) {
+    Object.entries(attrs).forEach(([name, value]) => label.attr(name, value));
+    label
+      .text(text)
+      .transition(transition)
+      .style("opacity", 1);
+    if (node) node.__scrollyLiteAxisLabelText = text;
+    return;
+  }
+
+  const fadeDuration = Math.max(90, Math.round((transition?.duration?.() || DEFAULT_TIMING.transition.duration) * 0.22));
+  const fade = d3.transition().duration(fadeDuration).ease(d3.easeCubicOut);
+
+  label
+    .interrupt()
+    .transition(fade)
+    .style("opacity", 0)
+    .on("end", function () {
+      const next = d3.select(this);
+      Object.entries(attrs).forEach(([name, value]) => next.attr(name, value));
+      next
+        .text(text)
+        .transition(fade)
+        .style("opacity", 1);
+    });
+  if (node) node.__scrollyLiteAxisLabelText = text;
 }
 
 export function markAxisInactive(axisGroup) {

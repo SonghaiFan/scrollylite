@@ -4,7 +4,7 @@ import {
   barMeasureChannel,
   barOrientationFromEncoding,
   isSegmentLayout
-} from "./layout.js";
+} from "./layout/index.js";
 
 export function semanticBarState(spec = {}, semanticState = null) {
   const enc = spec.encoding || {};

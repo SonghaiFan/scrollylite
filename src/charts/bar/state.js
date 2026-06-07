@@ -9,7 +9,7 @@ import {
   barOffsetChannelName,
   barRendererKey,
   isSegmentLayout
-} from "./layout.js";
+} from "./layout/index.js";
 import { semanticBarState } from "./semantic.js?v=semantic-key-1";
 
 export function resolveBarTransitionPlan(previousSpec, nextSpec) {
@@ -57,11 +57,14 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   }
 
   if (diff.hasDelta("bar.granularity", "remove") && previous.hasGranularity) {
+    const baseline = barBaselinePlan(previous.barLayout);
     plan.exit = {
       mode: "baseline",
-      to: previous.barLayout === "stacked" ? "stack-base" : "zero-baseline",
+      to: baseline.name,
+      baseline,
       source: "child",
       reason: "granularity-exit-baseline",
+      sourceOrientation: previous.orientation,
       sourceLayout: previous.barLayout,
       categoryKey: previous.categoryField,
       segmentKey: previous.segmentField,
@@ -95,9 +98,11 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
   }
 
   if (diff.hasDelta("bar.granularity", "add") && next.hasGranularity && !plan.enter) {
+    const baseline = barBaselinePlan(next.barLayout);
     plan.enter = {
       mode: "baseline",
-      from: next.barLayout === "stacked" ? "stack-base" : "zero-baseline",
+      from: baseline.name,
+      baseline,
       target: "child",
       reason: "granularity-enter-baseline",
       targetLayout: next.barLayout,
@@ -139,6 +144,7 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
     ease: timing.ease,
     stagger: timing.stagger
   };
+  const stageTotalDuration = stageTiming.duration * stagedOrder.length + staggerMax(stageTiming.stagger);
 
   plan.barStage = {
     reason,
@@ -165,10 +171,33 @@ export function resolveBarTransitionPlan(previousSpec, nextSpec) {
       axis,
       attrs: axis === "x" ? ["x", "width"] : ["y", "height"]
     })),
-    timing: stageTiming
+    timing: stageTiming,
+    totalDuration: stageTotalDuration
   };
 
   return plan;
+}
+
+function barBaselinePlan(layout) {
+  if (layout === "stacked") {
+    return {
+      name: "stack-base",
+      anchor: "__stack0",
+      meaning: "segment-stack-base"
+    };
+  }
+
+  return {
+    name: "zero-baseline",
+    value: 0,
+    meaning: "measure-zero"
+  };
+}
+
+function staggerMax(stagger) {
+  if (stagger == null || typeof stagger !== "object") return 0;
+  const max = Number(stagger.max);
+  return Number.isFinite(max) ? max : 0;
 }
 
 export function barCollapseIntermediateSpec(previousSpec, nextSpec) {

@@ -47,7 +47,19 @@ export function createBarRenderKit(deps) {
     return current || selection;
   }
 
+  function axisTransition(stage, axis, d3) {
+    if (!stage?.stages?.length) return null;
+    const index = stage.stages.findIndex((step) => step.axis === axis);
+    if (index < 0) return null;
+    return d3
+      .transition(stage.transitionName)
+      .duration(stage.duration)
+      .ease(stage.ease)
+      .delay(index * stage.duration);
+  }
+
   return {
+    axisTransition,
     baselineEnterPlan,
     baselineExitPlan,
     barFocusOpacity,
@@ -55,6 +67,7 @@ export function createBarRenderKit(deps) {
     renderBarJoin,
     setRectGeometry,
     splitLineage,
+    sourceBaselineExit,
     stagedUpdate,
     updateStage
   };
@@ -73,12 +86,18 @@ export function createBarRenderKit(deps) {
       orientation,
       rx = 3,
       fill,
-      startGeometry,
-      targetGeometry,
+      geometry,
+      startGeometry = geometry?.start,
+      targetGeometry = geometry?.target,
       updatePlan,
-      dimensions,
-      applyGeometry,
-      exitGeometry
+      dimensions = geometry
+        ? {
+            x: geometry.applyX,
+            y: geometry.applyY
+          }
+        : undefined,
+      applyGeometry = geometry?.apply,
+      exitGeometry = geometry?.exit
     } = options;
 
     chart.g
@@ -211,6 +230,50 @@ export function baselineEnterPlan(chart, from) {
 export function baselineExitPlan(chart, to) {
   const exitPlan = chart.transitionPlan?.exit;
   return exitPlan?.mode === "baseline" && exitPlan.to === to ? exitPlan : null;
+}
+
+export function sourceBaselineExit(selection, { horizontal = false, plan = null, value = null } = {}) {
+  return selection
+    .attr("x", function (d) {
+      const rect = currentRect(this);
+      const sourceHorizontal = sourceRectIsHorizontal(this, plan, horizontal);
+      if (!sourceHorizontal) return rect.x;
+      return sourceValue(d, value) < 0 ? rect.x + rect.width : rect.x;
+    })
+    .attr("width", function () {
+      return sourceRectIsHorizontal(this, plan, horizontal) ? 0 : currentRect(this).width;
+    })
+    .attr("y", function (d) {
+      const rect = currentRect(this);
+      const sourceHorizontal = sourceRectIsHorizontal(this, plan, horizontal);
+      if (sourceHorizontal) return rect.y;
+      return sourceValue(d, value) < 0 ? rect.y : rect.y + rect.height;
+    })
+    .attr("height", function () {
+      return sourceRectIsHorizontal(this, plan, horizontal) ? currentRect(this).height : 0;
+    });
+}
+
+function currentRect(node) {
+  return {
+    x: Number(node.getAttribute("x")) || 0,
+    y: Number(node.getAttribute("y")) || 0,
+    width: Number(node.getAttribute("width")) || 0,
+    height: Number(node.getAttribute("height")) || 0
+  };
+}
+
+function sourceRectIsHorizontal(node, plan, fallbackHorizontal) {
+  const orientation = String(node.getAttribute("data-orientation") || plan?.sourceOrientation || "");
+  if (orientation.includes("horizontal")) return true;
+  if (orientation.includes("vertical")) return false;
+  return fallbackHorizontal;
+}
+
+function sourceValue(d, value) {
+  if (typeof value !== "function") return 1;
+  const resolved = Number(value(d));
+  return Number.isFinite(resolved) ? resolved : 1;
 }
 
 export function barFocusOpacity(row, spec = {}) {

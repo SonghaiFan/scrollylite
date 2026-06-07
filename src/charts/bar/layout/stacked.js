@@ -1,11 +1,11 @@
-import { applyBarIdentity, barKeyAccessor } from "./keys.js?v=semantic-key-2";
+import { applyBarIdentity, barKeyAccessor } from "../keys.js?v=semantic-key-2";
 import {
   barCategoryChannel,
   barMeasureChannel,
   barOrientationFromEncoding,
   barRendererKey
-} from "./layout.js";
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+} from "./index.js";
+import { narrativeState } from "../../../scrolly-meta.js?v=semantic-key-10";
 
 export function createStackedBarRenderer(deps, kit) {
   const {
@@ -46,16 +46,25 @@ export function createStackedBarRenderer(deps, kit) {
       .padding(0.24);
     const stackedRows = stackBarRows(rows, categoryField, segmentField, valueField, segments);
     const domainStackedRows = stackBarRows(domainRows, categoryField, segmentField, valueField, segments);
+    const stackDomain = stackedValueDomain(domainStackedRows, measureChannel, d3);
     const measureScale = d3
       .scaleLinear()
-      .domain(measureChannel?.domain || [0, d3.max(domainStackedRows, (d) => d.__stack1) || 1])
+      .domain(stackDomain)
       .range(horizontal ? [0, chart.innerWidth] : [chart.innerHeight, 0])
       .nice();
     const x = horizontal ? measureScale : categoryScale;
     const y = horizontal ? categoryScale : measureScale;
-    const geom = { x, y, categoryField, chart, horizontal };
-    const targetGeometry = stackedSegmentGeometry(geom);
+    const geom = { x, y, categoryField, valueField, chart, horizontal };
     const updatePlan = kit.updateStage(chart, rendererOrientation, d3);
+    const xAxisTransition = kit.axisTransition(updatePlan, "x", d3) || chart.transition.base;
+    const yAxisTransition = kit.axisTransition(updatePlan, "y", d3) || chart.transition.base;
+    const geometry = stackedSegmentGeometryContract(
+      geom,
+      splitLineage,
+      stackBaseEnter,
+      stackBaseExit,
+      kit.sourceBaselineExit
+    );
 
     chart.scales = { x, y, color, orientation: rendererOrientation };
     chart.channels = enc;
@@ -64,10 +73,10 @@ export function createStackedBarRenderer(deps, kit) {
       y: (d) => horizontal ? position(y, d[categoryField]) : y((d.__stack0 + d.__stack1) / 2)
     };
 
-    if (horizontal) updateGrid(chart, null, d3);
-    else drawGrid(chart, y, d3);
-    drawXAxis(chart, x, enc.x?.title, d3);
-    drawYAxis(chart, y, enc.y?.title, d3);
+    if (horizontal) updateGrid(chart, null, d3, yAxisTransition);
+    else drawGrid(chart, y, d3, yAxisTransition);
+    drawXAxis(chart, x, enc.x?.title, d3, xAxisTransition);
+    drawYAxis(chart, y, enc.y?.title, d3, yAxisTransition);
 
     kit.renderBarJoin({
       chart,
@@ -83,30 +92,29 @@ export function createStackedBarRenderer(deps, kit) {
       rx: 2,
       fill: (d) => color(d),
       applyIdentity: applyBarIdentity,
-      startGeometry: (d) =>
-        splitLineage?.start(d) || stackedSegmentEnterGeometry(d, geom, stackBaseEnter),
-      targetGeometry,
       updatePlan,
-      dimensions: {
-        x: (selection) => applyStackedSegmentX(selection, geom),
-        y: (selection) => applyStackedSegmentY(selection, geom)
-      },
-      applyGeometry: (selection) => applyStackedSegmentGeometry(selection, geom),
-      exitGeometry: splitLineage ? null : (selection) => {
-        const exitGeometry = stackedSegmentExitGeometry({ x, y, chart, horizontal }, stackBaseExit);
-        if (horizontal) selection.attr("x", exitGeometry.x).attr("width", exitGeometry.width);
-        else selection.attr("y", exitGeometry.y).attr("height", exitGeometry.height);
-      }
+      geometry
     });
   };
 }
 
+function stackedSegmentGeometryContract(geom, splitLineage, stackBaseEnter, stackBaseExit, sourceBaselineExit) {
+  return {
+    start: (d) => splitLineage?.start(d) || stackedSegmentEnterGeometry(d, geom, stackBaseEnter),
+    target: stackedSegmentGeometry(geom),
+    applyX: (selection) => applyStackedSegmentX(selection, geom),
+    applyY: (selection) => applyStackedSegmentY(selection, geom),
+    apply: (selection) => applyStackedSegmentGeometry(selection, geom),
+    exit: splitLineage ? null : (selection) => applyStackedSegmentExitGeometry(selection, geom, stackBaseExit, sourceBaselineExit)
+  };
+}
+
 function stackedSegmentEnterGeometry(d, geom, enterPlan = null) {
-  const { x, y, categoryField, chart, horizontal } = geom;
-  const fromStackBase = !enterPlan || enterPlan.from === "stack-base";
+  const { x, y, categoryField, horizontal } = geom;
+  const base = stackSegmentBase(d, enterPlan);
   if (horizontal) {
     return {
-      x: fromStackBase ? x(d.__stack0) : x(0),
+      x: x(base),
       y: y(d[categoryField]),
       width: 0,
       height: Math.max(1, y.bandwidth())
@@ -115,7 +123,7 @@ function stackedSegmentEnterGeometry(d, geom, enterPlan = null) {
 
   return {
     x: x(d[categoryField]),
-    y: fromStackBase ? y(d.__stack0) : chart.innerHeight,
+    y: y(base),
     width: Math.max(1, x.bandwidth()),
     height: 0
   };
@@ -131,8 +139,8 @@ function stackedSegmentGeometry(geom) {
   const { x, y, categoryField, horizontal } = geom;
   if (horizontal) {
     return {
-      x: (d) => x(d.__stack0),
-      width: (d) => Math.max(0, x(d.__stack1) - x(d.__stack0)),
+      x: (d) => Math.min(x(d.__stack0), x(d.__stack1)),
+      width: (d) => Math.abs(x(d.__stack1) - x(d.__stack0)),
       y: (d) => y(d[categoryField]),
       height: Math.max(1, y.bandwidth())
     };
@@ -141,8 +149,8 @@ function stackedSegmentGeometry(geom) {
   return {
     x: (d) => x(d[categoryField]),
     width: Math.max(1, x.bandwidth()),
-    y: (d) => y(d.__stack1),
-    height: (d) => Math.max(0, y(d.__stack0) - y(d.__stack1))
+    y: (d) => Math.min(y(d.__stack0), y(d.__stack1)),
+    height: (d) => Math.abs(y(d.__stack1) - y(d.__stack0))
   };
 }
 
@@ -150,8 +158,8 @@ function applyStackedSegmentX(selection, geom) {
   const { x, categoryField, horizontal } = geom;
   if (horizontal) {
     return selection
-      .attr("x", (d) => x(d.__stack0))
-      .attr("width", (d) => Math.max(0, x(d.__stack1) - x(d.__stack0)));
+      .attr("x", (d) => Math.min(x(d.__stack0), x(d.__stack1)))
+      .attr("width", (d) => Math.abs(x(d.__stack1) - x(d.__stack0)));
   }
 
   return selection
@@ -168,28 +176,33 @@ function applyStackedSegmentY(selection, geom) {
   }
 
   return selection
-    .attr("y", (d) => y(d.__stack1))
-    .attr("height", (d) => Math.max(0, y(d.__stack0) - y(d.__stack1)));
+    .attr("y", (d) => Math.min(y(d.__stack0), y(d.__stack1)))
+    .attr("height", (d) => Math.abs(y(d.__stack1) - y(d.__stack0)));
 }
 
-function stackedSegmentExitGeometry(geom, exitPlan = null) {
-  const { x, y, chart, horizontal } = geom;
-  const toStackBase = !exitPlan || exitPlan.to === "stack-base";
-  if (horizontal) {
-    return {
-      x: (d) => (toStackBase ? x(d.__stack0) : x(0)),
-      width: 0
-    };
-  }
+function applyStackedSegmentExitGeometry(selection, geom, exitPlan = null, sourceBaselineExit) {
+  return sourceBaselineExit(selection, {
+    horizontal: geom.horizontal,
+    plan: exitPlan,
+    value: stackSegmentValue
+  });
+}
 
-  return {
-    y: (d) => (toStackBase ? y(d.__stack0) : chart.innerHeight),
-    height: 0
-  };
+function stackSegmentBase(d, plan = null) {
+  const anchor = plan?.baseline?.anchor;
+  return anchor ? Number(d[anchor]) || 0 : Number(d.__stack0) || 0;
+}
+
+function stackSegmentValue(d) {
+  if (Number.isFinite(Number(d.__stack0)) && Number.isFinite(Number(d.__stack1))) {
+    return Number(d.__stack1) - Number(d.__stack0);
+  }
+  return 1;
 }
 
 function stackBarRows(rows, categoryField, segmentField, valueField, segments) {
-  const offsets = new Map();
+  const positiveOffsets = new Map();
+  const negativeOffsets = new Map();
   const segmentIndex = new Map(segments.map((segment, index) => [segment, index]));
 
   return rows
@@ -201,14 +214,24 @@ function stackBarRows(rows, categoryField, segmentField, valueField, segments) {
     })
     .map((row) => {
       const category = row[categoryField];
-      const start = offsets.get(category) || 0;
       const value = Number(row[valueField]) || 0;
+      const offsets = value < 0 ? negativeOffsets : positiveOffsets;
+      const start = offsets.get(category) || 0;
+      const end = start + value;
       const stacked = {
         ...row,
         __stack0: start,
-        __stack1: start + value
+        __stack1: end
       };
-      offsets.set(category, start + value);
+      offsets.set(category, end);
       return stacked;
     });
+}
+
+function stackedValueDomain(rows, measureChannel = {}, d3) {
+  if (measureChannel?.domain) return measureChannel.domain;
+  const values = rows.flatMap((row) => [row.__stack0, row.__stack1]);
+  const min = Math.min(0, d3.min(values) ?? 0);
+  const max = Math.max(0, d3.max(values) ?? 1);
+  return min === max ? [0, max || 1] : [min, max];
 }

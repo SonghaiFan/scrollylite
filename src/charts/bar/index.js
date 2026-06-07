@@ -1,1 +1,1 @@
-export { createBarIdiom, createBarIdiom as createChartIdiom } from "./idiom.js?v=semantic-key-11";
+export { createBarIdiom, createBarIdiom as createChartIdiom } from "./idiom.js?v=semantic-key-12";

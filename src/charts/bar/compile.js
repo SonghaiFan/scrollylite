@@ -7,7 +7,7 @@ import {
 import {
   barOffsetChannelName,
   barOrientationFromEncoding
-} from "./layout.js";
+} from "./layout/index.js";
 import { barSegmentField } from "./semantic.js?v=semantic-key-1";
 
 export function createBarSceneCompiler({ applyFilterFocus }) {

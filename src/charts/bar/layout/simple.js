@@ -1,9 +1,9 @@
-import { applyBarIdentity, barKeyAccessor } from "./keys.js?v=semantic-key-2";
+import { applyBarIdentity, barKeyAccessor } from "../keys.js?v=semantic-key-2";
 import {
   barCategoryChannel,
   barMeasureChannel,
   barOrientationFromEncoding
-} from "./layout.js";
+} from "./index.js";
 
 export function createSimpleBarRenderer(deps, kit) {
   const {
@@ -42,9 +42,12 @@ export function createSimpleBarRenderer(deps, kit) {
     const y = horizontal ? categoryScale : measureScale;
     const color = colorScale(domainRows, enc.color, d3);
     const geom = { x, y, categoryField, valueField, chart, horizontal, position };
-    const targetGeometry = simpleBarGeometry(geom);
     const updatePlan = kit.updateStage(chart, orientation, d3);
+    const xAxisTransition = kit.axisTransition(updatePlan, "x", d3) || chart.transition.base;
+    const yAxisTransition = kit.axisTransition(updatePlan, "y", d3) || chart.transition.base;
     const collapseLineage = kit.collapseLineage(chart, categoryField);
+    const zeroBaselineExit = kit.baselineExitPlan(chart, "zero-baseline");
+    const geometry = simpleBarGeometryContract(geom, collapseLineage, kit.sourceBaselineExit, zeroBaselineExit);
 
     chart.scales = { x, y, color, orientation };
     chart.channels = enc;
@@ -53,10 +56,10 @@ export function createSimpleBarRenderer(deps, kit) {
       y: (d) => horizontal ? position(y, d[categoryField]) : y(d[valueField])
     };
 
-    if (horizontal) updateGrid(chart, null, d3);
-    else drawGrid(chart, y, d3);
-    drawXAxis(chart, x, enc.x?.title, d3);
-    drawYAxis(chart, y, enc.y?.title, d3);
+    if (horizontal) updateGrid(chart, null, d3, yAxisTransition);
+    else drawGrid(chart, y, d3, yAxisTransition);
+    drawXAxis(chart, x, enc.x?.title, d3, xAxisTransition);
+    drawYAxis(chart, y, enc.y?.title, d3, yAxisTransition);
 
     kit.renderBarJoin({
       chart,
@@ -72,16 +75,20 @@ export function createSimpleBarRenderer(deps, kit) {
       rx: 3,
       fill: (d) => color(d),
       applyIdentity: applyBarIdentity,
-      startGeometry: (d) => collapseLineage?.start(d) || simpleBarEnterGeometry(d, geom),
-      targetGeometry,
       updatePlan,
-      dimensions: {
-        x: (selection) => applySimpleBarX(selection, geom),
-        y: (selection) => applySimpleBarY(selection, geom)
-      },
-      applyGeometry: (selection) => applySimpleBarGeometry(selection, geom),
-      exitGeometry: collapseLineage ? null : (selection) => applySimpleBarExitGeometry(selection, chart)
+      geometry
     });
+  };
+}
+
+function simpleBarGeometryContract(geom, collapseLineage, sourceBaselineExit, exitPlan) {
+  return {
+    start: (d) => collapseLineage?.start(d) || simpleBarEnterGeometry(d, geom),
+    target: simpleBarGeometry(geom),
+    applyX: (selection) => applySimpleBarX(selection, geom),
+    applyY: (selection) => applySimpleBarY(selection, geom),
+    apply: (selection) => applySimpleBarGeometry(selection, geom),
+    exit: collapseLineage ? null : (selection) => applySimpleBarExitGeometry(selection, geom, sourceBaselineExit, exitPlan)
   };
 }
 
@@ -98,7 +105,7 @@ function simpleBarEnterGeometry(d, geom) {
 
   return {
     x: target.x(d),
-    y: geom.chart.innerHeight,
+    y: geom.y(0),
     width: target.width,
     height: 0
   };
@@ -114,7 +121,7 @@ function simpleBarGeometry(geom) {
   const { x, y, categoryField, valueField, chart, horizontal, position } = geom;
   if (horizontal) {
     return {
-      x: x(0),
+      x: (d) => Math.min(x(0), x(d[valueField])),
       y: (d) => y(d[categoryField]),
       width: (d) => Math.abs(x(d[valueField]) - x(0)),
       height: Math.max(1, y.bandwidth())
@@ -124,9 +131,9 @@ function simpleBarGeometry(geom) {
   const width = simpleCategoryWidth(x);
   return {
     x: (d) => position(x, d[categoryField]) - width / 2,
-    y: (d) => y(d[valueField]),
+    y: (d) => Math.min(y(0), y(d[valueField])),
     width: Math.max(1, width),
-    height: (d) => chart.innerHeight - y(d[valueField])
+    height: (d) => Math.abs(y(d[valueField]) - y(0))
   };
 }
 
@@ -134,7 +141,7 @@ function applySimpleBarX(selection, geom) {
   const { x, categoryField, valueField, horizontal, position } = geom;
   if (horizontal) {
     return selection
-      .attr("x", x(0))
+      .attr("x", (d) => Math.min(x(0), x(d[valueField])))
       .attr("width", (d) => Math.abs(x(d[valueField]) - x(0)));
   }
 
@@ -145,7 +152,7 @@ function applySimpleBarX(selection, geom) {
 }
 
 function applySimpleBarY(selection, geom) {
-  const { y, categoryField, valueField, chart, horizontal } = geom;
+  const { y, categoryField, valueField, horizontal } = geom;
   if (horizontal) {
     return selection
       .attr("y", (d) => y(d[categoryField]))
@@ -153,21 +160,16 @@ function applySimpleBarY(selection, geom) {
   }
 
   return selection
-    .attr("y", (d) => y(d[valueField]))
-    .attr("height", (d) => chart.innerHeight - y(d[valueField]));
+    .attr("y", (d) => Math.min(y(0), y(d[valueField])))
+    .attr("height", (d) => Math.abs(y(d[valueField]) - y(0)));
 }
 
-function applySimpleBarExitGeometry(selection, chart) {
-  return selection
-    .attr("width", function () {
-      return this.dataset.orientation === "horizontal" ? 0 : Number(this.getAttribute("width")) || 0;
-    })
-    .attr("y", function () {
-      return this.dataset.orientation === "horizontal" ? Number(this.getAttribute("y")) || 0 : chart.innerHeight;
-    })
-    .attr("height", function () {
-      return this.dataset.orientation === "horizontal" ? Number(this.getAttribute("height")) || 0 : 0;
-    });
+function applySimpleBarExitGeometry(selection, geom, sourceBaselineExit, exitPlan) {
+  return sourceBaselineExit(selection, {
+    horizontal: geom.horizontal,
+    plan: exitPlan,
+    value: (d) => d[geom.valueField]
+  });
 }
 
 function simpleCategoryWidth(scale) {

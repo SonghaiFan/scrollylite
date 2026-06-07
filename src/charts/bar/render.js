@@ -1,9 +1,9 @@
 import { BaseChart } from "../base.js";
-import { barCategoryChannel } from "./layout.js";
+import { barCategoryChannel } from "./layout/index.js";
 import { createBarRenderKit } from "./render-pattern.js?v=semantic-key-1";
-import { createGroupedBarRenderer } from "./layout-grouped.js?v=semantic-key-2";
-import { createSimpleBarRenderer } from "./layout-simple.js?v=semantic-key-1";
-import { createStackedBarRenderer } from "./layout-stacked.js?v=semantic-key-1";
+import { createGroupedBarRenderer } from "./layout/grouped.js?v=semantic-key-1";
+import { createSimpleBarRenderer } from "./layout/simple.js?v=semantic-key-1";
+import { createStackedBarRenderer } from "./layout/stacked.js?v=semantic-key-1";
 import { semanticBarState } from "./semantic.js?v=semantic-key-1";
 
 export function createBarRenderer(deps) {

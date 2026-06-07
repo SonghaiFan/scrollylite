@@ -1,11 +1,11 @@
-import { applyBarIdentity, barKeyAccessor } from "./keys.js?v=semantic-key-2";
+import { applyBarIdentity, barKeyAccessor } from "../keys.js?v=semantic-key-2";
 import {
   barCategoryChannel,
   barMeasureChannel,
   barOrientationFromEncoding,
   barRendererKey
-} from "./layout.js";
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+} from "./index.js";
+import { narrativeState } from "../../../scrolly-meta.js?v=semantic-key-10";
 
 export function createGroupedBarRenderer(deps, kit) {
   const {
@@ -37,6 +37,7 @@ export function createGroupedBarRenderer(deps, kit) {
     const key = barKeyAccessor(chart, spec, [categoryField, segmentField]);
     const splitLineage = kit.splitLineage(chart, categoryField);
     const zeroBaselineEnter = kit.baselineEnterPlan(chart, "zero-baseline");
+    const zeroBaselineExit = kit.baselineExitPlan(chart, "zero-baseline");
 
     const categoryScale = d3
       .scaleBand()
@@ -58,8 +59,16 @@ export function createGroupedBarRenderer(deps, kit) {
     const x1 = horizontal ? null : segmentScale;
     const y1 = horizontal ? segmentScale : null;
     const geom = { x, y, x1, y1, categoryField, segmentField, valueField, chart, horizontal };
-    const targetGeometry = groupedSegmentGeometry(geom);
     const updatePlan = kit.updateStage(chart, rendererOrientation, d3);
+    const xAxisTransition = kit.axisTransition(updatePlan, "x", d3) || chart.transition.base;
+    const yAxisTransition = kit.axisTransition(updatePlan, "y", d3) || chart.transition.base;
+    const geometry = groupedSegmentGeometryContract(
+      geom,
+      splitLineage,
+      zeroBaselineEnter,
+      kit.sourceBaselineExit,
+      zeroBaselineExit
+    );
 
     chart.scales = { x, ...(x1 ? { x1 } : {}), y, ...(y1 ? { y1 } : {}), color, orientation: rendererOrientation };
     chart.channels = enc;
@@ -72,10 +81,10 @@ export function createGroupedBarRenderer(deps, kit) {
         : y(d[valueField])
     };
 
-    if (horizontal) updateGrid(chart, null, d3);
-    else drawGrid(chart, y, d3);
-    drawXAxis(chart, x, enc.x?.title, d3);
-    drawYAxis(chart, y, enc.y?.title, d3);
+    if (horizontal) updateGrid(chart, null, d3, yAxisTransition);
+    else drawGrid(chart, y, d3, yAxisTransition);
+    drawXAxis(chart, x, enc.x?.title, d3, xAxisTransition);
+    drawYAxis(chart, y, enc.y?.title, d3, yAxisTransition);
 
     kit.renderBarJoin({
       chart,
@@ -91,28 +100,29 @@ export function createGroupedBarRenderer(deps, kit) {
       rx: 2,
       fill: (d) => color(d),
       applyIdentity: applyBarIdentity,
-      startGeometry: (d) =>
-        splitLineage?.start(d) || groupedSegmentEnterGeometry(d, geom, zeroBaselineEnter),
-      targetGeometry,
       updatePlan,
-      dimensions: {
-        x: (selection) => applyGroupedSegmentX(selection, geom),
-        y: (selection) => applyGroupedSegmentY(selection, geom)
-      },
-      applyGeometry: (selection) => applyGroupedSegmentGeometry(selection, geom),
-      exitGeometry: splitLineage ? null : (selection) => {
-        if (horizontal) selection.attr("width", 0);
-        else selection.attr("y", chart.innerHeight).attr("height", 0);
-      }
+      geometry
     });
   };
 }
 
-function groupedSegmentEnterGeometry(d, geom, _enterPlan = null) {
-  const { x, y, x1, y1, categoryField, segmentField, chart, horizontal } = geom;
+function groupedSegmentGeometryContract(geom, splitLineage, zeroBaselineEnter, sourceBaselineExit, exitPlan) {
+  return {
+    start: (d) => splitLineage?.start(d) || groupedSegmentEnterGeometry(d, geom, zeroBaselineEnter),
+    target: groupedSegmentGeometry(geom),
+    applyX: (selection) => applyGroupedSegmentX(selection, geom),
+    applyY: (selection) => applyGroupedSegmentY(selection, geom),
+    apply: (selection) => applyGroupedSegmentGeometry(selection, geom),
+    exit: splitLineage ? null : (selection) => applyGroupedSegmentExitGeometry(selection, geom, sourceBaselineExit, exitPlan)
+  };
+}
+
+function groupedSegmentEnterGeometry(d, geom, enterPlan = null) {
+  const { x, y, x1, y1, categoryField, segmentField, horizontal } = geom;
+  const fromZero = !enterPlan || enterPlan.from === "zero-baseline";
   if (horizontal) {
     return {
-      x: x(0),
+      x: fromZero ? x(0) : Math.min(x(0), x(d[geom.valueField])),
       y: y(d[categoryField]) + y1(d[segmentField]),
       width: 0,
       height: Math.max(1, y1.bandwidth())
@@ -121,7 +131,7 @@ function groupedSegmentEnterGeometry(d, geom, _enterPlan = null) {
 
   return {
     x: x(d[categoryField]) + x1(d[segmentField]),
-    y: chart.innerHeight,
+    y: fromZero ? y(0) : Math.min(y(0), y(d[geom.valueField])),
     width: Math.max(1, x1.bandwidth()),
     height: 0
   };
@@ -137,7 +147,7 @@ function groupedSegmentGeometry(geom) {
   const { x, y, x1, y1, categoryField, segmentField, valueField, chart, horizontal } = geom;
   if (horizontal) {
     return {
-      x: x(0),
+      x: (d) => Math.min(x(0), x(d[valueField])),
       width: (d) => Math.abs(x(d[valueField]) - x(0)),
       y: (d) => y(d[categoryField]) + y1(d[segmentField]),
       height: Math.max(1, y1.bandwidth())
@@ -147,8 +157,8 @@ function groupedSegmentGeometry(geom) {
   return {
     x: (d) => x(d[categoryField]) + x1(d[segmentField]),
     width: Math.max(1, x1.bandwidth()),
-    y: (d) => y(d[valueField]),
-    height: (d) => chart.innerHeight - y(d[valueField])
+    y: (d) => Math.min(y(0), y(d[valueField])),
+    height: (d) => Math.abs(y(d[valueField]) - y(0))
   };
 }
 
@@ -156,7 +166,7 @@ function applyGroupedSegmentX(selection, geom) {
   const { x, x1, categoryField, segmentField, valueField, horizontal } = geom;
   if (horizontal) {
     return selection
-      .attr("x", x(0))
+      .attr("x", (d) => Math.min(x(0), x(d[valueField])))
       .attr("width", (d) => Math.abs(x(d[valueField]) - x(0)));
   }
 
@@ -166,7 +176,7 @@ function applyGroupedSegmentX(selection, geom) {
 }
 
 function applyGroupedSegmentY(selection, geom) {
-  const { y, y1, categoryField, segmentField, valueField, chart, horizontal } = geom;
+  const { y, y1, categoryField, segmentField, valueField, horizontal } = geom;
   if (horizontal) {
     return selection
       .attr("y", (d) => y(d[categoryField]) + y1(d[segmentField]))
@@ -174,6 +184,14 @@ function applyGroupedSegmentY(selection, geom) {
   }
 
   return selection
-    .attr("y", (d) => y(d[valueField]))
-    .attr("height", (d) => chart.innerHeight - y(d[valueField]));
+    .attr("y", (d) => Math.min(y(0), y(d[valueField])))
+    .attr("height", (d) => Math.abs(y(d[valueField]) - y(0)));
+}
+
+function applyGroupedSegmentExitGeometry(selection, geom, sourceBaselineExit, exitPlan) {
+  return sourceBaselineExit(selection, {
+    horizontal: geom.horizontal,
+    plan: exitPlan,
+    value: (d) => d[geom.valueField]
+  });
 }

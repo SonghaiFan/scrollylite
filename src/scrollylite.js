@@ -1,5 +1,5 @@
 import { applyTransforms } from "./data/transforms.js";
-import { chartModules } from "./charts/manifest.js?v=semantic-key-2";
+import { chartModules } from "./charts/manifest.js?v=semantic-key-3";
 import {
   createChartIdiomRegistry,
   registerChartModules,
@@ -320,6 +320,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, stepTransit
   const intermediatePhases = intermediateRenderPhases(idiom, sourceForPlan, targetForPlan);
   if (intermediatePhases.length) {
     const renderPhases = renderPhaseConfigs(intermediatePhases, {
+      idiom,
       node,
       finalSpec: effectiveViewSpec,
       viewConfig,
@@ -453,6 +454,7 @@ function renderPhaseConfigs(intermediatePhases, context) {
   let source = context.transitionSource;
   const phases = intermediatePhases.map((phase) => {
     const sceneTransition = sceneTransitionForPhase(phase);
+    const transitionPlanDuration = transitionPlanDurationForPhase(context.idiom, source?.effectiveViewSpec, phase.spec);
     const config = {
       node: context.node,
       spec: phase.spec,
@@ -462,7 +464,8 @@ function renderPhaseConfigs(intermediatePhases, context) {
       d3: context.d3,
       stepAction: context.stepAction,
       sceneTransition,
-      transitionSource: source
+      transitionSource: source,
+      transitionPlanDuration
     };
     source = {
       effectiveViewSpec: phase.spec,
@@ -480,10 +483,20 @@ function renderPhaseConfigs(intermediatePhases, context) {
     d3: context.d3,
     stepAction: context.stepAction,
     sceneTransition: context.finalSceneTransition,
-    transitionSource: source
+    transitionSource: source,
+    transitionPlanDuration: transitionPlanDurationForPhase(context.idiom, source?.effectiveViewSpec, context.finalSpec)
   });
 
   return phases;
+}
+
+function transitionPlanDurationForPhase(idiom, previousSpec, nextSpec) {
+  const plan = idiom?.resolveTransitionPlan?.(
+    prepareIdiomSpec(idiom, previousSpec),
+    prepareIdiomSpec(idiom, nextSpec)
+  );
+  const duration = Number(plan?.update?.totalDuration);
+  return Number.isFinite(duration) ? duration : null;
 }
 
 function sceneTransitionForPhase(phase) {
@@ -526,16 +539,28 @@ function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, trans
 }
 
 
-function virtualRenderDelay(spec = {}) {
+function virtualRenderDelay(phaseOrSpec = {}) {
+  const spec = phaseOrSpec.spec || phaseOrSpec;
+  const plannedDuration = Number(phaseOrSpec.transitionPlanDuration);
+  if (Number.isFinite(plannedDuration)) return Math.max(1, plannedDuration);
   const transition = effectiveTransitionSpec(spec);
   const duration = Number(transition.duration);
   const fallbackDuration = Number(effectiveTransitionSpec({}).duration) || 900;
+  const guideStaging = narrativeState(spec).sceneState?.guide?.staging || narrativeState(spec).guide?.staging || {};
+  const stageOrder = Array.isArray(guideStaging.order)
+    ? guideStaging.order.filter((axis) => axis === "x" || axis === "y")
+    : [];
+  const stagedDuration = Number(guideStaging.duration);
+  const effectiveDuration =
+    stageOrder.length > 1 && Number.isFinite(stagedDuration)
+      ? stagedDuration * stageOrder.length
+      : duration;
   const stagger = transition.stagger;
   const staggerMax =
     typeof stagger === "object"
       ? Number(stagger.max ?? 0)
       : 0;
-  return Math.max(1, Number.isFinite(duration) ? duration : fallbackDuration) + (Number.isFinite(staggerMax) ? staggerMax : 0);
+  return Math.max(1, Number.isFinite(effectiveDuration) ? effectiveDuration : fallbackDuration) + (Number.isFinite(staggerMax) ? staggerMax : 0);
 }
 
 function clearVirtualScrollSequence(scene) {
@@ -543,7 +568,7 @@ function clearVirtualScrollSequence(scene) {
 }
 
 function createVirtualScrollSequence(phases = []) {
-  const durations = phases.map((phase) => virtualRenderDelay(phase.spec));
+  const durations = phases.map((phase) => virtualRenderDelay(phase));
   const total = Math.max(1, durations.reduce((sum, duration) => sum + duration, 0));
   let cursor = 0;
   return {
@@ -579,7 +604,7 @@ function renderPhaseSequence(scene, phases = [], index = 0) {
   scene.virtualRenderTimer = window.setTimeout(() => {
     scene.virtualRenderTimer = null;
     renderPhaseSequence(scene, phases, index + 1);
-  }, virtualRenderDelay(config.spec));
+  }, virtualRenderDelay(config));
 }
 
 function renderVirtualScrollPhase(scene, phaseIndex) {

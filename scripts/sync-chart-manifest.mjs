@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const chartsDir = join(root, "src", "charts");
 const manifestPath = join(chartsDir, "manifest.js");
+const moduleCacheKey = "semantic-key-3";
 
 const entries = await readdir(chartsDir);
 const idioms = [];
@@ -22,7 +23,7 @@ for (const entry of entries) {
 
 idioms.sort();
 
-const importLines = idioms.map((name) => `import * as ${identifier(name)} from "./${name}/index.js?v=semantic-key-1";`);
+const importLines = idioms.map((name) => `import * as ${identifier(name)} from "./${name}/index.js?v=${moduleCacheKey}";`);
 const moduleLines = idioms.map((name) => `  ${identifier(name)}`);
 const source = `${[
   "// Generated from src/charts/*/index.js.",

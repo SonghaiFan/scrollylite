@@ -1,4 +1,4 @@
-import { createBarStory } from "./weather/bar-story.js?v=semantic-key-23";
+import { createBarStory } from "./weather/bar-story.js?v=semantic-key-24";
 import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-16";
 import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-18";
 
