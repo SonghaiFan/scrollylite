@@ -1,29 +1,37 @@
 import {
-  applyFilterFocus,
   cloneEncoding,
+  compileFilter,
+  compileHighlight,
   copyDefined,
   identitySpec,
   resolveGuideStaging,
   withObject,
   withSceneState
-} from "../compiler-utils.js?v=semantic-key-1";
+} from "../compiler-utils.js?v=semantic-key-3";
 import {
   narrativeObjectKey,
   narrativeUnit,
   withNarrative
-} from "../../scrolly-meta.js?v=semantic-key-10";
+} from "../../scrolly-meta.js?v=semantic-key-11";
 
-export function createUnitSceneCompiler() {
+export function createUnitSpecCompiler(context = {}) {
   return {
-    base: identitySpec,
-    scenes: {
-      focus: applyFilterFocus,
-      guide: applyUnitGuide
+    base: compileUnitBase,
+    operations: {
+      filter: compileFilter,
+      highlight: compileHighlight,
+      layout: compileUnitLayout,
+      unitLayout: compileUnitLayout,
+      encode: compileUnitEncoding
     }
   };
 }
 
-function applyUnitGuide(spec, guideSpec = {}) {
+function compileUnitBase(spec, context = {}) {
+  return identitySpec(spec);
+}
+
+function compileUnitLayout(spec, guideSpec = {}, context = {}) {
   const unit = {
     ...(narrativeUnit(spec) || {}),
     ...copyDefined(guideSpec, [
@@ -31,14 +39,11 @@ function applyUnitGuide(spec, guideSpec = {}) {
       "columns",
       "groupColumns",
       "radius",
-      "xField",
-      "xType",
-      "xTitle",
-      "yField",
-      "yTitle",
-      "groupField",
-      "valueField",
-      "labelField",
+      "x",
+      "y",
+      "group",
+      "value",
+      "label",
       "maxUnits"
     ])
   };
@@ -55,11 +60,15 @@ function applyUnitGuide(spec, guideSpec = {}) {
   }), {
     guide: {
       layout: unit.layout || "grid",
-      xField: unit.xField || null,
-      yField: unit.yField || null,
-      groupField: unit.groupField || null,
-      valueField: unit.valueField || null,
+      x: unit.x || null,
+      y: unit.y || null,
+      group: unit.group || null,
+      value: unit.value || null,
       staging: resolveGuideStaging(guideSpec, "unit")
     }
   });
+}
+
+function compileUnitEncoding(spec, operationSpec = {}, context = {}) {
+  return compileUnitLayout(spec, operationSpec, context);
 }

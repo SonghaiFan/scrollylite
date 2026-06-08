@@ -1,35 +1,55 @@
-import { narrativeObjectKey } from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeObjectKey } from "../../scrolly-meta.js?v=semantic-key-11";
 import { titleize } from "../../labels.js?v=semantic-key-1";
+import { colorField } from "./encoding.js?v=semantic-key-1";
 import {
   aggregateFieldSpec,
-  applyFilterFocus,
-  applyXYGuide,
-  applyXYObservation,
+  compileCartesianCoordinate,
+  compileCartesianScale,
+  compileFilter,
+  compileHighlight,
   identitySpec,
   mergeXYChannel,
   withObject,
   withSceneState
-} from "../compiler-utils.js?v=semantic-key-1";
+} from "../compiler-utils.js?v=semantic-key-3";
 
-export function createPointSceneCompiler() {
+export function createPointSpecCompiler(context = {}) {
   return {
-    base: identitySpec,
-    scenes: {
-      focus: applyFilterFocus,
-      guide: applyXYGuide,
-      granularity: applyPointGranularity,
-      observation: applyXYObservation
+    base: compilePointBase,
+    operations: {
+      filter: compileFilter,
+      highlight: compileHighlight,
+      coordinate: compilePointCoordinate,
+      scale: compilePointScale,
+      aggregate: compilePointAggregate,
+      layout: compilePointLayout
     }
   };
 }
 
-function applyPointGranularity(spec, granularitySpec = {}) {
+function compilePointBase(spec, context = {}) {
+  return identitySpec(spec);
+}
+
+function compilePointCoordinate(spec, operationSpec = {}, context = {}) {
+  return compileCartesianCoordinate(spec, operationSpec, context);
+}
+
+function compilePointScale(spec, operationSpec = {}, context = {}) {
+  return compileCartesianScale(spec, operationSpec, context);
+}
+
+function compilePointAggregate(spec, granularitySpec = {}, context = {}) {
   const mode = granularitySpec.mode || "detail";
-  const parentField = granularitySpec.parentField || granularitySpec.groupby?.[0] || spec.encoding?.color?.field;
+  const authoredGroupby = normalizeFields(granularitySpec.groupby);
+  const parentField =
+    granularitySpec.parentField ||
+    parentFromGroupby(authoredGroupby) ||
+    colorField(spec.encoding);
   const detail = granularitySpec.detail || narrativeObjectKey(spec) || spec.encoding?.key?.field || spec.encoding?.x?.field;
 
   if (mode === "aggregate") {
-    const groupby = granularitySpec.groupby || [parentField].filter(Boolean);
+    const groupby = authoredGroupby.length ? authoredGroupby : [parentField].filter(Boolean);
     const x = mergeXYChannel(spec.encoding?.x, granularitySpec.x || spec.encoding?.x, "quantitative");
     const y = mergeXYChannel(spec.encoding?.y, granularitySpec.y || spec.encoding?.y, "quantitative");
     const xAs = granularitySpec.x?.as || x.field;
@@ -73,7 +93,7 @@ function applyPointGranularity(spec, granularitySpec = {}) {
     }), {
       granularity: {
         mode,
-        parentField,
+        groupby,
         countAs
       }
     });
@@ -86,10 +106,13 @@ function applyPointGranularity(spec, granularitySpec = {}) {
   }), {
     granularity: {
       mode: "detail",
-      parentField,
       detail
     }
   });
+}
+
+function compilePointLayout(spec, operationSpec = {}, context = {}) {
+  return spec;
 }
 
 function aggregateTitle(op, title) {
@@ -99,4 +122,14 @@ function aggregateTitle(op, title) {
 
 function lowerFirst(value) {
   return String(value || "").replace(/^\w/, (letter) => letter.toLowerCase());
+}
+
+function normalizeFields(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
+}
+
+function parentFromGroupby(groupby = []) {
+  if (!groupby.length) return null;
+  return groupby.length === 1 ? groupby[0] : groupby;
 }

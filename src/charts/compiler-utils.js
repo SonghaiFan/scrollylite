@@ -1,22 +1,12 @@
 import {
   narrativeObjectKey,
   withNarrative
-} from "../scrolly-meta.js?v=semantic-key-10";
+} from "../scrolly-meta.js?v=semantic-key-11";
 import { titleize } from "../labels.js?v=semantic-key-1";
 
-export function applyFilterFocus(spec, focusSpec = {}) {
-  const filter = focusSpec.filter || selectorToFilter(focusSpec);
+export function compileFilter(spec, operationSpec = {}, context = {}) {
+  const filter = operationSpec.filter || selectorToFilter(operationSpec);
   if (!filter) return spec;
-
-  if (focusSpec.mode === "highlight") {
-    return withSceneState(spec, {
-      focus: {
-        mode: "highlight",
-        filter,
-        ...(focusSpec.opacity != null ? { opacity: focusSpec.opacity } : {})
-      }
-    });
-  }
 
   return withSceneState({
     ...spec,
@@ -26,46 +16,47 @@ export function applyFilterFocus(spec, focusSpec = {}) {
   });
 }
 
-export function applyXYGuide(spec, guideSpec = {}) {
+export function compileHighlight(spec, operationSpec = {}, context = {}) {
+  const filter = operationSpec.filter || selectorToFilter(operationSpec);
+  if (!filter) return spec;
+
+  return withSceneState(spec, {
+    focus: {
+      mode: "highlight",
+      filter,
+      ...(operationSpec.opacity != null ? { opacity: operationSpec.opacity } : {})
+    }
+  });
+}
+
+export function compileCartesianCoordinate(spec, operationSpec = {}, context = {}) {
   const encoding = cloneEncoding(spec.encoding);
-  const shouldFlip = Boolean(guideSpec.flip);
+  const shouldFlip = Boolean(operationSpec.flip);
 
   if (shouldFlip) {
     [encoding.x, encoding.y] = [encoding.y, encoding.x];
   }
 
-  if (guideSpec.x) encoding.x = mergeXYChannel(encoding.x, guideSpec.x, "quantitative");
-  if (guideSpec.y) encoding.y = mergeXYChannel(encoding.y, guideSpec.y, "quantitative");
+  if (operationSpec.x) encoding.x = mergeXYChannel(encoding.x, operationSpec.x, "quantitative");
+  if (operationSpec.y) encoding.y = mergeXYChannel(encoding.y, operationSpec.y, "quantitative");
 
   return withSceneState(withObject({
     ...spec,
     encoding
   }, {
-    key: guideSpec.key || narrativeObjectKey(spec)
+    key: operationSpec.key || narrativeObjectKey(spec)
   }), {
     guide: {
       flip: shouldFlip,
       xScale: channelScaleType(encoding.x),
       yScale: channelScaleType(encoding.y),
-      staging: resolveGuideStaging(guideSpec, "cartesian")
+      staging: resolveGuideStaging(operationSpec, "cartesian")
     }
   });
 }
 
-export function applyXYObservation(spec, observationSpec = {}) {
-  const encoding = cloneEncoding(spec.encoding);
-  if (observationSpec.x) encoding.x = mergeXYChannel(encoding.x, observationSpec.x, "quantitative");
-  if (observationSpec.y) encoding.y = mergeXYChannel(encoding.y, observationSpec.y, "quantitative");
-
-  return withSceneState({
-    ...spec,
-    encoding
-  }, {
-    observation: {
-      x: encoding.x?.field,
-      y: encoding.y?.field
-    }
-  });
+export function compileCartesianScale(spec, operationSpec = {}, context = {}) {
+  return compileCartesianCoordinate(spec, operationSpec, context);
 }
 
 export function identitySpec(spec) {

@@ -1,11 +1,11 @@
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-11";
 
 export function lineState(spec = {}, enc = {}) {
   const state = narrativeState(spec);
-  const granularity = state.sceneState?.granularity || state.granularity || {};
+  const granularity = state.sceneState?.granularity || {};
   return {
     focus: state.sceneState?.focus || state.focus || null,
-    seriesField: granularity.seriesField || spec.lineSeries || spec.series || enc.color?.field || null
+    seriesField: granularity.seriesField || enc.color?.field || null
   };
 }
 

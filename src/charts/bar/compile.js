@@ -3,26 +3,37 @@ import {
   narrativeSemanticKey,
   narrativeState,
   withNarrative
-} from "../../scrolly-meta.js?v=semantic-key-10";
+} from "../../scrolly-meta.js?v=semantic-key-11";
 import {
   barOffsetChannelName,
   barOrientationFromEncoding
 } from "./layout/index.js";
 import { barSegmentField } from "./semantic.js?v=semantic-key-1";
+import {
+  compileFilter,
+  compileHighlight,
+  identitySpec
+} from "../compiler-utils.js?v=semantic-key-3";
 
-export function createBarSceneCompiler({ applyFilterFocus }) {
+export function createBarSpecCompiler(context = {}) {
   return {
-    base: withDefaultBarSemanticKey,
-    scenes: {
-      focus: applyFilterFocus,
-      guide: applyBarGuide,
-      granularity: applyBarGranularity,
-      observation: applyBarObservation
+    base: compileBarBase,
+    operations: {
+      filter: compileFilter,
+      highlight: compileHighlight,
+      coordinate: compileBarCoordinate,
+      scale: compileBarScale,
+      aggregate: compileBarAggregate,
+      layout: compileBarLayout
     }
   };
 }
 
-function applyBarGuide(spec, guideSpec = {}) {
+function compileBarBase(spec, context = {}) {
+  return withDefaultBarSemanticKey(identitySpec(spec));
+}
+
+function compileBarCoordinate(spec, guideSpec = {}, context = {}) {
   let workingSpec = spec;
   const layout = guideSpec.layout || null;
   const flipsOrientation = Boolean(guideSpec.flip);
@@ -108,7 +119,15 @@ function applyBarGuide(spec, guideSpec = {}) {
   });
 }
 
-function applyBarGranularity(spec, granularitySpec = {}) {
+function compileBarScale(spec, operationSpec = {}, context = {}) {
+  return compileBarCoordinate(spec, operationSpec, context);
+}
+
+function compileBarLayout(spec, operationSpec = {}, context = {}) {
+  return compileBarCoordinate(spec, operationSpec, context);
+}
+
+function compileBarAggregate(spec, granularitySpec = {}, context = {}) {
   const categoryField = granularitySpec.category || spec.encoding?.x?.field || "category";
   const segmentField = granularitySpec.segment || granularitySpec.segmentAs || "segment";
   const valueField = granularitySpec.value || granularitySpec.valueAs || spec.encoding?.y?.field || "value";
@@ -186,49 +205,6 @@ function applyBarGranularity(spec, granularitySpec = {}) {
       sourceField,
       segments: segmentDomain.length ? segmentDomain : null,
       valueField
-    }
-  });
-}
-
-function applyBarObservation(spec, observationSpec = {}) {
-  const encoding = cloneEncoding(spec.encoding);
-  const orientation =
-    encoding.x?.type === "quantitative" && ["nominal", "ordinal"].includes(encoding.y?.type)
-      ? "horizontal"
-      : "vertical";
-  const currentMeasure = orientation === "horizontal" ? encoding.x : encoding.y;
-  const measure = channelFromField(
-    observationSpec.measure || observationSpec.field || currentMeasure?.field,
-    observationSpec.title || currentMeasure?.title,
-    "quantitative"
-  );
-
-  if (observationSpec.domain) measure.domain = observationSpec.domain;
-
-  if (orientation === "horizontal") encoding.x = measure;
-  else encoding.y = measure;
-
-  const categoryKey = observationSpec.category
-    ? semanticCategoryPart(observationSpec.category)
-    : null;
-
-  return withSceneState(withObject({
-    ...spec,
-    encoding
-  }, {
-    semantic:
-      observationSpec.semantic ||
-      observationSpec.semanticKey ||
-      (categoryKey
-        ? semanticKeyFromParts(
-            narrativeSemanticKey(spec)?.entity || narrativeSemanticKey(spec)?.entities || categoryChannel(encoding),
-            categoryKey
-          )
-        : semanticKeyFromEncoding(encoding, narrativeSemanticKey(spec)))
-  }), {
-    observation: {
-      measure: measure.field,
-      category: observationSpec.category || null
     }
   });
 }
@@ -311,15 +287,6 @@ function semanticKeyFromParts(entity, measure) {
     entity,
     measure
   };
-}
-
-function semanticCategoryPart(category) {
-  if (!category) return null;
-  if (Object.prototype.hasOwnProperty.call(category, "equal")) {
-    return { value: category.equal };
-  }
-  if (category.field) return { field: category.field };
-  return null;
 }
 
 function categoryChannel(encoding = {}) {

@@ -1,5 +1,5 @@
-import { point } from "../../charts/point/grammar.js?v=semantic-key-1";
-import { PERIOD_LUMINANCE_COLOR, story } from "./shared.js?v=semantic-key-19";
+import { point } from "../../charts/point/grammar.js?v=semantic-key-3";
+import { PERIOD_LUMINANCE_COLOR, story } from "./shared.js?v=semantic-key-20";
 
 export function createPointStory() {
   const base = point("weather")
@@ -62,13 +62,10 @@ export function createPointStory() {
     )
     .step(
       "Granularity: split periods back to decades",
-      hotCold.breakdown("decade", {
-        key: "decade",
-        parentField: "period"
-      }),
+      hotCold.breakdown("decade"),
       {
         body: "The granularity scene splits each aggregate period circle back into its decade circles using the period as parent identity.",
-        authoring: 'hotCold.breakdown("decade", { key: "decade", parentField: "period" })'
+        authoring: 'hotCold.breakdown("decade")'
       }
     )
     .toSpec();

@@ -1,8 +1,8 @@
 import {
   narrativeScroll,
   withNarrative
-} from "../../scrolly-meta.js?v=semantic-key-10";
-import { story as createStory } from "../../grammar/index.js?v=semantic-key-20";
+} from "../../scrolly-meta.js?v=semantic-key-11";
+import { story as createStory } from "../../grammar/index.js?v=semantic-key-22";
 
 export const HOT_COLOR = "#b05d3b";
 export const COLD_COLOR = "#536a9e";

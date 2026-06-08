@@ -10,8 +10,9 @@ Scene transitions are inferred by diffing the source and target view specs. The
 authoring API may create internal focus/guide/granularity state, but authors do
 not write `transition.scene` in the Vega-Lite-shaped view spec.
 
-The compiler resolves inferred scene tokens, then applies mark-specific handlers
-from `MARK_TRANSITION_COMPILERS` in `src/transitions/index.js`.
+The transition entry point resolves inferred scene tokens, maps authored state
+intent to spec operations, then applies mark-specific handlers from the spec
+compiler map generated from `src/charts/manifest.js`.
 
 ## Unified Scene Types
 
@@ -34,36 +35,60 @@ from `MARK_TRANSITION_COMPILERS` in `src/transitions/index.js`.
 `observation` changes the encoded variable while preserving the same entity key.
 
 - Bar changes the quantitative measure for the current category channel.
-- Scatter and line share xy observation changes for x/y variables.
+- Scatter and line infer xy observation changes by diffing x/y encoded fields.
+  Their normal compiled state should remain the target encoding, not a separate
+  observation state patch.
 - Unit charts do not implement observation transitions. Their observation is the
   count represented by repeated units, not an arbitrary encoded data attribute.
 
 `granularity` changes the level of aggregation or grouping.
 
 - Bar folds wide measures into segmented stacked/grouped bars.
-- Scatter supports aggregate/detail split and merge with `parentField` anchors.
+- Scatter supports aggregate/detail split and merge with parent anchors inferred
+  from rollup group keys or the current color channel.
 - Line supports single trend versus series-level line segments.
 
 ## Extension Pattern
 
-New chart idioms should register a compiler adapter with the same shape:
+New chart idioms should register a spec compiler adapter with the same shape:
 
 ```js
-const MARK_TRANSITION_COMPILERS = {
-  area: {
-    base: identitySpec,
-    scenes: {
-      focus: applyFilterFocus,
-      guide: applyXYGuide,
-      observation: applyXYObservation,
-      granularity: applyAreaGranularity
+export function createAreaSpecCompiler(context = {}) {
+  return {
+    base: compileAreaBase,
+    operations: {
+      filter: compileFilter,
+      highlight: compileHighlight,
+      coordinate: compileAreaCoordinate,
+      scale: compileAreaScale,
+      aggregate: compileAreaAggregate,
+      layout: compileAreaLayout,
+      encode: compileAreaEncoding
     }
-  }
-};
+  };
+}
 ```
 
-Keep shared scene semantics in reusable handlers. Put chart-specific behavior in
-small handlers named for the chart idiom and transition type.
+Expose that compiler through the idiom's `plugin.js`:
+
+```js
+export function createSpecCompiler(context = {}) {
+  return createAreaSpecCompiler(context);
+}
+```
+
+Every operation handler uses `compileX(spec, operationSpec = {}, context = {})`
+and returns the next Vega-ish spec. Keep shared spec materializers in reusable
+handlers such as `compileFilter`, `compileHighlight`,
+`compileCartesianCoordinate`, and `compileCartesianScale`. Put chart-specific
+behavior in small handlers named for the idiom and spec operation, such as
+`compileBarAggregate` or `compileUnitLayout`.
+
+Do not expose `focus`, `guide`, `granularity`, or `observation` as compiler
+adapter keys. Those names are transition scene labels and belong in diff,
+transition inference, transition planning, runtime transition, and inspector
+output. `observation` is inferred from encoded field changes; it is not a
+compiled operation in the normal authoring path.
 
 ## Chart Module Shape
 

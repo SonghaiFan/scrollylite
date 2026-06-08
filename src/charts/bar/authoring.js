@@ -1,6 +1,6 @@
 import { ViewState, cloneState } from "../../grammar/view-state.js?v=semantic-key-10";
-import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-10";
-import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-17";
+import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-11";
+import { compileViewSpec } from "../../transitions/index.js?v=semantic-key-19";
 import { labelFromValue, titleize } from "../../labels.js?v=semantic-key-1";
 
 export function bar(data) {
@@ -34,7 +34,7 @@ export class BarState extends ViewState {
     delete spec.aggregate;
     if (spec.semanticKey == null) delete spec.semanticKey;
     return pruneAuthoringState(
-      compileSceneViewSpec(externalizeScrollyViewSpec(spec), { scene: [] })
+      compileViewSpec(externalizeScrollyViewSpec(spec), { scene: [] })
     );
   }
 
@@ -525,7 +525,6 @@ function pruneAuthoringState(spec) {
   delete state.focus;
   delete state.guide;
   delete state.granularity;
-  delete state.observation;
   state.sceneState = preservedSceneState;
   if (!Object.keys(state.sceneState).length) delete state.sceneState;
 

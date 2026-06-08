@@ -8,11 +8,9 @@ import {
 import { cloneSpec, uniqueTokens } from "../../runtime/utils.js";
 
 export function createBarIdiom(deps = {}) {
-  return {
-    key: "bar",
-    renderer: createBarRenderer(deps),
-    prepareSpec: prepareBarSpec,
-    resolveTransitionPlan: resolveBarTransitionPlan,
+  const renderer = createBarRenderer(deps);
+  const transition = {
+    plan: resolveBarTransitionPlan,
     intermediateSpecs: barIntermediateSpecs,
     intermediateSpec(previousSpec, nextSpec) {
       const collapseSpec = barCollapseIntermediateSpec(previousSpec, nextSpec);
@@ -22,19 +20,43 @@ export function createBarIdiom(deps = {}) {
       if (splitSpec) return { spec: splitSpec, scene: "granularity" };
 
       return null;
-    },
-    defaultMargin(spec = {}) {
-      const enc = spec.encoding || {};
-      const horizontalBar =
-        String(spec.mark || "").toLowerCase() === "bar" &&
-        enc.x?.type === "quantitative" &&
-        ["nominal", "ordinal"].includes(enc.y?.type);
-      return horizontalBar ? { left: 86, right: 42 } : {};
+    }
+  };
+  const render = {
+    renderer,
+    defaultMargin
+  };
+
+  return {
+    key: "bar",
+    renderer,
+    prepareSpec: prepareBarSpec,
+    resolveTransitionPlan: resolveBarTransitionPlan,
+    intermediateSpecs: barIntermediateSpecs,
+    intermediateSpec: transition.intermediateSpec,
+    defaultMargin,
+    hooks: {
+      spec: {
+        prepare: prepareBarSpec
+      },
+      transition,
+      render,
+      layout: {},
+      focus: {}
     },
     inspect: {
       transitionPlanKey: "barTransitionPlan"
     }
   };
+}
+
+function defaultMargin(spec = {}) {
+  const enc = spec.encoding || {};
+  const horizontalBar =
+    String(spec.mark || "").toLowerCase() === "bar" &&
+    enc.x?.type === "quantitative" &&
+    ["nominal", "ordinal"].includes(enc.y?.type);
+  return horizontalBar ? { left: 86, right: 42 } : {};
 }
 
 function prepareBarSpec(spec = {}) {

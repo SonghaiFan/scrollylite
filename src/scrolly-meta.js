@@ -7,7 +7,6 @@ const INTERNAL_STATE_FIELDS = [
   "focus",
   "granularity",
   "guide",
-  "observation",
   "sceneState"
 ];
 
@@ -134,7 +133,6 @@ export function normalizeScrollyViewSpec(spec = {}) {
     focus: state.focus || narrative.focus || spec.focus,
     guide: state.guide || narrative.guide || spec.guide,
     granularity: state.granularity || narrative.granularity || spec.granularity,
-    observation: state.observation || narrative.observation || spec.observation,
     sceneState: state.sceneState || narrative.sceneState || spec.sceneState,
     ...(transform.length ? { transform: dedupeArray(transform) } : {})
   };
@@ -177,7 +175,6 @@ export function narrativeState(spec = {}) {
     focus: state.focus || narrative.focus || spec.focus || null,
     guide: state.guide || narrative.guide || spec.guide || null,
     granularity: state.granularity || narrative.granularity || spec.granularity || null,
-    observation: state.observation || narrative.observation || spec.observation || null,
     sceneState: state.sceneState || narrative.sceneState || spec.sceneState || {}
   };
 }

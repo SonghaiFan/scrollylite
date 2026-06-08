@@ -1,8 +1,8 @@
-import { createBarStory } from "./weather/bar-story.js?v=semantic-key-25";
-import { createLineStory } from "./weather/line-story.js?v=semantic-key-18";
-import { createScatterStory } from "./weather/scatter-story.js?v=semantic-key-18";
-import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-17";
-import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-19";
+import { createBarStory } from "./weather/bar-story.js?v=semantic-key-27";
+import { createLineStory } from "./weather/line-story.js?v=semantic-key-20";
+import { createScatterStory } from "./weather/scatter-story.js?v=semantic-key-20";
+import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-19";
+import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-20";
 
 const STORY_REGISTRY = {
   bar: {

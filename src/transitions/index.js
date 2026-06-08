@@ -5,23 +5,30 @@ import {
   narrativeTransition,
   narrativeUnit,
   withNarrative
-} from "../scrolly-meta.js?v=semantic-key-10";
-import { createBarSceneCompiler } from "../charts/bar/compile.js?v=semantic-key-1";
-import { createLineSceneCompiler } from "../charts/line/compile.js?v=semantic-key-1";
-import { createPointSceneCompiler } from "../charts/point/compile.js?v=semantic-key-1";
-import { createUnitSceneCompiler } from "../charts/unit/compile.js?v=semantic-key-1";
+} from "../scrolly-meta.js?v=semantic-key-11";
+import { chartModules } from "../charts/manifest.js?v=semantic-key-4";
 import {
-  applyFilterFocus,
   cloneViewSpec
-} from "../charts/compiler-utils.js?v=semantic-key-1";
+} from "../charts/compiler-utils.js?v=semantic-key-3";
+import {
+  createSpecCompilerMap
+} from "../charts/index.js?v=semantic-key-6";
 
 export const SCENE_TRANSITIONS = ["focus", "guide", "granularity", "observation"];
-const STATE_APPLICATION_ORDER = ["focus", "observation", "granularity", "guide"];
+const STATE_APPLICATION_ORDER = ["focus", "granularity", "guide"];
+const DEFAULT_STATE_OPERATION = {
+  focus: "filter",
+  guide: "coordinate",
+  granularity: "aggregate"
+};
+const STATE_OPERATION_BY_MARK = {
+  unit: {
+    guide: "layout"
+  }
+};
 
 const ALIASES = new Map(
   Object.entries({
-    observe: "observation",
-    observations: "observation",
     focused: "focus",
     guiding: "guide",
     granular: "granularity"
@@ -41,8 +48,7 @@ export function resolveSceneTransition(viewSpec = {}, stepTransition = {}) {
     scene,
     focus: scene.includes("focus") ? state.focus || null : null,
     guide: scene.includes("guide") ? state.guide || null : null,
-    granularity: scene.includes("granularity") ? state.granularity || null : null,
-    observation: scene.includes("observation") ? state.observation || null : null
+    granularity: scene.includes("granularity") ? state.granularity || null : null
   };
 }
 
@@ -56,16 +62,17 @@ export function withSceneTransitionDefaults(viewSpec, sceneTransition) {
   return withNarrative(viewSpec, { transition });
 }
 
-export function compileSceneViewSpec(viewSpec, sceneTransition) {
-  const compiler = MARK_TRANSITION_COMPILERS[transitionRendererKey(viewSpec)];
+export function compileViewSpec(viewSpec, sceneTransition) {
+  const rendererKey = transitionRendererKey(viewSpec);
+  const compiler = MARK_SPEC_COMPILERS[rendererKey];
   if (!compiler) return viewSpec;
 
-  const compiled = stateApplicationOrder(viewSpec, sceneTransition, compiler).reduce((compiledSpec, sceneType) => {
-    const handler = compiler.scenes[sceneType];
-    const state = narrativeState(viewSpec);
-    return handler ? handler(compiledSpec, state[sceneType] || sceneTransition[sceneType] || {}) : compiledSpec;
-  }, compiler.base(cloneViewSpec(viewSpec)));
-  return externalizeScrollyViewSpec(pruneCompiledViewSpec(compiled));
+  const context = { rendererKey };
+  const compiled = stateOperationOrder(viewSpec, sceneTransition, compiler).reduce((compiledSpec, entry) => {
+    const handler = compiler.operations[entry.operation];
+    return handler ? handler(compiledSpec, entry.operationSpec, context) : compiledSpec;
+  }, compiler.base(cloneViewSpec(viewSpec), context));
+  return externalizeScrollyViewSpec(pruneCompiledViewSpec(pruneConsumedSceneState(compiled)));
 }
 
 export function hasScene(sceneTransition, type) {
@@ -73,8 +80,8 @@ export function hasScene(sceneTransition, type) {
 }
 
 function supportedSceneTypes(mark) {
-  const compiler = MARK_TRANSITION_COMPILERS[mark];
-  return compiler ? Object.keys(compiler.scenes) : SCENE_TRANSITIONS;
+  if (mark === "unit") return ["focus", "guide"];
+  return SCENE_TRANSITIONS;
 }
 
 function transitionRendererKey(viewSpec = {}) {
@@ -84,26 +91,45 @@ function transitionRendererKey(viewSpec = {}) {
   return mark;
 }
 
-function stateApplicationOrder(viewSpec, sceneTransition, compiler) {
-  const supported = Object.keys(compiler.scenes);
+function stateOperationOrder(viewSpec, sceneTransition, compiler) {
+  const supported = Object.keys(compiler.operations);
+  const rendererKey = transitionRendererKey(viewSpec);
   const state = narrativeState(viewSpec);
-  return STATE_APPLICATION_ORDER.filter((type) =>
-    supported.includes(type) &&
-    (state[type] != null || sceneTransition[type] != null)
-  );
+  return STATE_APPLICATION_ORDER
+    .map((stateKey) => {
+      const operationSpec = state[stateKey] || sceneTransition[stateKey] || null;
+      const operation = operationForState(rendererKey, stateKey, operationSpec);
+      return { stateKey, operation, operationSpec };
+    })
+    .filter((entry) =>
+      entry.operationSpec != null &&
+      supported.includes(entry.operation)
+    );
 }
 
-const MARK_TRANSITION_COMPILERS = {
-  bar: createBarSceneCompiler({ applyFilterFocus }),
-  point: createPointSceneCompiler(),
-  line: createLineSceneCompiler(),
-  unit: createUnitSceneCompiler()
-};
+function operationForState(mark, stateKey, operationSpec = {}) {
+  if (stateKey === "focus" && operationSpec?.mode === "highlight") return "highlight";
+  return STATE_OPERATION_BY_MARK[mark]?.[stateKey] || DEFAULT_STATE_OPERATION[stateKey];
+}
+
+const MARK_SPEC_COMPILERS = createSpecCompilerMap(chartModules);
 
 function pruneCompiledViewSpec(spec = {}) {
   const next = { ...spec };
   if (Array.isArray(next.transform) && !next.transform.length) delete next.transform;
   if (next.encoding && !Object.keys(next.encoding).length) delete next.encoding;
+  return next;
+}
+
+function pruneConsumedSceneState(spec = {}) {
+  const next = cloneViewSpec(spec);
+  const state = next.narrative?.state;
+  if (!state) return next;
+
+  delete state.focus;
+  delete state.guide;
+  delete state.granularity;
+  if (!Object.keys(state).length) delete next.narrative.state;
   return next;
 }
 

@@ -1,30 +1,40 @@
 import {
-  applyFilterFocus,
-  applyXYGuide,
-  applyXYObservation,
+  compileCartesianCoordinate,
+  compileCartesianScale,
+  compileFilter,
+  compileHighlight,
   identitySpec,
   selectorToFilter,
   withSceneState
-} from "../compiler-utils.js?v=semantic-key-1";
+} from "../compiler-utils.js?v=semantic-key-3";
 
-export function createLineSceneCompiler() {
+export function createLineSpecCompiler(context = {}) {
   return {
-    base: identitySpec,
-    scenes: {
-      focus: applyLineFocus,
-      guide: applyXYGuide,
-      granularity: applyLineGranularity,
-      observation: applyXYObservation
+    base: compileLineBase,
+    operations: {
+      filter: compileLineFilter,
+      highlight: compileHighlight,
+      coordinate: compileLineCoordinate,
+      scale: compileLineScale,
+      aggregate: compileLineAggregate,
+      layout: compileLineLayout,
+      series: compileLineSeries
     }
   };
 }
 
-function applyLineFocus(spec, focusSpec = {}) {
+function compileLineBase(spec, context = {}) {
+  return identitySpec(spec);
+}
+
+function compileLineFilter(spec, focusSpec = {}, context = {}) {
   const filter = focusSpec.filter || selectorToFilter(focusSpec);
   if (!filter) return spec;
 
   if (focusSpec.mode === "filter" || focusSpec.mode === "highlight") {
-    return applyFilterFocus(spec, focusSpec);
+    return focusSpec.mode === "highlight"
+      ? compileHighlight(spec, focusSpec, context)
+      : compileFilter(spec, focusSpec, context);
   }
 
   return withSceneState({
@@ -38,7 +48,19 @@ function applyLineFocus(spec, focusSpec = {}) {
   });
 }
 
-function applyLineGranularity(spec, granularitySpec = {}) {
+function compileLineCoordinate(spec, operationSpec = {}, context = {}) {
+  return compileCartesianCoordinate(spec, operationSpec, context);
+}
+
+function compileLineScale(spec, operationSpec = {}, context = {}) {
+  return compileCartesianScale(spec, operationSpec, context);
+}
+
+function compileLineAggregate(spec, granularitySpec = {}, context = {}) {
+  return compileLineSeries(spec, granularitySpec, context);
+}
+
+function compileLineSeries(spec, granularitySpec = {}, context = {}) {
   const mode = granularitySpec.mode || "series";
   const encoding = { ...(spec.encoding || {}) };
   const seriesField = granularitySpec.series || granularitySpec.field || encoding.color?.field;
@@ -65,4 +87,8 @@ function applyLineGranularity(spec, granularitySpec = {}) {
       seriesField: mode === "series" ? seriesField : null
     }
   });
+}
+
+function compileLineLayout(spec, operationSpec = {}, context = {}) {
+  return spec;
 }

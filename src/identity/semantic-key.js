@@ -1,7 +1,7 @@
 import {
   narrativeObjectKey,
   narrativeSemanticKey
-} from "../scrolly-meta.js?v=semantic-key-10";
+} from "../scrolly-meta.js?v=semantic-key-11";
 
 export function keyAccessor(spec, fallbackField = "id") {
   const key = narrativeObjectKey(spec) || fallbackField;

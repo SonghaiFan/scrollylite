@@ -1,4 +1,4 @@
-import { IdiomState } from "../authoring.js?v=semantic-key-1";
+import { IdiomState } from "../authoring.js?v=semantic-key-3";
 
 export function point(data) {
   return new PointState({
@@ -47,17 +47,17 @@ export class PointState extends IdiomState {
 
   rollup(groupby, options = {}) {
     const fields = Array.isArray(groupby) ? groupby : [groupby].filter(Boolean);
+    const key = options.key || (fields.length === 1 ? fields[0] : fields);
     return this.with({
-      granularity: {
+      granularity: definedState({
         mode: "aggregate",
         groupby: fields,
-        key: options.key || (fields.length === 1 ? fields[0] : fields),
-        parentField: options.parentField || fields[0],
+        key,
         x: options.x,
         y: options.y,
         countAs: options.countAs,
         sizeRange: options.sizeRange
-      }
+      })
     }, "granularity");
   }
 
@@ -65,13 +65,19 @@ export class PointState extends IdiomState {
     const config = detail && typeof detail === "object"
       ? detail
       : { detail, ...options };
+    const detailKey = config.detail || this.state.key;
     return this.with({
-      granularity: {
+      granularity: definedState({
         mode: "detail",
-        key: config.key || this.state.key,
-        parentField: config.parentField,
-        detail: config.detail || this.state.key
-      }
+        key: config.key || detailKey,
+        detail: detailKey
+      })
     }, "granularity");
   }
+}
+
+function definedState(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  );
 }

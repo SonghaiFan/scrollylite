@@ -1,5 +1,5 @@
-import { compileSceneViewSpec } from "../transitions/index.js?v=semantic-key-17";
-import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-10";
+import { compileViewSpec } from "../transitions/index.js?v=semantic-key-19";
+import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-11";
 import { ViewState, cloneState } from "../grammar/view-state.js?v=semantic-key-10";
 import { titleize } from "../labels.js?v=semantic-key-1";
 
@@ -9,7 +9,7 @@ export class IdiomState extends ViewState {
   toSpec() {
     const spec = super.toSpec();
     return pruneAuthoringSpec(
-      compileSceneViewSpec(externalizeScrollyViewSpec(spec), { scene: [] })
+      compileViewSpec(externalizeScrollyViewSpec(spec), { scene: [] })
     );
   }
 
@@ -132,16 +132,19 @@ function pruneAuthoringSpec(spec) {
   const state = next.narrative?.state;
   if (!state) return next;
 
+  const sceneState = state.sceneState || {};
+  if (!sceneState.guide && shouldPreserveGuideState(state.guide)) {
+    sceneState.guide = state.guide;
+  }
+
   delete state.focus;
   delete state.guide;
   delete state.granularity;
-  delete state.observation;
 
-  if (state.sceneState) {
-    pruneSceneStateDefaults(state.sceneState);
-    state.sceneState = pruneEmpty(state.sceneState);
-    if (!Object.keys(state.sceneState).length) delete state.sceneState;
-  }
+  state.sceneState = sceneState;
+  pruneSceneStateDefaults(state.sceneState);
+  state.sceneState = pruneEmpty(state.sceneState);
+  if (!Object.keys(state.sceneState).length) delete state.sceneState;
 
   if (!Object.keys(state).length) delete next.narrative.state;
   if (next.narrative && !Object.keys(next.narrative).length) delete next.narrative;
@@ -155,6 +158,12 @@ function pruneSceneStateDefaults(sceneState = {}) {
     if (guide.yScale === "linear") delete guide.yScale;
     if (isDefaultStaging(guide.staging)) delete guide.staging;
   }
+}
+
+function shouldPreserveGuideState(guide = null) {
+  if (!guide || !isPlainObject(guide)) return false;
+  const semanticKeys = ["layout", "x", "y", "group", "value"];
+  return semanticKeys.some((key) => guide[key] != null);
 }
 
 function isDefaultStaging(staging = null) {

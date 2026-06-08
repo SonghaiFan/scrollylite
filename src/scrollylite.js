@@ -1,15 +1,15 @@
 import { applyTransforms } from "./data/transforms.js";
-import { chartModules } from "./charts/manifest.js?v=semantic-key-3";
+import { chartModules } from "./charts/manifest.js?v=semantic-key-4";
 import {
   createChartIdiomRegistry,
   registerChartModules,
   resolveMarkRendererKey
-} from "./charts/index.js?v=semantic-key-5";
+} from "./charts/index.js?v=semantic-key-6";
 import {
   externalizeScrollyViewSpec,
   narrativeScroll,
   narrativeState
-} from "./scrolly-meta.js?v=semantic-key-10";
+} from "./scrolly-meta.js?v=semantic-key-11";
 import {
   defaultScrollProgress,
   easeProgress,

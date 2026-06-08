@@ -1,6 +1,6 @@
-import { diffViewStates } from "../grammar/diff.js?v=semantic-key-16";
+import { diffViewStates } from "../grammar/diff.js?v=semantic-key-17";
 import { layoutClasses } from "../layouts/index.js";
-import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-10";
+import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-11";
 import { compileEffectiveView } from "./view-compile.js";
 import { dash, escapeHtml } from "./utils.js";
 

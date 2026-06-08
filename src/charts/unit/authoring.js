@@ -1,4 +1,4 @@
-import { IdiomState, colorFrom } from "../authoring.js?v=semantic-key-1";
+import { IdiomState, colorFrom } from "../authoring.js?v=semantic-key-3";
 
 export function unit(data) {
   return new UnitState({
@@ -11,12 +11,12 @@ export function unit(data) {
 
 export class UnitState extends IdiomState {
   value(field, options = {}) {
+    const { maxUnits } = options;
     return this.with({
       unit: {
         ...(this.state.unit || {}),
-        valueField: field,
-        ...(options.labelField ? { labelField: options.labelField } : {}),
-        ...(options.maxUnits ? { maxUnits: options.maxUnits } : {})
+        value: field,
+        ...(maxUnits ? { maxUnits } : {})
       }
     });
   }
@@ -25,7 +25,7 @@ export class UnitState extends IdiomState {
     return this.with({
       unit: {
         ...(this.state.unit || {}),
-        labelField: field
+        label: field
       }
     });
   }
@@ -48,36 +48,47 @@ export class UnitState extends IdiomState {
     });
   }
 
-  layout(layout, options = {}) {
-    return this.guide({
-      layout,
-      ...options
-    });
-  }
-
   group(field, options = {}) {
-    return this.layout("groupedGrid", {
-      groupField: field,
-      ...(options.color ? { color: colorFrom(options.color) } : {}),
-      ...options
+    const { color, ...layoutOptions } = options;
+    return unitGuide(this, {
+      layout: "groupedGrid",
+      group: field,
+      ...layoutOptions,
+      ...(color ? { color: colorFrom(color) } : {})
     });
   }
 
   timeline(field, options = {}) {
-    return this.layout("timeline", {
-      xField: field,
-      xType: options.xType || "quantitative",
-      xTitle: options.xTitle || this.state.encoding?.x?.title,
-      ...options
+    return unitGuide(this, {
+      layout: "timeline",
+      ...unitAxis(this, "x", field, options)
     });
   }
 
   dodge(field, options = {}) {
-    return this.layout("dodge", {
-      xField: field,
-      xType: options.xType || "quantitative",
-      xTitle: options.xTitle || this.state.encoding?.x?.title,
-      ...options
+    return unitGuide(this, {
+      layout: "dodge",
+      ...unitAxis(this, "x", field, options)
     });
   }
+}
+
+function unitGuide(state, guide) {
+  return state.guide(guide);
+}
+
+function unitAxis(state, channel, field, options = {}) {
+  const { title, type, ...rest } = options;
+  const current = state.state.encoding?.[channel];
+  if ((field == null || field === current?.field) && title == null && type == null) {
+    return rest;
+  }
+  return {
+    [channel]: {
+      field,
+      type: type || "quantitative",
+      ...(title ? { title } : {})
+    },
+    ...rest
+  };
 }

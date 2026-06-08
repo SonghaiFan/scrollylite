@@ -1,4 +1,4 @@
-import { IdiomState, colorFrom } from "../authoring.js?v=semantic-key-1";
+import { IdiomState, colorFrom } from "../authoring.js?v=semantic-key-3";
 
 export function line(data) {
   return new LineState({
@@ -29,12 +29,32 @@ export class LineState extends IdiomState {
     return this.with({ pointSize: value });
   }
 
+  flip(options = {}) {
+    return this.guide({
+      flip: true,
+      ...(options.x ? { x: options.x } : {}),
+      ...(options.y ? { y: options.y } : {}),
+      ...(options.staging || options.stage || options.order
+        ? {
+            staging: {
+              ...(typeof options.staging === "object" ? options.staging : {}),
+              order: options.order || options.stage || options.staging?.order || ["x", "y"]
+            }
+          }
+        : {})
+    });
+  }
+
   breakdown(field, options = {}) {
     return this.with({
       granularity: {
         mode: "series",
         series: field,
-        ...(options.color ? { color: colorFrom(options.color) } : {}),
+        ...(options.color
+          ? Array.isArray(options.color)
+            ? { range: options.color }
+            : { color: colorFrom(options.color) }
+          : {}),
         ...(options.range ? { range: options.range } : {})
       }
     }, "granularity");

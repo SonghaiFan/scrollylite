@@ -1,14 +1,14 @@
-import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-10";
+import { externalizeScrollyViewSpec } from "../scrolly-meta.js?v=semantic-key-11";
 import {
-  compileSceneViewSpec,
+  compileViewSpec,
   resolveSceneTransition,
   withSceneTransitionDefaults
-} from "../transitions/index.js?v=semantic-key-17";
+} from "../transitions/index.js?v=semantic-key-19";
 
 export function compileEffectiveView(viewSpec, stepTransition = {}) {
   const authoredViewSpec = externalizeScrollyViewSpec(viewSpec);
   const sceneTransition = resolveSceneTransition(authoredViewSpec, stepTransition);
-  const effectiveViewSpec = compileSceneViewSpec(
+  const effectiveViewSpec = compileViewSpec(
     withSceneTransitionDefaults(authoredViewSpec, sceneTransition),
     sceneTransition
   );

@@ -1,17 +1,17 @@
 import {
   narrativeObjectKey,
   narrativeUnit
-} from "../../scrolly-meta.js?v=semantic-key-10";
+} from "../../scrolly-meta.js?v=semantic-key-11";
 
 export function expandUnits(rows, spec, d3) {
   const unit = narrativeUnit(spec) || {};
-  const valueField = unit.valueField;
+  const valueKey = unit.value;
   const rowKey = unit.key || narrativeObjectKey(spec) || "id";
   const maxUnits = unit.maxUnits || 240;
   const units = [];
 
   rows.forEach((row, rowIndex) => {
-    const count = Math.max(0, Math.round(Number(valueField ? row[valueField] : 1) || 1));
+    const count = Math.max(0, Math.round(Number(valueKey ? row[valueKey] : 1) || 1));
     d3.range(count).forEach((unitIndex) => {
       units.push({
         ...row,
@@ -32,108 +32,110 @@ export function unitLayout(units, chart, spec, deps) {
   const layout = unit.layout || "grid";
   const columns = unit.columns || Math.max(8, Math.floor(Math.sqrt(units.length) * 1.4));
   const requestedRadius = unit.radius || 12;
-  const groupField = unit.groupField || spec.encoding?.color?.field;
-  const xField = unit.xField || spec.encoding?.x?.field;
-  const yField = unit.yField || spec.encoding?.y?.field;
+  const xChannel = unitChannel(unit.x, spec.encoding?.x, "quantitative");
+  const yChannel = unitChannel(unit.y, spec.encoding?.y, "quantitative");
+  const groupKey = unit.group || spec.encoding?.color?.field;
+  const xKey = xChannel?.field;
+  const yKey = yChannel?.field;
 
-  if (layout === "timeline" && xField) {
-    const stackByX = stackIndex(units, (d) => d.__row[xField]);
+  if (layout === "timeline" && xKey) {
+    const stackByX = stackIndex(units, (d) => d.__row[xKey]);
     const stackHeight = maxStackDepth(units, stackByX);
     const radius = fitRadius(chart, requestedRadius, {
-      columns: Math.max(uniqueCount(units, (d) => d.__row[xField]), 1),
+      columns: Math.max(uniqueCount(units, (d) => d.__row[xKey]), 1),
       rows: Math.max(stackHeight, 1)
     });
     const cell = radius * 2.45;
     const x = unitXScale(
       units,
-      { field: xField, type: unit.xType || "quantitative" },
+      xChannel,
       [radius, chart.innerWidth - radius],
       { bandOrLinear, d3 }
     );
     const base = chart.innerHeight - radius;
-    drawXAxis(chart, x, unit.xTitle || xField, d3);
+    drawXAxis(chart, x, xChannel.title || xKey, d3);
     drawYAxis(chart, null, null, d3);
     updateGrid(chart, null, d3);
     return {
       name: "timeline",
       axes: true,
       r: radius,
-      x: (d) => position(x, d.__row[xField]),
+      x: (d) => position(x, d.__row[xKey]),
       y: (d) => base - stackByX(d) * cell
     };
   }
 
-  if (layout === "dodge" && xField) {
+  if (layout === "dodge" && xKey) {
     let radius = fitRadius(chart, requestedRadius, {
-      columns: Math.max(uniqueCount(units, (d) => d.__row[xField]), 1),
+      columns: Math.max(uniqueCount(units, (d) => d.__row[xKey]), 1),
       rows: 1
     });
     const x = unitXScale(
       units,
-      { field: xField, type: unit.xType || "quantitative" },
+      xChannel,
       [radius, chart.innerWidth - radius],
       { bandOrLinear, d3 }
     );
-    let placed = dodgeForHeight(units, radius, chart.innerHeight, (d) => position(x, d.__row[xField]));
+    let placed = dodgeForHeight(units, radius, chart.innerHeight, (d) => position(x, d.__row[xKey]));
     radius = placed.radius;
     const yByKey = new Map(placed.map((circle) => [circle.data.__unitKey, circle.y]));
-    drawXAxis(chart, x, unit.xTitle || xField, d3);
+    drawXAxis(chart, x, xChannel.title || xKey, d3);
     drawYAxis(chart, null, null, d3);
     updateGrid(chart, null, d3);
     return {
       name: "dodge",
       axes: true,
       r: radius,
-      x: (d) => position(x, d.__row[xField]),
+      x: (d) => position(x, d.__row[xKey]),
       y: (d) => chart.innerHeight - radius - yByKey.get(d.__unitKey)
     };
   }
 
-  if (layout === "groupedGrid" && groupField) {
-    const groups = Array.from(new Set(units.map((d) => d.__row[groupField])));
+  if (layout === "groupedGrid" && groupKey) {
+    const groups = Array.from(new Set(units.map((d) => d.__row[groupKey])));
     const groupScale = d3.scaleBand().domain(groups).range([0, chart.innerWidth]).padding(0.18);
-    const groupCounts = countBy(units, (d) => d.__row[groupField]);
+    const groupCounts = countBy(units, (d) => d.__row[groupKey]);
     const radius = fitGroupedRadius(chart, requestedRadius, groupScale.bandwidth(), d3.max(groupCounts.values()) || 1, unit.groupColumns);
     const cell = radius * 2.45;
     const groupColumns = Math.max(3, unit.groupColumns || Math.floor(groupScale.bandwidth() / cell));
-    const stackByGroup = stackIndex(units, (d) => d.__row[groupField]);
-    drawXAxis(chart, groupScale, unit.xTitle || groupField, d3);
+    const stackByGroup = stackIndex(units, (d) => d.__row[groupKey]);
+    drawXAxis(chart, groupScale, groupKey, d3);
     drawYAxis(chart, null, null, d3);
     updateGrid(chart, null, d3);
     return {
       name: "groupedGrid",
       axes: true,
       r: radius,
-      x: (d) => groupScale(d.__row[groupField]) + (stackByGroup(d) % groupColumns) * cell + radius,
+      x: (d) => groupScale(d.__row[groupKey]) + (stackByGroup(d) % groupColumns) * cell + radius,
       y: (d) => chart.innerHeight - radius - Math.floor(stackByGroup(d) / groupColumns) * cell
     };
   }
 
-  if ((layout === "point" || layout === "scatter") && xField && yField) {
+  if ((layout === "point" || layout === "scatter") && xKey && yKey) {
     const radius = fitRadius(chart, requestedRadius, {
-      columns: Math.max(uniqueCount(units, (d) => d.__row[xField]), 1),
-      rows: Math.max(uniqueCount(units, (d) => d.__row[yField]), 1)
+      columns: Math.max(uniqueCount(units, (d) => d.__row[xKey]), 1),
+      rows: Math.max(uniqueCount(units, (d) => d.__row[yKey]), 1)
     });
     const x = unitXScale(
       units,
-      { field: xField, type: unit.xType || "quantitative" },
+      xChannel,
       [radius, chart.innerWidth - radius],
       { bandOrLinear, d3 }
     );
     const y = d3
       .scaleLinear()
-      .domain(niceExtent(units.map((d) => d.__row), yField))
+      .domain(niceExtent(units.map((d) => d.__row), yKey))
       .range([chart.innerHeight - radius, radius])
       .nice();
     drawGrid(chart, y, d3);
-    drawXAxis(chart, x, unit.xTitle || xField, d3);
-    drawYAxis(chart, y, unit.yTitle || yField, d3);
+    drawXAxis(chart, x, xChannel.title || xKey, d3);
+    drawYAxis(chart, y, yChannel.title || yKey, d3);
     return {
       name: "point",
       axes: true,
       r: radius,
-      x: (d) => position(x, d.__row[xField]),
-      y: (d) => clamp(y(d.__row[yField]) + ((d.__unitIndex % 5) - 2) * radius * 0.35, radius, chart.innerHeight - radius)
+      x: (d) => position(x, d.__row[xKey]),
+      y: (d) => clamp(y(d.__row[yKey]) + ((d.__unitIndex % 5) - 2) * radius * 0.35, radius, chart.innerHeight - radius)
     };
   }
 
@@ -159,6 +161,24 @@ function unitXScale(units, channel, range, deps) {
   const scale = deps.bandOrLinear(rows, channel, range, deps.d3);
   if (typeof scale.nice === "function") scale.nice();
   return scale;
+}
+
+function unitChannel(unitAxis, encodingAxis, fallbackType) {
+  if (unitAxis && typeof unitAxis === "object") {
+    return {
+      type: fallbackType,
+      ...unitAxis,
+      title: unitAxis.title || encodingAxis?.title || unitAxis.field
+    };
+  }
+  if (typeof unitAxis === "string") {
+    return {
+      field: unitAxis,
+      type: fallbackType,
+      title: encodingAxis?.field === unitAxis ? encodingAxis.title : unitAxis
+    };
+  }
+  return encodingAxis || null;
 }
 
 function fitRadius(chart, requestedRadius, { columns = 1, rows = 1 } = {}) {

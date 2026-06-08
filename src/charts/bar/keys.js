@@ -3,7 +3,7 @@ import {
   semanticKeyForDatum,
   semanticMeasureForDatum
 } from "../../identity/semantic-key.js";
-import { narrativeSemanticKey } from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeSemanticKey } from "../../scrolly-meta.js?v=semantic-key-11";
 
 export function barKeyAccessor(chart, spec, fallbackField = "id") {
   const fallback = keyAccessor(spec, fallbackField);

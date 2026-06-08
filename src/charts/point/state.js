@@ -1,10 +1,11 @@
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-11";
+import { colorField } from "./encoding.js?v=semantic-key-1";
 
 export function scatterState(spec = {}, enc = {}) {
   const state = narrativeState(spec);
   const granularity = state.sceneState?.granularity || state.granularity || {};
   return {
-    parentField: granularity.parentField || enc.color?.field,
+    parentField: parentFromGroupby(granularity.groupby) || granularity.parentField || colorField(enc),
     granularityMode: granularity.mode || null
   };
 }
@@ -61,4 +62,10 @@ function defaultRadiusRange(count) {
     Math.max(3, radius * 0.75),
     Math.max(7, radius * 2.4)
   ];
+}
+
+function parentFromGroupby(groupby = null) {
+  if (!groupby) return null;
+  if (Array.isArray(groupby)) return groupby.length === 1 ? groupby[0] : groupby;
+  return groupby;
 }

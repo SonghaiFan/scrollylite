@@ -16,7 +16,7 @@ src/charts/<idiom>/
 The folder becomes a plugin when it exposes:
 
 ```text
-src/charts/<idiom>/index.js
+src/charts/<idiom>/plugin.js
 ```
 
 That file should export:
@@ -33,10 +33,33 @@ export function createChartIdiom(deps = {}) {
     inspect
   };
 }
+
+export function createSpecCompiler(context = {}) {
+  return {
+    base,
+    operations
+  };
+}
 ```
 
-Only `key` and `renderer` are required. The rest are optional hooks filled by
-the registry defaults.
+Only `key` and `renderer` are required for rendering. `createSpecCompiler()` is
+required when the idiom has authoring operations that compile into a Vega-ish
+spec. The registry also accepts grouped hooks:
+
+```js
+{
+  hooks: {
+    spec: { prepare, compiler },
+    transition: { plan, intermediateSpecs, intermediateSpec },
+    render: { renderer, defaultMargin },
+    layout: {},
+    focus: {}
+  }
+}
+```
+
+The top-level fields are kept as ergonomic aliases for the runtime; the grouped
+hooks are the stable plugin contract.
 
 ## CDN-Compatible Registration
 
@@ -47,7 +70,7 @@ import { chartModules } from "./charts/manifest.js";
 ```
 
 `manifest.js` is static ESM so it can be served directly from a CDN. It is
-generated from folders that expose `index.js`.
+generated from folders that expose `plugin.js`.
 
 After adding or removing an idiom folder, run:
 
@@ -77,11 +100,12 @@ authoring.js / grammar.js
 ```
 
 - `grammar.js` is the authoring entry for `bar()` and `BarState`.
-- `index.js` is the runtime plugin entry. Keep it authoring-free so the CDN
+- `plugin.js` is the runtime plugin entry. Keep it authoring-free so the CDN
   runtime can register the idiom without importing grammar code.
-- `compile.js` turns bar authoring scenes such as focus, flip/guide,
-  breakdown, and rollup into Vega-ish `data`, `transform`, `mark`,
-  `encoding`, and `narrative` spec fields.
+- `index.js` is a public barrel that can re-export authoring helpers.
+- `compile.js` turns bar authoring operations such as filter/highlight,
+  coordinate/scale/layout, breakdown, and rollup into Vega-ish `data`,
+  `transform`, `mark`, `encoding`, and `narrative` spec fields.
 - `semantic.js` is the canonical place to infer bar orientation, layout,
   segment field, aggregate state, guide state, granularity state, and x/y
   geometry from a compiled spec.
@@ -97,9 +121,10 @@ authoring.js / grammar.js
   the transition plan's `stack-base` baseline means the segment's `__stack0`
   anchor, so a segment exits back to where it originally grew from.
 
-Point, line, and unit now have authoring entry points and idiom-local scene
-compilers. They still use renderer-local transition behavior rather than the
-full bar-style `semantic.js` / `diff.js` / `state.js` transition-plan stack.
+Point, line, and unit now have authoring entry points, idiom-local spec
+compilers, and minimal transition-plan hooks. They still use renderer-local
+transition behavior rather than the full bar-style `semantic.js` / `diff.js` /
+`state.js` transition-plan stack.
 Future idioms should use the bar folder as the reference shape when they need
 custom staged plans, intermediate specs, or inspector metadata.
 
@@ -109,11 +134,10 @@ Point, line, and unit authoring should follow the bar authoring vocabulary
 instead of exposing story-specific legacy syntax. The public chaining surface is:
 
 - shared: `x`, `y`, `channel`, `color`, `size`, `key`, `tooltip`, `sort`,
-  `where`, `highlight`, `guide`, `observe`, and `transition`
+  `where`, `highlight`, `guide`, and `transition`
 - point/scatter: `flip`, `breakdown`, and `rollup`
-- line: `breakdown` and `rollup`
-- unit: `value`, `label`, `columns`, `radius`, `layout`, `group`, `timeline`,
-  and `dodge`
+- line: `flip`, `breakdown`, and `rollup`
+- unit: `value`, `label`, `columns`, `radius`, `group`, `timeline`, and `dodge`
 
 Compiled authoring specs should be Vega-ish first: `data`, `mark`,
 `encoding`, and `transform` stay in the root spec, while ScrollyLite-only
@@ -122,11 +146,12 @@ as `encoding.series`; line grouping is stored in
 `narrative.state.sceneState.granularity.seriesField` and rendered through the
 standard `color` encoding.
 
-Point, line, and unit scene compilers now live in their idiom folders:
+Point, line, and unit spec compilers now live in their idiom folders:
 `src/charts/point/compile.js`, `src/charts/line/compile.js`, and
-`src/charts/unit/compile.js`. The global transition module only dispatches to
-idiom-local compilers. `scatter()` remains an authoring alias for the point
-idiom, but the plugin folder and registered idiom key are `point`.
+`src/charts/unit/compile.js`. The global transition module builds its compiler
+map from the chart plugin manifest, so adding an idiom means adding a folder
+with `plugin.js`. `scatter()` remains an authoring alias for the point idiom,
+but the plugin folder and registered idiom key are `point`.
 
 ## D3 Bar Checklist
 

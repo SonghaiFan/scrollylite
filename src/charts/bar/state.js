@@ -1,6 +1,6 @@
 import { normalizeMarkRendererKey } from "../index.js";
-import { narrativeTransition } from "../../scrolly-meta.js?v=semantic-key-10";
-import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-16";
+import { narrativeTransition } from "../../scrolly-meta.js?v=semantic-key-11";
+import { diffViewStates } from "../../grammar/diff.js?v=semantic-key-17";
 import { defaultTransition, stagedDuration } from "../../timing.js";
 import {
   barCategoryChannel,

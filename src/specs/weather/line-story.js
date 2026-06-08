@@ -1,5 +1,5 @@
-import { line } from "../../charts/line/grammar.js?v=semantic-key-1";
-import { COLD_COLOR, COLD_PERIOD_COLOR, HOT_COLOR, story } from "./shared.js?v=semantic-key-19";
+import { line } from "../../charts/line/grammar.js?v=semantic-key-3";
+import { COLD_COLOR, COLD_PERIOD_COLOR, HOT_COLOR, story } from "./shared.js?v=semantic-key-20";
 
 export function createLineStory() {
   const base = line("weather")

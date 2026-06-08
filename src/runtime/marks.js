@@ -1,4 +1,4 @@
-import { narrativeTransition } from "../scrolly-meta.js?v=semantic-key-10";
+import { narrativeTransition } from "../scrolly-meta.js?v=semantic-key-11";
 import { DEFAULT_TIMING, defaultTransition } from "../timing.js";
 import { SCROLL_TRANSITION_NAME } from "../transition-progress.js?v=scroll-transition-name-2";
 import { clamp, escapeHtml, getD3, titleize } from "./utils.js";

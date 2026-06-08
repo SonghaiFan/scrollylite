@@ -1,5 +1,5 @@
-import { unit } from "../../charts/unit/grammar.js?v=semantic-key-1";
-import { HOT_PERIOD_COLOR, story } from "./shared.js?v=semantic-key-19";
+import { unit } from "../../charts/unit/grammar.js?v=semantic-key-3";
+import { HOT_PERIOD_COLOR, story } from "./shared.js?v=semantic-key-20";
 
 export function createUnitStory() {
   const base = unit("weather")

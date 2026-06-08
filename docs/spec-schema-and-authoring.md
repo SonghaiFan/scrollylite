@@ -170,6 +170,22 @@ narrative: {
 }
 ```
 
+`UnitMarkSpec` is ScrollyLite-specific. It stays small and idiom-level:
+
+```js
+unit: {
+  value?: string,       // count field expanded into repeated units
+  label?: string,       // row label shown in unit tooltips
+  layout?: "grid" | "groupedGrid" | "timeline" | "dodge" | "point",
+  group?: string,       // category used by groupedGrid
+  x?: string | ChannelSpec,
+  y?: string | ChannelSpec,
+  columns?: number,
+  radius?: number,
+  maxUnits?: number
+}
+```
+
 Scene transition types are inferred by diffing the previous and next compiled
 view specs. Authors should not write `transition.scene` or derived scene state
 in the view spec.
@@ -445,7 +461,7 @@ const base = bar("weatherDays")
   .y("count")
   .sort("year");
 
-story(createBaseDemo())
+story.demo()
   .layout("floatToText")
   .step("Baseline: vertical bar chart", base.where({ type: "Hot days" }), {
     body: "...",

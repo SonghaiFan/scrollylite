@@ -1,4 +1,4 @@
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-11";
 import {
   barCategoryChannel,
   barMeasureChannel,

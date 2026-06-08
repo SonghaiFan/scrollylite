@@ -2,4 +2,4 @@ export {
   point,
   scatter,
   PointState
-} from "./authoring.js?v=semantic-key-1";
+} from "./authoring.js?v=semantic-key-3";

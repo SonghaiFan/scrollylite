@@ -1,5 +1,5 @@
 import { keyAccessor } from "../../identity/semantic-key.js?v=semantic-key-1";
-import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-10";
+import { narrativeState } from "../../scrolly-meta.js?v=semantic-key-11";
 
 export function scatterKeyAccessor(spec, fallbackField = "id") {
   const rawKey = keyAccessor(spec, fallbackField);

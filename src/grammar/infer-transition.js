@@ -1,4 +1,4 @@
-import { diffViewStates } from "./diff.js?v=semantic-key-13";
+import { diffViewStates } from "./diff.js?v=semantic-key-17";
 
 export function inferTransition(previous, next) {
   if (!previous) return [];
@@ -15,7 +15,7 @@ export function inferTransition(previous, next) {
   if (diff.has("filter") || diff.hasDelta("focus") || filterTransformChanged(diff.previous, diff.next)) {
     scenes.push("focus");
   }
-  if (diff.has("observation") || diff.hasDelta("observation") || xyObservationChanged(diff)) {
+  if (xyObservationChanged(diff)) {
     scenes.push("observation");
   }
   if (

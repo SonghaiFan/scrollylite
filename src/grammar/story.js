@@ -1,9 +1,9 @@
 import { cloneState } from "./view-state.js?v=semantic-key-10";
-import { inferTransition } from "./infer-transition.js?v=semantic-key-13";
+import { inferTransition } from "./infer-transition.js?v=semantic-key-14";
 import {
   externalizeScrollyViewSpec,
   withNarrative
-} from "../scrolly-meta.js?v=semantic-key-10";
+} from "../scrolly-meta.js?v=semantic-key-11";
 
 export function story(initialSpec = {}) {
   return new StoryBuilder(initialSpec);

@@ -2,7 +2,7 @@ import {
   narrativeObjectKey,
   narrativeSemanticKey,
   narrativeState
-} from "../scrolly-meta.js?v=semantic-key-10";
+} from "../scrolly-meta.js?v=semantic-key-11";
 import {
   appendBarSemanticDeltas,
   semanticBarState
@@ -22,7 +22,6 @@ export function diffViewStates(previous, next) {
   if (!sameValue(prev.encoding?.color, curr.encoding?.color)) changed.push("encoding.color");
   if (!sameValue(prev.guide, curr.guide)) changed.push("guide");
   if (!sameValue(prev.granularity, curr.granularity)) changed.push("granularity");
-  if (!sameValue(prev.observation, curr.observation)) changed.push("observation");
 
   const semantic = diffSemanticViewStates(prev, curr);
 
@@ -64,7 +63,6 @@ export function diffSemanticViewStates(previous = {}, next = {}) {
   pushStateDelta(deltas, "focus", prev.focus, curr.focus);
   pushStateDelta(deltas, "guide", prev.guide, curr.guide);
   pushStateDelta(deltas, "granularity", prev.granularity, curr.granularity);
-  pushStateDelta(deltas, "observation", prev.observation, curr.observation);
 
   if (prev.mark === "bar" || curr.mark === "bar") {
     appendBarSemanticDeltas(deltas, prev, curr, { pushDelta, pushStateDelta });
@@ -96,8 +94,7 @@ function semanticState(spec = {}) {
     nonFilterTransforms: transforms.filter((transform) => !transform?.filter),
     focus: sceneState.focus || stateFields.focus || null,
     guide: sceneState.guide || stateFields.guide || null,
-    granularity: sceneState.granularity || stateFields.granularity || null,
-    observation: sceneState.observation || stateFields.observation || null
+    granularity: sceneState.granularity || stateFields.granularity || null
   };
 
   if (String(spec.mark || "").toLowerCase() === "bar") {

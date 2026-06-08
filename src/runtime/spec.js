@@ -1,4 +1,4 @@
-import { dataName } from "../scrolly-meta.js?v=semantic-key-10";
+import { dataName } from "../scrolly-meta.js?v=semantic-key-11";
 import { normalizeScrollDriverConfig } from "../scroll-drivers/index.js";
 import { getD3, uniqueTokens } from "./utils.js";
 

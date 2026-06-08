@@ -1,5 +1,5 @@
-import { bar } from "../../charts/bar/grammar.js?v=semantic-key-1";
-import { story } from "./shared.js?v=semantic-key-19";
+import { bar } from "../../charts/bar/grammar.js?v=semantic-key-3";
+import { story } from "./shared.js?v=semantic-key-20";
 
 export function createBarStory() {
   const base = bar("weatherDays")

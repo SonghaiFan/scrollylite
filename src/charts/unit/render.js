@@ -1,10 +1,10 @@
 import { BaseChart } from "../base.js";
 import { unitKey } from "./keys.js";
-import { expandUnits, unitLayout } from "./state.js?v=semantic-key-1";
+import { expandUnits, unitLayout } from "./state.js?v=semantic-key-2";
 import {
   narrativeObjectKey,
   narrativeUnit
-} from "../../scrolly-meta.js?v=semantic-key-10";
+} from "../../scrolly-meta.js?v=semantic-key-11";
 import { DEFAULT_TIMING } from "../../timing.js";
 
 export function createUnitRenderer(deps) {
@@ -163,13 +163,13 @@ class UnitChart extends BaseChart {
 
     function bindUnitTooltip(selection) {
       const unit = narrativeUnit(spec) || {};
-      const valueField = unit.valueField;
-      const labelField = unit.labelField;
+      const valueKey = unit.value;
+      const labelKey = unit.label;
       selection
         .on("mouseenter", (event, d) => {
           const bits = [];
-          if (labelField) bits.push(`${escapeHtml(labelField)}: ${escapeHtml(d.__row[labelField])}`);
-          if (valueField) bits.push(`${escapeHtml(valueField)}: ${escapeHtml(d.__row[valueField])}`);
+          if (labelKey) bits.push(`${escapeHtml(labelKey)}: ${escapeHtml(d.__row[labelKey])}`);
+          if (valueKey) bits.push(`${escapeHtml(valueKey)}: ${escapeHtml(d.__row[valueKey])}`);
           bits.push(`unit: ${escapeHtml(d.__unitIndex + 1)}`);
           showTooltip(tooltip, event, bits.join("<br>"));
         })
