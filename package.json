@@ -1,0 +1,76 @@
+{
+  "name": "scrollylite",
+  "version": "0.1.0",
+  "description": "Declarative scrollytelling visualization grammar for browser ESM.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SonghaiFan/scrolly-grammar-template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SonghaiFan/scrolly-grammar-template/issues"
+  },
+  "homepage": "https://github.com/SonghaiFan/scrolly-grammar-template#readme",
+  "main": "./dist/scrollylite.esm.js",
+  "module": "./dist/scrollylite.esm.js",
+  "types": "./dist/index.d.ts",
+  "jsdelivr": "./dist/scrollylite.global.js",
+  "unpkg": "./dist/scrollylite.global.js",
+  "style": "./dist/scrollylite.css",
+  "sideEffects": [
+    "*.css",
+    "dist/**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/scrollylite.esm.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/scrollylite.browser.js"
+    },
+    "./style.css": "./dist/scrollylite.css",
+    "./themes/default.css": "./dist/themes/default.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build-dist.mjs",
+    "check": "node scripts/check.mjs",
+    "examples:check": "node scripts/check-examples.mjs",
+    "manifest:check": "node scripts/check-chart-manifest.mjs",
+    "pack:check": "node scripts/check-pack-consumer.mjs",
+    "package:check": "node scripts/check-package.mjs",
+    "release:check": "npm test && npm run pack:check && npm pack --dry-run --ignore-scripts",
+    "smoke": "node scripts/smoke.mjs",
+    "test": "npm run check && npm run manifest:check && npm run build && npm run examples:check && npm run package:check && npm run smoke",
+    "prepack": "npm test",
+    "prepublishOnly": "npm run release:check"
+  },
+  "peerDependencies": {
+    "arquero": "^8.0.0",
+    "d3": "^7.0.0"
+  },
+  "keywords": [
+    "scrollytelling",
+    "visualization",
+    "d3",
+    "grammar",
+    "esm"
+  ],
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

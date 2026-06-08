@@ -1,0 +1,25 @@
+year,decade,period,type,count
+1910,1910s,early,Hot days,7
+1910,1910s,early,Cold days,16
+1920,1920s,early,Hot days,8
+1920,1920s,early,Cold days,14
+1930,1930s,early,Hot days,9
+1930,1930s,early,Cold days,13
+1940,1940s,early,Hot days,10
+1940,1940s,early,Cold days,12
+1950,1950s,middle,Hot days,11
+1950,1950s,middle,Cold days,10
+1960,1960s,middle,Hot days,12
+1960,1960s,middle,Cold days,9
+1970,1970s,middle,Hot days,13
+1970,1970s,middle,Cold days,8
+1980,1980s,middle,Hot days,15
+1980,1980s,middle,Cold days,7
+1990,1990s,recent,Hot days,17
+1990,1990s,recent,Cold days,6
+2000,2000s,recent,Hot days,20
+2000,2000s,recent,Cold days,5
+2010,2010s,recent,Hot days,24
+2010,2010s,recent,Cold days,4
+2020,2020s,recent,Hot days,27
+2020,2020s,recent,Cold days,3
