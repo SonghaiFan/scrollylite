@@ -1,6 +1,5 @@
 import { bar } from "../../charts/bar/grammar.js?v=semantic-key-1";
-import { story } from "../../grammar/index.js?v=semantic-key-20";
-import { createBaseDemo } from "./shared.js?v=semantic-key-18";
+import { story } from "./shared.js?v=semantic-key-19";
 
 export function createBarStory() {
   const base = bar("weatherDays")
@@ -9,7 +8,7 @@ export function createBarStory() {
     .sort("year");
 
 
-  return story(createBaseDemo())
+  return story.demo()
     .layout("floatToText")
     .description(
       "This demo keeps the mark fixed as bar and demonstrates Focus, Guide, and Granularity as scene-state changes over tidy data."
@@ -80,10 +79,10 @@ export function createBarStory() {
     )
     .step(
       "Granularity: roll up to average days",
-      base.rollup("type", { title: "Average days", op: "mean" }),
+      base.rollup("decade", { title: "Average days", op: "mean" }),
       {
         body: "The granularity scene rolls child segment keys up into one parent average-days bar per decade.",
-        authoring: 'base.rollup("type", { title: "Average days", op: "mean" })'
+        authoring: 'base.rollup("decade", { title: "Average days", op: "mean" })'
       }
     )
     .toSpec();

@@ -115,13 +115,17 @@ function renderStepInspector(step = {}) {
   if (!authoringCode && !compiledSpec) return "";
 
   return `
-    <details class="sl-step-inspector">
-      <summary>Authoring / compiled spec</summary>
+    <section class="sl-step-inspector" aria-label="Step authoring and compiled specification">
       <div class="sl-step-inspector-grid">
-        ${authoringCode ? renderCodePanel("Authoring", authoringCode) : ""}
-        ${compiledSpec ? renderCodePanel("Compiled spec", JSON.stringify(compiledSpec, null, 2)) : ""}
+        ${authoringCode ? renderCodePanel("Authoring code", authoringCode) : ""}
+        ${compiledSpec ? `
+          <details class="sl-compiled-spec">
+            <summary>Compiled specification</summary>
+            ${renderCodePanel("Compiled specification", JSON.stringify(compiledSpec, null, 2))}
+          </details>
+        ` : ""}
       </div>
-    </details>
+    </section>
   `;
 }
 

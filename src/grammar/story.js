@@ -9,6 +9,10 @@ export function story(initialSpec = {}) {
   return new StoryBuilder(initialSpec);
 }
 
+story.init = function initStory(initialSpec = {}) {
+  return story(initialSpec);
+};
+
 export function authoredSteps(definitions = [], { action = ["step", "tooltip"] } = {}) {
   let previousView = null;
   return definitions.map((definition, index) => {

@@ -24,12 +24,15 @@ export function createBarSceneCompiler({ applyFilterFocus }) {
 
 function applyBarGuide(spec, guideSpec = {}) {
   let workingSpec = spec;
-  const layout = guideSpec.layout || guideSpec.barLayout || null;
-  if (guideSpec.layout || guideSpec.barLayout) {
+  const layout = guideSpec.layout || null;
+  const flipsOrientation = Boolean(guideSpec.flip);
+  if (guideSpec.layout) {
     const segmentField = barSegmentField(workingSpec);
     const state = narrativeState(workingSpec);
     const granularity = state.sceneState?.granularity || state.granularity || {};
-    const orientation = guideSpec.orientation || barOrientationFromEncoding(workingSpec.encoding || {});
+    const orientation = flipsOrientation
+      ? oppositeOrientation(barOrientationFromEncoding(workingSpec.encoding || {}))
+      : barOrientationFromEncoding(workingSpec.encoding || {});
     workingSpec = withSceneState({
       ...workingSpec,
       encoding: encodingWithBarLayout(workingSpec.encoding, layout, segmentField, orientation)
@@ -48,23 +51,24 @@ function applyBarGuide(spec, guideSpec = {}) {
         : {})
     });
 
-    if (!guideSpec.orientation && !guideSpec.category && !guideSpec.measure && !guideSpec.scale) {
+    if (!flipsOrientation && !guideSpec.scale) {
       return workingSpec;
     }
   }
 
   let encoding = cloneEncoding(workingSpec.encoding);
+  const currentOrientation = barOrientationFromEncoding(encoding);
   const category = channelFromField(
-    guideSpec.category || encoding.x?.field || encoding.y?.field,
-    guideSpec.categoryTitle || encoding.x?.title || encoding.y?.title,
+    categoryChannel(encoding),
+    categoryChannel(encoding)?.title,
     "nominal"
   );
   const measure = channelFromField(
-    guideSpec.measure || encoding.y?.field || encoding.x?.field,
-    guideSpec.measureTitle || encoding.y?.title || encoding.x?.title,
+    measureChannel(encoding),
+    measureChannel(encoding)?.title,
     "quantitative"
   );
-  const orientation = guideSpec.orientation || "horizontal";
+  const orientation = flipsOrientation ? oppositeOrientation(currentOrientation) : currentOrientation;
 
   if (orientation === "horizontal") {
     encoding.x = { ...measure, ...(guideSpec.scale ? { domain: guideSpec.scale.domain } : {}) };
@@ -97,6 +101,7 @@ function applyBarGuide(spec, guideSpec = {}) {
     guide: {
       ...(resolvedLayout ? { layout: resolvedLayout } : {}),
       orientation,
+      ...(flipsOrientation ? { flip: true } : {}),
       scale: guideSpec.scale || null,
       staging: resolveGuideStaging(guideSpec, orientation)
     }
@@ -327,6 +332,10 @@ function measureChannel(encoding = {}) {
   if (encoding.y?.type === "quantitative") return encoding.y;
   if (encoding.x?.type === "quantitative") return encoding.x;
   return encoding.y?.field ? encoding.y : encoding.x;
+}
+
+function oppositeOrientation(orientation) {
+  return orientation === "horizontal" ? "vertical" : "horizontal";
 }
 
 function resolveGuideStaging(guideSpec = {}, orientation) {

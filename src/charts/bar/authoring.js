@@ -1,6 +1,7 @@
 import { ViewState, cloneState } from "../../grammar/view-state.js?v=semantic-key-10";
 import { externalizeScrollyViewSpec } from "../../scrolly-meta.js?v=semantic-key-10";
 import { compileSceneViewSpec } from "../../transitions/index.js?v=semantic-key-17";
+import { labelFromValue, titleize } from "../../labels.js?v=semantic-key-1";
 
 export function bar(data) {
   return new BarState({
@@ -151,10 +152,7 @@ export class BarState extends ViewState {
   }
 
   flip(options = {}) {
-    const encoding = this.state.encoding || {};
-    const category = cloneState(options.category || encoding.x || {});
-    const measure = cloneState(options.measure || encoding.y || {});
-    const domain = options.domain || options.scale?.domain || measure.domain;
+    const domain = options.domain || options.scale?.domain;
     const scale = domain || options.scale
       ? {
           ...(options.scale || {}),
@@ -169,9 +167,7 @@ export class BarState extends ViewState {
       : undefined;
 
     return this.guide({
-      orientation: options.orientation || "horizontal",
-      category,
-      measure,
+      flip: true,
       ...(scale ? { scale } : {}),
       ...(staging ? { staging } : {})
     });
@@ -220,9 +216,7 @@ export class BarState extends ViewState {
       granularity: null,
       guide: null,
       semanticKey: normalized.semanticKey || null,
-      where: normalized.drop
-        ? clearConstraint(this.state.where || [], normalized.drop)
-        : this.state.where,
+      where: this.state.where,
       transform: [
         ...(this.state.transform || []),
         {
@@ -265,17 +259,25 @@ export class BarState extends ViewState {
       : next.y(value, { title: options.title || titleize(value) });
   }
 
-  rollup(drop = "type", options = {}) {
+  rollup(groupby = null, options = {}) {
+    if (groupby && typeof groupby === "object") {
+      options = groupby;
+      groupby = options.groupby || options.by || null;
+    }
+    const parent = groupby || options.groupby || options.by || this.state.encoding?.x?.field;
+    const fields = asArray(parent).filter(Boolean);
     const value = options.value || this.state.encoding?.y?.field || "count";
     const {
       color,
       title,
+      by,
+      groupby: _groupby,
       value: _value,
       ...rest
     } = options;
     let next = this.agg({
       ...rest,
-      drop,
+      groupby: fields,
       value,
       as: options.as || value,
       op: options.op || "sum"
@@ -290,12 +292,12 @@ export class BarState extends ViewState {
     return this.breakdown(segment, options);
   }
 
-  collapse(drop = "type", options = {}) {
-    return this.rollup(drop, options);
+  collapse(groupby = null, options = {}) {
+    return this.rollup(groupby || options.groupby || options.by || this.state.encoding?.x?.field, options);
   }
 
-  aggregate(drop = "type", options = {}) {
-    return this.rollup(drop, options);
+  aggregate(groupby = null, options = {}) {
+    return this.collapse(groupby, options);
   }
 
   segment(fieldOrConfig = {}, maybeConfig = {}) {
@@ -463,25 +465,13 @@ function isMeasureSelectorField(field) {
   return field === "type" || field === "kind" || field.endsWith("_type") || field.endsWith("_kind");
 }
 
-function labelFromValue(value) {
-  const text = String(value ?? "");
-  return text.includes("_") ? titleize(text) : text;
-}
-
-function titleize(value) {
-  return String(value || "")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function normalizeAggregation(config = {}, state = {}) {
-  const aggregate = typeof config === "string" ? { drop: config } : config;
+  const aggregate = typeof config === "string" ? { groupby: config } : config;
   const xField = state.encoding?.x?.field;
   const yField = state.encoding?.y?.field;
   const groupby = asArray(
     aggregate.by ||
     aggregate.groupby ||
-    (aggregate.drop ? xField : null) ||
     xField
   ).filter(Boolean);
   const value = aggregate.value || aggregate.field || yField || "value";
@@ -489,7 +479,7 @@ function normalizeAggregation(config = {}, state = {}) {
   const op = aggregate.op || aggregate.use || "sum";
   const segment =
     aggregate.segment ||
-    (!aggregate.drop ? groupby.find((field) => field !== xField) : null);
+    groupby.find((field) => field !== xField);
   const category = aggregate.category || xField || groupby.find((field) => field !== segment);
 
   return {

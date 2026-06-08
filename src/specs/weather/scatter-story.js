@@ -1,136 +1,77 @@
-import { createBaseDemo, pointView } from "./shared.js?v=semantic-key-18";
+import { point } from "../../charts/point/grammar.js?v=semantic-key-1";
+import { PERIOD_LUMINANCE_COLOR, story } from "./shared.js?v=semantic-key-19";
 
 export function createPointStory() {
-  return {
-    ...createBaseDemo(),
-    description:
-      "This demo keeps the mark fixed as point and demonstrates Focus, Guide, Observation, and Granularity with semantic split/merge anchors.",
-    steps: [
+  const base = point("weather")
+    .x("tmin")
+    .y("tmax")
+    .color(PERIOD_LUMINANCE_COLOR)
+    .key("decade")
+    .sort("year");
+
+  const hotCold = base
+    .x("hot_days")
+    .y("cold_days");
+
+  return story.demo()
+    .layout("floatToText")
+    .description(
+      "This demo keeps the mark fixed as point and demonstrates Focus, Guide, Observation, and Granularity with semantic split/merge anchors."
+    )
+    .step(
+      "Baseline: temperature scatter plot",
+      base,
       {
-        title: "Baseline: temperature scatter plot",
-        body:
-          "Start with one circle per decade, encoding minimum temperature on x and maximum temperature on y.",
-        action: ["step", "tooltip", "enter"],
-        views: {
-          main: pointView()
-        }
-      },
-      {
-        title: "Focus: filter to a subset",
-        body:
-          "The focus scene keeps the scatter plot form but filters to the recent decades.",
-        transition: {
-          scene: ["focus"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: pointView({
-            focus: {
-              field: "period",
-              equal: "recent"
-            }
-          })
-        }
-      },
-      {
-        title: "Guide: swap axes and use log scale",
-        body:
-          "The guide scene changes how the same variables are read: axes swap and the horizontal scale becomes logarithmic.",
-        transition: {
-          scene: ["guide"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: pointView({
-            guide: {
-              swap: true,
-              x: {
-                field: "tmax",
-                title: "Max temperature (log scale)",
-                scale: { type: "log" }
-              },
-              y: {
-                field: "tmin",
-                title: "Min temperature"
-              },
-              staging: {
-                order: ["x", "y"]
-              }
-            }
-          })
-        }
-      },
-      {
-        title: "Observation: change encoded variables",
-        body:
-          "The observation scene keeps the decade circles but changes both axes to encode hot and cold days.",
-        transition: {
-          scene: ["observation"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: pointView({
-            observation: {
-              x: { field: "hot_days", title: "Hot days", domain: [0, 30] },
-              y: { field: "cold_days", title: "Cold days", domain: [0, 30] }
-            }
-          })
-        }
-      },
-      {
-        title: "Granularity: merge decades into periods",
-        body:
-          "The granularity scene merges multiple decade circles into one aggregate circle for each period.",
-        transition: {
-          scene: ["granularity"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: pointView({
-            granularity: {
-              mode: "aggregate",
-              groupby: ["period"],
-              key: "period",
-              parentField: "period",
-              detailField: "decade",
-              x: { op: "mean", field: "hot_days", as: "hot_days", title: "Mean hot days", domain: [0, 30] },
-              y: { op: "mean", field: "cold_days", as: "cold_days", title: "Mean cold days", domain: [0, 30] },
-              countAs: "decades",
-              sizeRange: [12, 24]
-            },
-            encoding: {
-              x: { field: "hot_days", type: "quantitative", title: "Mean hot days", domain: [0, 30] },
-              y: { field: "cold_days", type: "quantitative", title: "Mean cold days", domain: [0, 30] },
-              size: { field: "decades", type: "quantitative", range: [12, 24] }
-            }
-          })
-        }
-      },
-      {
-        title: "Granularity: split periods back to decades",
-        body:
-          "The granularity scene splits each aggregate period circle back into its decade circles using the period as parent identity.",
-        transition: {
-          scene: ["granularity"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: pointView({
-            granularity: {
-              mode: "detail",
-              key: "decade",
-              parentField: "period",
-              detailField: "decade"
-            },
-            encoding: {
-              x: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
-              y: { field: "cold_days", type: "quantitative", title: "Cold days", domain: [0, 30] }
-            }
-          })
-        }
+        body: "Start with one circle per decade, encoding minimum temperature on x and maximum temperature on y.",
+        authoring: "base"
       }
-    ]
-  };
+    )
+    .step(
+      "Focus: filter to a subset",
+      base.where({ period: "recent" }),
+      {
+        body: "The focus scene keeps the scatter plot form but filters to the recent decades.",
+        authoring: 'base.where({ period: "recent" })'
+      }
+    )
+    .step(
+      "Guide: flip axes and use log scale",
+      base.flip({
+        x: { scale: { type: "log" } }
+      }),
+      {
+        body: "The guide scene changes how the same variables are read: axes flip and the horizontal scale becomes logarithmic.",
+        authoring: 'base.flip({ x: { scale: { type: "log" } } })'
+      }
+    )
+    .step(
+      "Observation: change encoded variables",
+      hotCold,
+      {
+        body: "The observation scene keeps the decade circles but changes both axes to encode hot and cold days.",
+        authoring: 'base.x("hot_days").y("cold_days")'
+      }
+    )
+    .step(
+      "Granularity: merge decades into periods",
+      hotCold.rollup("period"),
+      {
+        body: "The granularity scene merges multiple decade circles into one aggregate circle for each period.",
+        authoring: 'hotCold.rollup("period")'
+      }
+    )
+    .step(
+      "Granularity: split periods back to decades",
+      hotCold.breakdown("decade", {
+        key: "decade",
+        parentField: "period"
+      }),
+      {
+        body: "The granularity scene splits each aggregate period circle back into its decade circles using the period as parent identity.",
+        authoring: 'hotCold.breakdown("decade", { key: "decade", parentField: "period" })'
+      }
+    )
+    .toSpec();
 }
 
 export function createScatterStory() {

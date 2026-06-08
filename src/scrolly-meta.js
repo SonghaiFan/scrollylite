@@ -78,22 +78,9 @@ export function externalizeScrollyViewSpec(spec = {}) {
   }
 
   const sceneState = { ...(state.sceneState || {}) };
-  if (next.barLayout !== undefined) {
-    sceneState.granularity = {
-      ...(sceneState.granularity || {}),
-      layout: next.barLayout
-    };
-    delete next.barLayout;
-  }
-  if (next.segmentField !== undefined || next.segmentDomain !== undefined) {
-    sceneState.granularity = {
-      ...(sceneState.granularity || {}),
-      ...(next.segmentField !== undefined ? { segmentField: next.segmentField } : {}),
-      ...(next.segmentDomain !== undefined ? { segments: next.segmentDomain } : {})
-    };
-    delete next.segmentField;
-    delete next.segmentDomain;
-  }
+  delete next.barLayout;
+  delete next.segmentField;
+  delete next.segmentDomain;
   if (Object.keys(sceneState).length) state.sceneState = sceneState;
   delete next.aggregate;
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Scrolly Grammar Template</title>
-    <link rel="stylesheet" href="./src/styles.css?v=semantic-key-19" />
+    <link rel="stylesheet" href="./src/styles.css?v=semantic-key-21" />
     <link id="demo-theme-style" rel="stylesheet" href="./src/themes/default.css?v=semantic-key-10" />
   </head>
   <body>
@@ -17,6 +17,8 @@
         <a href="?layout=floatToText&story=bar" data-layout-link="floatToText">Float to Text</a>
         <a href="?layout=textOverVis&story=bar" data-layout-link="textOverVis">Text over Vis</a>
         <a href="?layout=floatToText&story=bar" data-story-link="bar">Bar Story</a>
+        <a href="?layout=floatToText&story=point" data-story-link="point">Point Story</a>
+        <a href="?layout=floatToText&story=line" data-story-link="line">Line Story</a>
         <a href="?layout=floatToText&story=unit" data-story-link="unit">Unit Story</a>
         <a href="?layout=floatToText&story=bar&action=step" data-action-link="step">Stepped</a>
         <a href="?layout=floatToText&story=bar&action=scroll" data-action-link="scroll">Scroll</a>
@@ -27,8 +29,8 @@
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
     <script type="module">
-      import { createStory } from "./src/scrollylite.js?v=semantic-key-56";
-      import { createDemoSpec } from "./src/specs/demo.js?v=semantic-key-30";
+      import { createStory } from "./src/scrollylite.js?v=semantic-key-58";
+      import { createDemoSpec } from "./src/specs/demo.js?v=semantic-key-32";
 
       const THEMES = {
         default: {
@@ -46,7 +48,7 @@
       const layoutPreset = requestedLayout === "floatToText" ? "floatToText" : "textOverVis";
       const themeName = resolveTheme(params.get("theme"));
       const actionMode = params.get("action") === "scroll" ? "scroll" : "step";
-      const storyAliases = { scatter: "bar", point: "bar", line: "bar" };
+      const storyAliases = { scatter: "point" };
       const storyOptions = ["bar", "unit", "point", "scatter", "line"];
       const storyId = storyOptions.includes(params.get("story"))
         ? storyAliases[params.get("story")] || params.get("story")

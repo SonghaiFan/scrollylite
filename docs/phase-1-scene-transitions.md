@@ -25,7 +25,7 @@ from `MARK_TRANSITION_COMPILERS` in `src/transitions/index.js`.
 `guide` changes how the same observation is read.
 
 - Bar supports orientation, scale, and staged x/y updates.
-- Scatter and line share the xy guide compiler for axis swap and scale changes.
+- Point and line share the xy guide compiler for `flip` and scale changes.
 - Segmented bars can use guide to move between stacked and grouped layouts.
 - Unit supports guide layout changes such as grouped-grid and collision-dodged
   timeline layouts. Grouping units by category is treated as guide, not

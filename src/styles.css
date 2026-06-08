@@ -235,6 +235,14 @@ body {
   list-style-position: outside;
 }
 
+.sl-compiled-spec {
+  margin-top: 2px;
+}
+
+.sl-compiled-spec .sl-code-panel {
+  margin-top: 10px;
+}
+
 .sl-transition-inspector summary {
   cursor: pointer;
   display: flex;
@@ -255,6 +263,11 @@ body {
   display: grid;
   gap: 12px;
   margin-top: 12px;
+  min-width: 0;
+}
+
+.sl-code-panel {
+  min-width: 0;
 }
 
 .sl-code-panel h3 {
@@ -270,6 +283,7 @@ body {
   margin: 0;
   padding: 10px 12px;
   overflow: auto;
+  overflow-wrap: anywhere;
   color: #202020;
   background: #f0f2f2;
   border: 1px solid var(--sl-border);
@@ -280,7 +294,8 @@ body {
 
 .sl-code-panel code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .sl-figure-wrap {

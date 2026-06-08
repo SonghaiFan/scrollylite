@@ -12,17 +12,19 @@ export function inferTransition(previous, next) {
 
   const diff = diffViewStates(previous, next);
 
-  if (diff.has("filter") || filterTransformChanged(diff.previous, diff.next)) {
+  if (diff.has("filter") || diff.hasDelta("focus") || filterTransformChanged(diff.previous, diff.next)) {
     scenes.push("focus");
   }
-  if (diff.has("observation")) scenes.push("observation");
+  if (diff.has("observation") || diff.hasDelta("observation") || xyObservationChanged(diff)) {
+    scenes.push("observation");
+  }
   if (
-    (diff.has("granularity") || diff.hasDelta("bar.granularity")) &&
+    (diff.has("granularity") || diff.hasDelta("granularity") || diff.hasDelta("bar.granularity")) &&
     !onlyGranularityLayoutChanged(diff.delta("bar.granularity") || diff.delta("granularity"))
   ) {
     scenes.push("granularity");
   }
-  if (diff.has("guide") || diff.hasDelta("bar.guide")) scenes.push("guide");
+  if (diff.has("guide") || diff.hasDelta("guide") || diff.hasDelta("bar.guide")) scenes.push("guide");
 
   return unique(scenes);
 }
@@ -53,6 +55,19 @@ function onlyGranularityLayoutChanged(delta = null) {
     sameJSON(prevRest, nextRest) &&
     !sameJSON(prevGranularity.layout, nextGranularity.layout)
   );
+}
+
+function xyObservationChanged(diff) {
+  if (diff.has("transform") || diff.has("filter") || diff.hasDelta("focus")) return false;
+  const previousMark = String(diff.previous?.mark || "").toLowerCase();
+  const nextMark = String(diff.next?.mark || "").toLowerCase();
+  if (previousMark === "bar" || nextMark === "bar") return false;
+
+  return ["x", "y"].some((channel) => {
+    const previous = diff.previous?.encoding?.[channel];
+    const next = diff.next?.encoding?.[channel];
+    return previous?.field && next?.field && previous.field !== next.field;
+  });
 }
 
 function sameJSON(a, b) {

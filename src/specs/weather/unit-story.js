@@ -1,77 +1,52 @@
-import { HOT_PERIOD_COLOR, createBaseDemo, unitView } from "./shared.js?v=semantic-key-18";
+import { unit } from "../../charts/unit/grammar.js?v=semantic-key-1";
+import { HOT_PERIOD_COLOR, story } from "./shared.js?v=semantic-key-19";
 
 export function createUnitStory() {
-  return {
-    ...createBaseDemo(),
-    description:
-      "This demo registers a unit chart idiom and demonstrates Focus plus Guide layouts for repeated count units.",
-    steps: [
+  const base = unit("weather")
+    .x("year")
+    .y("hot_days")
+    .color(HOT_PERIOD_COLOR)
+    .key("decade")
+    .value("hot_days")
+    .label("decade")
+    .sort("year");
+
+  return story.demo()
+    .layout("floatToText")
+    .description(
+      "This demo registers a unit chart idiom and demonstrates Focus plus Guide layouts for repeated count units."
+    )
+    .step(
+      "Baseline: one unit per hot day",
+      base,
       {
-        title: "Baseline: one unit per hot day",
-        body:
-          "Start with one keyed circle per hot day. Units inherit semantic identity from decade plus unit index.",
-        action: ["step", "tooltip", "enter"],
-        views: {
-          main: unitView()
-        }
-      },
-      {
-        title: "Focus: filter to recent decades",
-        body:
-          "The focus scene keeps the unit idiom but filters rows before unit expansion.",
-        transition: {
-          scene: ["focus"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: unitView({
-            focus: {
-              field: "period",
-              equal: "recent"
-            }
-          })
-        }
-      },
-      {
-        title: "Guide: group units by period",
-        body:
-          "The guide scene changes position and scale to group the same repeated units by period.",
-        transition: {
-          scene: ["guide"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: unitView({
-            guide: {
-              layout: "groupedGrid",
-              groupField: "period",
-              color: HOT_PERIOD_COLOR
-            }
-          })
-        }
-      },
-      {
-        title: "Guide: dodge units along the timeline",
-        body:
-          "The guide scene keeps the hot-day units but changes their reading guide to a collision-dodged timeline.",
-        transition: {
-          scene: ["guide"]
-        },
-        action: ["step", "tooltip"],
-        views: {
-          main: unitView({
-            guide: {
-              layout: "dodge",
-              xField: "year",
-              xType: "quantitative",
-              xTitle: "Year",
-              staging: {
-                order: ["x", "y"]
-              }
-            }
-          })
-        }
+        body: "Start with one keyed circle per hot day. Units inherit semantic identity from decade plus unit index.",
+        authoring: "base"
       }
-    ]
-  };
+    )
+    .step(
+      "Focus: filter to recent decades",
+      base.where({ period: "recent" }),
+      {
+        body: "The focus scene keeps the unit idiom but filters rows before unit expansion.",
+        authoring: 'base.where({ period: "recent" })'
+      }
+    )
+    .step(
+      "Guide: group units by period",
+      base.group("period", { color: HOT_PERIOD_COLOR }),
+      {
+        body: "The guide scene changes position and scale to group the same repeated units by period.",
+        authoring: 'base.group("period", { color: HOT_PERIOD_COLOR })'
+      }
+    )
+    .step(
+      "Guide: dodge units along the timeline",
+      base.dodge("year"),
+      {
+        body: "The guide scene keeps the hot-day units but changes their reading guide to a collision-dodged timeline.",
+        authoring: 'base.dodge("year")'
+      }
+    )
+    .toSpec();
 }

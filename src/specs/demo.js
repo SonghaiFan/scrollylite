@@ -1,6 +1,8 @@
-import { createBarStory } from "./weather/bar-story.js?v=semantic-key-24";
-import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-16";
-import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-18";
+import { createBarStory } from "./weather/bar-story.js?v=semantic-key-25";
+import { createLineStory } from "./weather/line-story.js?v=semantic-key-18";
+import { createScatterStory } from "./weather/scatter-story.js?v=semantic-key-18";
+import { createUnitStory } from "./weather/unit-story.js?v=semantic-key-17";
+import { layoutCopy, withScrollActionMode } from "./weather/shared.js?v=semantic-key-19";
 
 const STORY_REGISTRY = {
   bar: {
@@ -12,13 +14,21 @@ const STORY_REGISTRY = {
     label: "Unit",
     mark: "unit",
     create: createUnitStory
+  },
+  point: {
+    label: "Point",
+    mark: "point",
+    create: createScatterStory
+  },
+  line: {
+    label: "Line",
+    mark: "line",
+    create: createLineStory
   }
 };
 
 const STORY_ALIASES = {
-  scatter: "bar",
-  point: "bar",
-  line: "bar"
+  scatter: "point"
 };
 
 export function createDemoSpec({

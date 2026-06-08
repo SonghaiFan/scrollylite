@@ -40,10 +40,25 @@ export function parentKey(row, parentField) {
 
 export function radiusScale(rows, channel, fallback, d3, quantitativeDomain) {
   if (!channel?.field) return () => fallback;
-  const range = channel.range || [4, 16];
+  const range = channel.range || defaultRadiusRange(rows.length);
   const scale = d3
     .scaleSqrt()
     .domain(quantitativeDomain(rows, channel, 0))
     .range(range);
   return (row) => scale(Number(row[channel.field]) || 0);
+}
+
+export function defaultPointRadius(count) {
+  if (count <= 4) return 9;
+  if (count <= 12) return 7;
+  if (count <= 60) return 5.5;
+  return 4.5;
+}
+
+function defaultRadiusRange(count) {
+  const radius = defaultPointRadius(count);
+  return [
+    Math.max(3, radius * 0.75),
+    Math.max(7, radius * 2.4)
+  ];
 }

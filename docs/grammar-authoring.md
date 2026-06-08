@@ -39,10 +39,11 @@ const base = bar("weatherDays")
   .sort("year");
 ```
 
-Channel titles default from field names, so `.x("decade")` compiles to a
-channel titled `Decade`. Authors only need to provide `{ title: ... }` when the
-display label carries extra story semantics, such as showing `count` as
-`Hot days`.
+Channel titles default from field names through the shared `src/labels.js`
+rules, so `.x("decade")` compiles to `Decade`, `.x("hot_days")` compiles to
+`Hot days`, and `.x("tmin")` compiles to `Min temperature`. Bar, point, line,
+unit, and runtime tooltips all use this same function. Authors only need to
+provide `{ title: ... }` when they intentionally override the shared default.
 
 Color is optional for the common case. If no color channel is declared, the
 runtime looks for semantic category fields such as `type` and assigns hue. The
@@ -63,8 +64,15 @@ base.where({ type: "Cold days" })
 base.flip()
 base.breakdown("type")
 base.breakdown("type").layout("grouped")
-base.rollup("type", { title: "Total days" })
+base.rollup("decade", { title: "Total days" })
 ```
+
+`rollup(parent, options)` keeps the parent/group key named by the first
+argument. The keys that disappear are not authored separately; they are implied
+by the difference between the source object key and the target groupby. This
+keeps the mental model consistent across idioms: `rollup("period")` means
+current objects become period aggregates, while `rollup("decade")` means
+current objects become one bar per decade.
 
 ## Inference
 
@@ -76,15 +84,16 @@ called:
   semantic object key
 - `.highlight()` records `focus` without filtering data; renderers fade
   non-matching marks instead of excluding rows
-- `.flip()` and `.guide()` materialize guide-relevant encoding changes. `.flip()`
-  is layout-agnostic: it swaps x/y for simple, stacked, and grouped bars, and
-  grouped offsets follow the category axis (`xOffset` vertically, `yOffset`
-  horizontally).
+- `.flip()` records the guide intent `{ flip: true }`. Each idiom compiler
+  interprets that intent: bar materializes the target orientation and grouped
+  offsets, while cartesian point/line-style idioms exchange x/y.
 - `.agg()` records `granularity`
 - `.breakdown()` and `.rollup()` are the preferred granularity verbs; `.split()` and `.collapse()` remain aliases
 - `.layout()` materializes grouped-bar offsets; default staged order is inferred
 
-`story().step()` converts those operations into the current runtime step shape.
+`story.init().step()` converts those operations into the current runtime step
+shape. The weather demo also exposes `story.demo()` as a preset with data,
+layout, and the main view already configured.
 `authoredSteps()` remains available as the lower-level helper behind the builder:
 
 ```js
@@ -122,7 +131,7 @@ const base = bar("weatherDays")
 
 const segmented = base.breakdown("type");
 
-return story()
+return story.demo()
   .data("weatherDays", {
     url: "./src/data/weather_days_tidy.csv",
     type: "csv"
@@ -143,7 +152,7 @@ return story()
   .step("Cold days", base.where({ type: "Cold days" }))
   .step("Breakdown", segmented)
   .step("Grouped", segmented.layout("grouped"))
-  .step("Rollup", segmented.rollup("type", { title: "Total days" }))
+  .step("Rollup", segmented.rollup("decade", { title: "Total days" }))
   .toSpec();
 ```
 
@@ -152,6 +161,7 @@ return story()
 - Add richer validation and better author-facing error messages.
 - Add a data-preparation helper for converting wide tables to the long flavour
   expected by the bar grammar.
-- Generalize `ViewState` operations for point, line, and circle-unit views.
+- Keep extending point, line, and unit from authoring-plus-compile idioms toward
+  fuller chart plugins only where their transitions need bar-style plans.
 - Decide whether operation inference should be explicit, automatic, or mixed:
   operation log first, structural diff as fallback.

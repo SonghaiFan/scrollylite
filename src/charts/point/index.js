@@ -3,8 +3,12 @@ import { createPointRenderer, createScatterRenderer } from "./render.js?v=semant
 export function createChartIdiom(deps = {}) {
   return {
     key: "point",
-    renderer: createPointRenderer(deps)
+    renderer: createPointRenderer(deps),
+    prepareSpec: (spec) => spec,
+    resolveTransitionPlan: () => ({}),
+    inspect: {}
   };
 }
 
 export { createPointRenderer, createScatterRenderer };
+export { point, scatter, PointState } from "./authoring.js?v=semantic-key-1";

@@ -1,3 +1,5 @@
+import { titleize as sharedTitleize } from "../labels.js?v=semantic-key-1";
+
 export function uniqueTokens(values = []) {
   return Array.from(new Set(asArray(values).filter(Boolean)));
 }
@@ -16,9 +18,7 @@ export function dash(value) {
 }
 
 export function titleize(value) {
-  return String(value || "")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return sharedTitleize(value);
 }
 
 export function escapeHtml(value) {
@@ -40,4 +40,3 @@ export function getD3() {
   }
   return globalThis.d3;
 }
-

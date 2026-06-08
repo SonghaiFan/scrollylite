@@ -97,9 +97,36 @@ authoring.js / grammar.js
   the transition plan's `stack-base` baseline means the segment's `__stack0`
   anchor, so a segment exits back to where it originally grew from.
 
-Point, line, and unit are currently renderer-only idioms. They can grow their
-own `compile.js`, `semantic.js`, `diff.js`, and `state.js` hooks later, using
-the bar folder as the reference shape.
+Point, line, and unit now have authoring entry points and idiom-local scene
+compilers. They still use renderer-local transition behavior rather than the
+full bar-style `semantic.js` / `diff.js` / `state.js` transition-plan stack.
+Future idioms should use the bar folder as the reference shape when they need
+custom staged plans, intermediate specs, or inspector metadata.
+
+## Non-Bar Authoring Alignment
+
+Point, line, and unit authoring should follow the bar authoring vocabulary
+instead of exposing story-specific legacy syntax. The public chaining surface is:
+
+- shared: `x`, `y`, `channel`, `color`, `size`, `key`, `tooltip`, `sort`,
+  `where`, `highlight`, `guide`, `observe`, and `transition`
+- point/scatter: `flip`, `breakdown`, and `rollup`
+- line: `breakdown` and `rollup`
+- unit: `value`, `label`, `columns`, `radius`, `layout`, `group`, `timeline`,
+  and `dodge`
+
+Compiled authoring specs should be Vega-ish first: `data`, `mark`,
+`encoding`, and `transform` stay in the root spec, while ScrollyLite-only
+semantics live under `narrative`. Do not add invented Vega-Lite channels such
+as `encoding.series`; line grouping is stored in
+`narrative.state.sceneState.granularity.seriesField` and rendered through the
+standard `color` encoding.
+
+Point, line, and unit scene compilers now live in their idiom folders:
+`src/charts/point/compile.js`, `src/charts/line/compile.js`, and
+`src/charts/unit/compile.js`. The global transition module only dispatches to
+idiom-local compilers. `scatter()` remains an authoring alias for the point
+idiom, but the plugin folder and registered idiom key are `point`.
 
 ## D3 Bar Checklist
 

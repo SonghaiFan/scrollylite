@@ -1,13 +1,8 @@
-import { defaultTransition } from "../../timing.js";
 import {
-  externalizeScrollyViewSpec,
   narrativeScroll,
   withNarrative
 } from "../../scrolly-meta.js?v=semantic-key-10";
-
-export const sharedTiming = defaultTransition();
-
-export const sortByYear = [{ sort: { field: "year", order: "ascending" } }];
+import { story as createStory } from "../../grammar/index.js?v=semantic-key-20";
 
 export const HOT_COLOR = "#b05d3b";
 export const COLD_COLOR = "#536a9e";
@@ -61,95 +56,6 @@ export const layoutCopy = {
   }
 };
 
-export const pointEncoding = {
-  x: { field: "tmin", type: "quantitative", title: "Min temperature" },
-  y: { field: "tmax", type: "quantitative", title: "Max temperature" },
-  color: PERIOD_LUMINANCE_COLOR
-};
-
-export function pointView(overrides = {}) {
-  return externalizeScrollyViewSpec({
-    data: "weather",
-    mark: "point",
-    key: "decade",
-    size: 8,
-    transition: sharedTiming,
-    transform: sortByYear,
-    encoding: pointEncoding,
-    ...overrides,
-    encoding: {
-      ...pointEncoding,
-      ...(overrides.encoding || {})
-    }
-  });
-}
-
-export const scatterEncoding = pointEncoding;
-
-export function scatterView(overrides = {}) {
-  return pointView(overrides);
-}
-
-export const lineEncoding = {
-  x: { field: "decade", type: "nominal", title: "Decade" },
-  y: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
-  color: { value: HOT_COLOR }
-};
-
-export function lineView(overrides = {}) {
-  return externalizeScrollyViewSpec({
-    data: "weather",
-    mark: "line",
-    key: "decade",
-    pointSize: 5,
-    strokeWidth: 3,
-    transition: sharedTiming,
-    transform: sortByYear,
-    encoding: lineEncoding,
-    ...overrides,
-    encoding: {
-      ...lineEncoding,
-      ...(overrides.encoding || {})
-    }
-  });
-}
-
-export const unitEncoding = {
-  x: { field: "year", type: "quantitative", title: "Year" },
-  y: { field: "hot_days", type: "quantitative", title: "Hot days", domain: [0, 30] },
-  color: HOT_PERIOD_COLOR
-};
-
-export const unitDefaults = {
-  key: "decade",
-  labelField: "decade",
-  valueField: "hot_days",
-  layout: "grid",
-  columns: 22,
-  maxUnits: 240
-};
-
-export function unitView(overrides = {}) {
-  return externalizeScrollyViewSpec({
-    data: "weather",
-    mark: "unit",
-    key: "decade",
-    transition: sharedTiming,
-    transform: sortByYear,
-    unit: unitDefaults,
-    encoding: unitEncoding,
-    ...overrides,
-    unit: {
-      ...unitDefaults,
-      ...(overrides.unit || {})
-    },
-    encoding: {
-      ...unitEncoding,
-      ...(overrides.encoding || {})
-    }
-  });
-}
-
 export function createBaseDemo() {
   return {
     data: {
@@ -178,6 +84,12 @@ export function createBaseDemo() {
     }
   };
 }
+
+export const story = Object.assign(createStory, {
+  demo() {
+    return createStory(createBaseDemo());
+  }
+});
 
 export function withScrollActionMode(demo) {
   return {

@@ -7,6 +7,7 @@ import {
 import {
   parentAnchors,
   parentKey,
+  defaultPointRadius,
   radiusScale,
   scatterState
 } from "./state.js?v=semantic-key-1";
@@ -40,7 +41,7 @@ class PointMarkRenderer extends BaseChart {
     const y = quantitativeScale(rows, enc.y, [chart.innerHeight, 0], d3);
     const color = colorScale(domainRows, enc.color, d3);
     const key = scatterKeyAccessor(spec, enc.x?.field);
-    const radius = radiusScale(rows, enc.size, spec.size || 7, d3, quantitativeDomain);
+    const radius = radiusScale(rows, enc.size, spec.size || defaultPointRadius(rows.length), d3, quantitativeDomain);
     const state = scatterState(spec, enc);
     const parentField = state.parentField;
     const previousAnchors = chart.scene.scatterAnchors || { byParent: new Map() };

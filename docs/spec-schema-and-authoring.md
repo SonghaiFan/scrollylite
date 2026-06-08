@@ -126,7 +126,7 @@ Step views override or complete this config.
 ```js
 {
   data?: { name?: string, values?: object[] },
-  mark: "bar" | "unit",
+  mark: "bar" | "point" | "line" | "unit",
   width?: number,
   height?: number,
   transform?: TransformSpec[],
@@ -140,8 +140,9 @@ runtime intentionally supports bar-chart variants first. `unit` is the one
 ScrollyLite custom mark/idiom that remains outside Vega-Lite's primitive marks.
 At the plugin layer, `bar` is currently the complete chart idiom: it owns its
 renderer, spec preparation, transition plan, intermediate staged specs, default
-margin, and inspector metadata. `point`, `line`, and `unit` are temporarily
-renderer-only idioms and should gain their own plan/preparation hooks later.
+margin, and inspector metadata. `point`, `line`, and `unit` now have authoring
+entry points and idiom-local scene compilers, but they still rely on
+renderer-local transition behavior rather than bar-style transition-plan hooks.
 
 Narrative-specific view fields live in one `narrative` block. Removing that
 block leaves a Vega-Lite-shaped UnitSpec for bar views. `narrative` should carry
@@ -365,7 +366,8 @@ const base = bar("weatherDays")
 ### StoryBuilder
 
 ```js
-story(initialSpec?)
+story.init(initialSpec?)
+story.demo() // weather demo helper
   .schema(url)
   .title(text)
   .description(text)
@@ -413,9 +415,9 @@ bar(data)
 .flip(options?)
 .agg(config?)
 .breakdown(segment?, options?)
-.rollup(drop?, options?)
+.rollup(groupby?, options?)
 .split(segment?, options?) // alias
-.collapse(drop?, options?) // alias
+.collapse(groupby?, options?) // alias
 .segment(fieldOrConfig?, config?)
 .layout(layout, options?)
 .toSpec()
@@ -428,10 +430,10 @@ Important mappings:
 | `.where({ type: "Hot days" })` | adds `{ filter: { field, equal } }` to `transform` | `focus` |
 | `.where({ period: "recent" })` | adds another Vega-Lite-style filter transform | `focus` |
 | `.highlight({ type: "Cold days" })` | keeps rows in the data and stores a focus highlight selector in `narrative.state.sceneState.focus` | `focus` |
-| `.flip()` | swaps the bar orientation by materializing `encoding.x`/`encoding.y`; grouped offsets move with the category axis | `guide` |
+| `.flip()` | records the guide intent `{ flip: true }`; the bar compiler materializes the target orientation and grouped offsets | `guide` |
 | `.breakdown("type")` | writes aggregate transform and color encoding | `granularity` |
 | `.layout("grouped")` | adds grouped offset on the category axis (`xOffset` for vertical bars, `yOffset` for horizontal bars) | `guide` |
-| `.rollup("type")` | writes aggregate transform grouped by the parent key | `granularity` |
+| `.rollup("decade")` | writes aggregate transform grouped by the parent key; collapsed child keys are inferred from source/target object keys | `granularity` |
 
 ## Bar Weather Story
 
@@ -473,9 +475,9 @@ story(createBaseDemo())
     body: "...",
     authoring: 'base.breakdown("type").layout("grouped")'
   })
-  .step("Granularity: roll up to total days", base.rollup("type", { title: "Total days" }), {
+  .step("Granularity: roll up to total days", base.rollup("decade", { title: "Total days" }), {
     body: "...",
-    authoring: 'base.rollup("type", { title: "Total days" })'
+    authoring: 'base.rollup("decade", { title: "Total days" })'
   })
   .toSpec();
 ```
@@ -654,7 +656,8 @@ inside collapse/split logic.
 ## Materialized Bar Specs
 
 `BarState` may use temporary authoring state internally while the chain is being
-built, but `.toSpec()` materializes that state into a Vega-ish view. For example,
+built. Public authoring records guide intent such as `{ flip: true }`; `.toSpec()`
+then materializes that intent into a Vega-ish view. For example,
 `.where(...).flip()` compiles to filters plus horizontal x/y encodings:
 
 ```js
