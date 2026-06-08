@@ -1,0 +1,380 @@
+# ScrollyLite — Reference for AI Agents / LLMs
+
+> Dense, ground-truthed reference for generating correct ScrollyLite code —
+> specs, embeddings, custom idioms. Optimized for machine consumption: facts
+> and signatures over prose. For human-oriented docs, see `docs/` (linked at
+> the end of each section). If something here looks underspecified, the
+> linked doc is the authoritative deep-dive — read it before guessing.
+
+## What ScrollyLite is
+
+A declarative scrollytelling grammar. The author writes a sequence of
+**steps**, each describing *what the chart looks like at that point* (which
+fields are encoded, which rows are filtered/highlighted, how the data is
+grouped, how it's oriented). ScrollyLite diffs every consecutive pair of
+steps, classifies the difference into one or more **scenes**
+(`focus`/`observation`/`granularity`/`guide`), and renders the corresponding
+D3 transition automatically. **Never hand-write animation/transition code —
+just describe the end state of each step.**
+
+Built on **D3** (rendering, scales, transitions — peer dep, `^7`) and
+**Arquero** (data loading/reshaping — peer dep, `^8`). Ships four chart
+idioms: `bar`, `line`, `point`, `unit`. Runs as ESM or as a CDN global
+(`window.ScrollyLite`).
+
+## Install / load
+
+```sh
+npm install scrollylite d3 arquero
+```
+```js
+import * as d3 from "d3";
+import * as aq from "arquero";
+import { createStory, story, bar, line, point, unit } from "scrollylite";
+import "scrollylite/style.css";          // required structural CSS
+// import "scrollylite/themes/default.css";  // optional default palette
+```
+ESM entry: pass `d3` (always) and `aq` (whenever a spec uses transforms) to
+`createStory` explicitly. CDN/global build (`scrollylite.global.js` →
+`window.ScrollyLite`) falls back to `globalThis.d3`/`globalThis.aq`.
+
+CDN (pin versions in production, `@latest` is unstable):
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+```
+
+Docs: `docs/getting-started.md`, `docs/for-developers.md`, `docs/for-cdn-users.md`
+
+## End-to-end skeleton (the shape every story has)
+
+```js
+const spec = story()                                      // StoryBuilder
+  .title("…").description("…")
+  .data("rows", { url: "./data.csv", type: "csv" })       // or { values: [...] } / [...]
+  .layout("floatToText")                                  // or "textOverVis"
+  .view("main", { title: "…", height: 520 })
+  .action(["scroll", "tooltip"])                          // default actions for following steps
+  .step("Title A", bar("rows").x("category").y("value").key("category"), "Narrative copy")
+  .step("Title B", bar("rows").x("category").y("value").key("category").highlight({ category: "B" }))
+  .toSpec();                                              // → plain JSON-serializable object
+
+const runtime = await createStory(spec, { target: "#app", d3, aq });
+```
+
+`story()` returns a `StoryBuilder`. Every method returns `this` (chainable).
+Chart-idiom builders (`bar()`, `line()`, …) are **immutable** — every
+chainable method returns a *new* state, so build a `base` chain once and
+branch it per step:
+```js
+const base = bar("rows").x("decade").y("count").sort("year");
+story()
+  .step("A", base.where({ type: "Hot days" }))
+  .step("B", base.where({ type: "Hot days" }).flip())
+  .step("C", base.breakdown("type"));
+```
+
+## `StoryBuilder` (`story()`) — full method list
+
+| Method | Signature | Notes |
+|---|---|---|
+| `story(initialSpec?)` | seeds `_spec` (deep-cloned) | reuse/extend an existing spec object |
+| `.schema(value)` | `string` | sets `$schema` (JSON Schema URI, optional) |
+| `.title(value)` | `string` | story title |
+| `.description(value)` | `string` | narrative subtitle |
+| `.data(name, source)` / `.data({name: source, …})` | see Data below | merges into `spec.data`, additive |
+| `.layout(presetOrConfig, options?)` | `"floatToText" \| "textOverVis"` or raw config | merges into `spec.layout`, additive |
+| `.view(idOrConfig, config?)` | `(id, {title, height})` or `({id: {…}, …})` | registers named view(s); 2-arg form = single id, map form = many |
+| `.action(actions)` | `string \| string[]` | sets default action list for **subsequent** `.step()` calls; recompiles all steps |
+| `.step(titleOrDef, view?, options?)` | 3 call shapes — see below | infers transition, appends, recompiles whole list |
+| `.steps(definitions[])` | `[{title, view, body}, …]` | replaces entire step list at once |
+| `.toSpec()` | → `object` | deep clone of compiled spec, JSON-serializable, idempotent |
+
+`.step()` call shapes:
+```js
+.step({ title, body, view, authoring })                           // 1: full definition object
+.step("Title", chartState, { body: "…", authoring: 'bar(...)' })  // 2: title, state, options
+.step("Title", chartState, "Narrative body as plain string")      // 3: title, state, body shorthand
+```
+`view` = a chart-idiom builder (its `.toSpec()` is called for you) or a raw
+view-spec object. The **first step always gets `"enter"` appended** to its
+action list automatically — you don't need to set this.
+
+Action values: `"step"` (discrete click/keyboard playback — default),
+`"scroll"` (continuous scroll-scrubbed transition; only meaningful on steps
+with an inferred `transition.scene`), `"tooltip"` (hover tooltips), `"enter"`
+(auto-played entrance, reserved for step 0, added automatically). Default:
+`["step", "tooltip"]`.
+
+`theme` is **not** a chainable method — pass it in the initial spec object:
+```js
+story({ theme: { background: "#fafafa", foreground: "#222", accent: "#b05d3b" } })
+```
+→ sets CSS custom properties `--sl-bg` / `--sl-fg` / `--sl-accent` on `<html>`.
+
+Doc: `docs/story-builder.md`
+
+## Data — `.data(name, source)`
+
+`source` shapes:
+```js
+{ url: "path/file.csv", type: "csv" }     // or type: "json" — loaded via d3.csv/d3.json
+{ values: [{ field: value, … }, …] }      // inline rows, no network
+[{ field: value, … }, …]                  // bare array — same as { values }
+```
+Reference by name from a chart builder: `bar("rowsName")`. Multiple `.data()`
+calls merge additively (later names add/override, don't clear earlier ones).
+
+## Transforms (filter, fold, bin, aggregate, sort, …)
+
+Applied via Arquero under the hood; configured through chart-state methods
+(`.sort()`, `.where()`/`.filter()`, `.breakdown()`, `.rollup()`, `.segment()`)
+or raw `transform` arrays in a hand-authored spec. Exact option shapes for
+every transform type (filter, timeUnit, fold, bin, aggregate, sort, limit):
+`docs/data-sources-and-transforms.md`
+
+## Chart idioms — shared methods (bar, line, point, unit all extend `ChartState`)
+
+```js
+.data(name)                       // switch bound dataset (rare mid-chain)
+.x(field, options?) / .y(field, options?)   // string field name (auto-titled) or { field, title, type, scale }
+.channel(name, field, options?)   // bind any encoding channel by name (escape hatch)
+.color(value | field | config)    // "#hex" literal | "fieldName" | { field, domain, range } | { hue, luminance } composite
+.size(field, options?)            // quantitative size channel
+.key(fields)                      // semantic identity — "field" or ["field1","field2"]; CRITICAL for clean transitions
+.tooltip(items)                   // "field" | ["f1","f2"] | [{field,title,format}, "f2", …]
+.sort(field, order?)              // order: "ascending" (default) | "descending"; accumulates
+.transition(timing)               // { duration, delay, stagger: { mode, amount, max } }
+.filter(selector) / .where(selector)  // {field: value} | {field, equal} | null (clear); BAR OVERRIDES — see below
+.highlight(selector, options?)    // keeps all rows, fades non-matching ({opacity}); doesn't remove rows
+.guide(config)                    // raw guide escape hatch: { y: { scale: { type: "log" } } }, { flip, staging }
+```
+
+`field` for `.x`/`.y`/`.channel` may be a string (auto-titled via `titleize`,
+`"hot_days"` → `"Hot days"`) or `{ field, title, type, scale }`. Default
+channel `type` differs per idiom (see each idiom's defaults below).
+
+`.key()` — **pick the field that names the "thing" the reader tracks across
+steps** (e.g. `decade`, `country`, `product`). A missing/unstable key is the
+#1 cause of marks "popping" in/out instead of smoothly morphing. When
+`.breakdown()`/`.segment()` adds a dimension, bar auto-extends the key to
+`[category, segment]` — you don't need to do it manually.
+
+Doc: `docs/chart-idioms.md` (shared methods + every idiom in full)
+
+## Bar — `bar(dataset)`
+
+Defaults: `mark: "bar"`, `.x()` → `"nominal"`, `.y()` → `"quantitative"`.
+
+```js
+const base = bar("rows").x("decade").y("count").sort("year");
+```
+
+**`.where()` is special on bar** (overridden, richer than the shared base):
+- Accumulates constraints **per field** — `.where({type: "Hot days"})` then
+  `.where({type:"Hot days", period:"recent"})` keeps both; a new value for an
+  existing field *replaces* just that field's constraint.
+- When filtering on a measure-like field (`type`/`kind`/`*_type`/`*_kind`),
+  infers `key: [category, measure]` + a `semanticKey` so swapping
+  `{type:"Hot days"}` → `{type:"Cold days"}` reads as "same bars, different
+  measure" (classified as `focus`, NOT `observation` — see Scenes below) and
+  auto-retitles the y-axis to the selected value.
+- `.where(null)` clears all constraints.
+- Plain non-inferring filter still available via inherited `.filter()`.
+
+```js
+.flip(options?)        // vertical↔horizontal; 2-stage staged transition (guide scene)
+                       // options: { domain, scale, order: ["y","x"] (default), stage: {duration, stagger} }
+.breakdown(segment?, options?)  // one bar → segments (granularity scene)
+                       // options: { category, value, by: [cat,seg], layout: "stacked"|"grouped" (default stacked),
+                       //           op: "sum"|"mean"|"count"|"min"|"max"|"median" (default sum), title, color, tooltip }
+                       // default segment = "type"
+.rollup(groupby?, options?)     // segments → fewer/coarser bars, inverse of breakdown (granularity scene)
+                       // options/2nd-arg: { groupby/by, value, as, op (default sum), title, color }
+.segment(fieldOrConfig?, config?)  // low-level: wide→long folding + custom labels/domains (granularity scene)
+                       // config: { fields: [...wideColumns], segment, value, labels: {col: "Label"}, layout, color }
+.layout(layout, options?)       // "stacked" | "grouped" — only after breakdown/segment (guide scene)
+.stage(order, options?)         // e.g. ["y","x"]; { duration, stagger } — direct staging control (guide scene)
+```
+
+Example progression (full): `docs/chart-idioms.md#bar-example-progression`
+
+## Line — `line(dataset)`
+
+Defaults: `mark: "line"`, `.x()` → `"nominal"`, `.y()` → `"quantitative"`.
+
+```js
+const base = line("rows").x("decade").y("hot_days").key("decade");
+
+.curve(value)               // "linear" | "monotone" | "natural" | "step" | "basis" | …
+.strokeWidth(value) / .pointSize(value)
+.flip(options?)             // swap x/y (guide); options: {x, y, order: ["x","y"] default, stage}
+.breakdown(field, options?) // 1 line → N series, mode:"series" (granularity); options incl. color
+.rollup(groupbyOrOptions?, options?)  // N series → 1 line, mode:"single" (granularity); inverse of breakdown
+```
+
+## Point — `point(dataset)`
+
+Defaults: `mark: "point"`, `.x()`/`.y()` → `"quantitative"`.
+
+```js
+const base = point("rows").x("tmin").y("tmax").key("decade");
+
+.pointSize(value) / .radius(value)   // radius is alias for pointSize
+.flip(options?)             // same shape as line's
+.rollup(groupby, options?)  // points → fewer/larger summary circles, mode:"aggregate" (granularity)
+                            // options: { key, x: {op}, y: {op}, countAs, sizeRange: [min,max] }
+.breakdown(detail?, options?)  // inverse: explode aggregate circles into detail points, mode:"detail" (granularity)
+                            // e.g. base.rollup("period").breakdown("year")
+```
+
+## Unit — `unit(dataset)`
+
+Pictogram/isotype chart — each row/count drawn as a repeated small mark.
+Defaults: `mark: "unit"`. **Only supports `focus` and `guide` scenes** — no
+`observation`/`granularity` (its narrative range is "which units are shown"
+and "how they're laid out", not aggregation level).
+
+```js
+const base = unit("rows").x("year").y("hot_days").key("decade")
+  .value("hot_days").label("decade");
+
+.value(field, options?)     // field whose count → number of unit marks; { maxUnits } caps for perf
+.label(field)               // text label per group
+.columns(value) / .radius(value)   // grid column count, unit circle radius (px)
+.group(field, options?)     // grouped-grid layout (guide.layout="groupedGrid"); guide scene
+.timeline(field, options?)  // timeline-axis layout (guide.layout="timeline"); guide scene
+.dodge(field, options?)     // collision-avoiding layout (guide.layout="dodge"); guide scene
+// .group/.timeline/.dodge are MUTUALLY EXCLUSIVE — each replaces the guide layout
+```
+
+## Scenes — how transitions are inferred (CRITICAL: read before predicting animation)
+
+Every `.step()` diffs the previous chart-state against the current one and
+infers one or more scenes from the union of (a) the authoring-operation delta
+and (b) a structural spec diff:
+
+| Scene | Triggered by | Question it answers |
+|---|---|---|
+| `focus` | `.where()`/`.filter()`/`.highlight()`, any filter-transform change | Which rows are emphasized/visible? |
+| `observation` | `.x()`/`.y()` bound **field** changes — **except on bar** (folded into `focus`, see Bar `.where()` above) | Which variable is encoded? |
+| `granularity` | `.breakdown()`/`.rollup()`/`.segment()` (a real grouping-level change, not just `.layout()`) | What aggregation level is shown? |
+| `guide` | `.flip()`, `.guide()`, `.layout()`, `.stage()`, `.group()`/`.timeline()`/`.dodge()` (orientation/scale/staging/layout) | How is the data being read? |
+
+Multiple scenes can co-occur (e.g. `["focus", "guide"]` for a filter+flip in
+one step) — ScrollyLite animates the union with the richest plan the idiom
+supports. **The first step in a story has no predecessor → `transition:
+undefined`** (it's the narrative's start, not a transition).
+
+Per-idiom animation specifics (enter/exit/morph rules, staging order,
+key-selection guidance): `docs/scenes-and-transitions.md`
+
+## Layout, scroll, theming
+
+```js
+story().layout("floatToText")   // default — two-column: chart floats beside scrolling text
+story().layout("textOverVis")   // chart fills sticky stage; text scrolls as overlay on top
+story().layout("floatToText", { runtime: { offset: 0.58, nav: true, progress: true,
+  scroll: { navigation: { behavior: "smooth", progress: 0.95 } } } })
+```
+- `offset` (0–1 fraction, px number, or `"NNpx"`/`"NN%"`): viewport line at
+  which a step activates; default `0.55`, sweet spot `0.5`–`0.65`.
+- `nav`/`progress` (bool): step-dot rail / top progress bar.
+- `scroll.navigation`: `{ behavior: "instant"|"smooth", progress: 0–1 }` —
+  controls jump-to-step landing point/animation.
+- `scroll.{start,end,clamp,snap}` are normalized but **not yet wired to
+  runtime behavior** — don't rely on them; use `offset`/`navigation`.
+- Action `["scroll", …]` makes a step's transition continuously scrubbed by
+  scroll position (vs. `["step", …]` which plays it once on navigation).
+  Tune easing via `narrative.action.scroll.ease`: `"linear"` (default),
+  `"cubic"`, `"cubicInOut"`, `"cubicOut"`.
+
+Theming = 3 CSS custom properties set from `spec.theme` (`background` →
+`--sl-bg`, `foreground` → `--sl-fg`, `accent` → `--sl-accent`). Always load
+`scrollylite.css` (structure); `themes/default.css` supplies the default
+palette — replace/extend by targeting `--sl-*` and `.sl-*` classes.
+
+Doc: `docs/layouts-themes-and-scrolling.md`
+
+## Runtime — `createStory(spec, options)` → `StoryRuntime`
+
+```ts
+async function createStory(spec: object, options: {
+  target?: string | Element;   // default "#app"; throws if selector matches nothing
+  d3: D3Module;                // required (ESM entry)
+  aq?: ArqueroModule;          // required iff spec uses transforms
+  debug?: boolean;             // enables debug/inspector affordances
+}): Promise<StoryRuntime>
+```
+Throws synchronously (before async work) on: missing `d3`; missing `aq` when
+needed; unresolvable `target`; non-object `spec`. Always `await`/`.catch()`.
+
+```ts
+interface StoryRuntime {
+  spec: object;                    // fully compiled spec (no authoring shorthand left)
+  data: Record<string, any[]>;     // loaded datasets by name
+  signature: { index, id?, title, transition: string[], action: string[] }[];
+  renderStep(index, { force?, scrollProgress?, direction? }): void;       // jump + render fully
+  renderScrollProgress(index, progress: 0-1, direction?: "up"|"down"): void; // scrub a step's transition
+  scrollDriver: { type: "native", scrollToStep(index, {behavior?, progress?}), resize(), refresh(), destroy() };
+  destroy(): void;                 // tears down listeners; does NOT clear `target`'s DOM
+}
+```
+
+Doc: `docs/runtime-api.md`
+
+## Registering custom chart idioms
+
+```js
+import { defineChartIdiom, registerChartIdiom, registerChartModule, availableChartIdioms } from "scrollylite";
+
+const plugin = defineChartIdiom({
+  key: "area",                                          // required, unique
+  scenes: ["focus", "guide", "granularity"],            // declare only what you support
+  stateOperations: { focus: "filter", guide: "coordinate", granularity: "aggregate" },
+  createRenderer: (deps) => areaRenderer,
+  createSpecCompiler: (deps) => compileAreaSpec,
+  transition: { plan: (src, tgt) => ({...}), intermediateSpecs: (src, tgt, plan) => [...] },
+  defaults: { margin: (spec) => ({ top: 24, right: 24, bottom: 36, left: 56 }) }
+});
+registerChartIdiom(plugin);                  // or registerChartModule({ plugin })
+// availableChartIdioms() → ["bar","line","point","unit","area"]
+```
+Author a chainable builder by extending `IdiomState` (re-exported as
+`ChartState` in types): `this.with(patch, sceneTag?)` is the immutable
+updater — pass the scene name (`"focus"|"guide"|"granularity"|"observation"`)
+as the 2nd arg to make your method participate in scene inference. Built-in
+idioms use exactly this API — nothing is special-cased.
+
+Doc: `docs/extending-with-plugins.md`
+
+## Common pitfalls (check these before debugging further)
+
+1. **Marks pop instead of morph** → missing/unstable `.key()`. Pick a field
+   that names the tracked entity consistently across steps.
+2. **No `observation` scene fires on a bar measure-swap** → expected; bar
+   folds measure changes into `focus` (see Bar `.where()`).
+3. **`.layout()` alone doesn't trigger `granularity`** → correct; pure layout
+   switches (stacked↔grouped) are `guide`, not a grouping-level change.
+4. **`scroll.start/end/clamp/snap` have no effect** → not yet implemented;
+   use `offset` + `navigation` instead.
+5. **`"ScrollyLite requires D3…"` / `"…require Arquero…"`** → pass `d3`
+   (always) / `aq` (whenever transforms are used) explicitly to `createStory`
+   on the ESM entry — only the global/CDN build auto-falls-back to globals.
+6. **`"ScrollyLite target not found: …"`** → the target element must exist in
+   the DOM *before* `createStory` runs.
+7. **Theming via `.theme()`** → doesn't exist; pass `theme` in the initial
+   `story({ theme: {...} })` spec object.
+8. **`unit` idiom ignores `.breakdown()`/`.rollup()`/`.x()`-field changes for
+   scene purposes** → by design; it only models `focus`/`guide`.
+
+## Full doc index
+
+`docs/getting-started.md` · `docs/concepts.md` · `docs/story-builder.md` ·
+`docs/chart-idioms.md` · `docs/data-sources-and-transforms.md` ·
+`docs/layouts-themes-and-scrolling.md` · `docs/scenes-and-transitions.md` ·
+`docs/runtime-api.md` · `docs/extending-with-plugins.md` ·
+`docs/for-developers.md` · `docs/for-cdn-users.md` · `src/charts/README.md`
