@@ -22,44 +22,49 @@ src/charts/<idiom>/plugin.js
 That file should export:
 
 ```js
-export function createChartIdiom(deps = {}) {
-  return {
-    key: "<idiom>",
-    renderer,
-    prepareSpec,
-    resolveTransitionPlan,
-    intermediateSpecs,
-    defaultMargin,
-    inspect
-  };
-}
+export const plugin = defineChartIdiom({
+  key: "<idiom>",
+  scenes: ["focus", "guide", "granularity", "observation"],
+  stateOperations: {
+    focus: "filter",
+    guide: "coordinate",
+    granularity: "aggregate"
+  },
+  createRenderer,
+  createSpecCompiler,
+  prepareSpec,
+  transition: {
+    plan,
+    intermediateSpecs
+  },
+  defaults: {
+    margin
+  },
+  inspect
+});
+```
 
-export function createSpecCompiler(context = {}) {
-  return {
-    base,
-    operations
-  };
+The runtime idiom produced by `createChartIdiom()` is intentionally flat:
+
+```js
+{
+  key,
+  renderer,
+  prepareSpec,
+  resolveTransitionPlan,
+  intermediateSpecs,
+  defaultMargin,
+  inspect,
+  scenes,
+  stateOperations
 }
 ```
 
 Only `key` and `renderer` are required for rendering. `createSpecCompiler()` is
 required when the idiom has authoring operations that compile into a Vega-ish
-spec. The registry also accepts grouped hooks:
-
-```js
-{
-  hooks: {
-    spec: { prepare, compiler },
-    transition: { plan, intermediateSpecs, intermediateSpec },
-    render: { renderer, defaultMargin },
-    layout: {},
-    focus: {}
-  }
-}
-```
-
-The top-level fields are kept as ergonomic aliases for the runtime; the grouped
-hooks are the stable plugin contract.
+spec. `scenes` and `stateOperations` declare compiler capability, so transition
+code does not need mark-specific switch statements. Do not add empty hook bags;
+the plugin metadata is the contract.
 
 ## CDN-Compatible Registration
 
@@ -122,7 +127,7 @@ authoring.js / grammar.js
   anchor, so a segment exits back to where it originally grew from.
 
 Point, line, and unit now have authoring entry points, idiom-local spec
-compilers, and minimal transition-plan hooks. They still use renderer-local
+compilers, and minimal transition plans. They still use renderer-local
 transition behavior rather than the full bar-style `semantic.js` / `diff.js` /
 `state.js` transition-plan stack.
 Future idioms should use the bar folder as the reference shape when they need
@@ -130,12 +135,18 @@ custom staged plans, intermediate specs, or inspector metadata.
 
 ## Non-Bar Authoring Alignment
 
-Point, line, and unit authoring should follow the bar authoring vocabulary
-instead of exposing story-specific legacy syntax. The public chaining surface is:
+Point, line, and unit authoring should follow the bar authoring vocabulary.
+Keep the public chaining surface idiom-first:
+
+- `bar`: `x`, `y`, `where`, `breakdown`, `rollup`, `layout`, `guide`
+- `point`: `x`, `y`, `color`, `size`, `key`, `where`, `flip`, `rollup`,
+  `breakdown`
+- `line`: `x`, `y`, `color`, `key`, `where`, `series`, `rollup`
+- `unit`: `x`, `color`, `key`, `where`, `group`
 
 - shared: `x`, `y`, `channel`, `color`, `size`, `key`, `tooltip`, `sort`,
   `where`, `highlight`, `guide`, and `transition`
-- point/scatter: `flip`, `breakdown`, and `rollup`
+- point: `flip`, `breakdown`, and `rollup`
 - line: `flip`, `breakdown`, and `rollup`
 - unit: `value`, `label`, `columns`, `radius`, `group`, `timeline`, and `dodge`
 
@@ -150,8 +161,8 @@ Point, line, and unit spec compilers now live in their idiom folders:
 `src/charts/point/compile.js`, `src/charts/line/compile.js`, and
 `src/charts/unit/compile.js`. The global transition module builds its compiler
 map from the chart plugin manifest, so adding an idiom means adding a folder
-with `plugin.js`. `scatter()` remains an authoring alias for the point idiom,
-but the plugin folder and registered idiom key are `point`.
+with `plugin.js`. Runtime registry keys are canonical only: `bar`, `point`,
+`line`, and `unit`.
 
 ## D3 Bar Checklist
 

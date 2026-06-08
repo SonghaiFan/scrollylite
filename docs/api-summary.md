@@ -22,7 +22,7 @@ to the native controller.
 ```js
 data: {
   weatherDays: {
-    url: "./src/data/weather_days_tidy.csv",
+    url: "./examples/weather/data/weather_days_tidy.csv",
     type: "csv"
   }
 }
@@ -32,7 +32,7 @@ The current bar grammar assumes long data in a compact
 `entity/time/type/count` shape. For the weather demo, `type` is `Hot days` or
 `Cold days`, and `count` is the measured value. If one x category maps to
 multiple y values, use `.where(...)` to choose a subset, or
-`.split(...)` / `.collapse(...)` to change granularity. A future data-preparation
+`.breakdown(...)` / `.rollup(...)` to change granularity. A future data-preparation
 API should convert wide tables to this long flavour.
 
 `layout` controls story mechanics:
@@ -99,11 +99,15 @@ In stepped mode, transitions run with time. In scroll mode, transition steps add
 Supported marks follow Vega-Lite primitive mark vocabulary:
 
 - `bar`
+- `line`
+- `point`
 - `unit`, a ScrollyLite custom idiom for repeated unit marks
 
-Built-in mark renderers:
+Built-in chart idioms:
 
 - `bar`
+- `line`
+- `point`
 - `unit`, outside Vega-Lite's primitive marks by design
 
 Shared view fields:
@@ -173,7 +177,7 @@ one chart idiom or several; the current weather demo simply uses one chart idiom
 per story.
 
 ```js
-import { bar, story } from "./src/grammar/index.js";
+import { bar, story } from "scrollylite";
 
 const base = bar("weatherDays")
   .x("decade")
@@ -182,9 +186,9 @@ const base = bar("weatherDays")
 
 const segmented = base.breakdown("type");
 
-const spec = story.init()
+const spec = story()
   .data("weatherDays", {
-    url: "./src/data/weather_days_tidy.csv",
+    url: "./examples/weather/data/weather_days_tidy.csv",
     type: "csv"
   })
   .layout("floatToText", {
@@ -211,18 +215,14 @@ authoring convenience, not a second renderer.
 ## Runtime API
 
 ```js
-import {
-  availableMarkRenderers,
-  createStory,
-  registerMarkRenderer
-} from "./src/scrollylite.js";
+import { createStory } from "scrollylite";
 
-registerMarkRenderer("point", renderer);
-const story = await createStory(spec, { target: "#app" });
+const story = await createStory(spec, {
+  target: "#app",
+  d3,
+  aq
+});
 ```
-
-`registerChart()` and `availableChartTypes()` remain compatibility aliases, but
-new code should use mark-renderer terminology.
 
 Returned fields:
 
@@ -239,20 +239,17 @@ Returned fields:
 - One native scroll controller only.
 - D3 remains the mark-rendering and transition engine.
 - Scroll mode scrubs D3 transition schedules instead of duplicating animation
-  logic in mark renderers.
+  logic in idiom renderers.
 - Scroll-driven steps use authored source states, not last-rendered scene
   state: step `i` scrubs from step `i - 1`, while step 1 scrubs from an empty
   scene. This keeps forward and reverse scroll paths symmetric.
 - Semantic keys are the primary mechanism for object consistency.
-- Mark renderers extend through `BaseChart` and `src/charts/<type>/`.
+- Chart idioms extend through `BaseChart` and `src/charts/<type>/`.
 
-## TODO
+## Roadmap
 
 - Add a data-preparation API for converting wide tables into the long flavour
   expected by the bar grammar, for example folding `hot_days` and `cold_days`
   into `type` plus `count`.
-- Promote `point`, `line`, and `unit` from authoring-plus-renderer idioms to
-  full chart idiom plugins where needed. They now have authoring entry points
-  and scene compilers; future work should add idiom-level `prepareSpec`,
-  `resolveTransitionPlan`, `intermediateSpec`, `defaultMargin`, and inspector
-  metadata where each mark needs bar-style staged transition control.
+- Add idiom-level staged transition plans only where a mark needs bar-style
+  semantic transition control.

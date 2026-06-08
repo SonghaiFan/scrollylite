@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScrollyLite Demo</title>
+    <link rel="stylesheet" href="../../src/styles.css" />
+    <link id="demo-theme-style" rel="stylesheet" href="../../src/themes/default.css" />
+  </head>
+  <body>
+    <header class="demo-toolbar" aria-label="Demo controls">
+      <div>
+        <p class="demo-toolbar-kicker">Layout preset</p>
+        <h1>ScrollyLite demo</h1>
+      </div>
+      <nav class="demo-layout-switcher" aria-label="Choose demo">
+        <a href="?layout=floatToText&story=bar" data-layout-link="floatToText">Float to Text</a>
+        <a href="?layout=textOverVis&story=bar" data-layout-link="textOverVis">Text over Vis</a>
+        <a href="?layout=floatToText&story=bar" data-story-link="bar">Bar Story</a>
+        <a href="?layout=floatToText&story=point" data-story-link="point">Point Story</a>
+        <a href="?layout=floatToText&story=line" data-story-link="line">Line Story</a>
+        <a href="?layout=floatToText&story=unit" data-story-link="unit">Unit Story</a>
+        <a href="?layout=floatToText&story=bar&action=step" data-action-link="step">Stepped</a>
+        <a href="?layout=floatToText&story=bar&action=scroll" data-action-link="scroll">Scroll</a>
+      </nav>
+    </header>
+    <main id="app"></main>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+    <script type="module">
+      import { createStory } from "../../src/index.js";
+      import { createDemoSpec } from "./specs/demo.js";
+
+      const THEMES = {
+        default: {
+          label: "Default",
+          href: "../../src/themes/default.css"
+        }
+      };
+
+      function resolveTheme(name) {
+        return THEMES[name] ? name : "default";
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const requestedLayout = params.get("layout");
+      const layoutPreset = requestedLayout === "floatToText" ? "floatToText" : "textOverVis";
+      const themeName = resolveTheme(params.get("theme"));
+      const actionMode = params.get("action") === "scroll" ? "scroll" : "step";
+      const storyOptions = ["bar", "unit", "point", "line"];
+      const storyId = storyOptions.includes(params.get("story"))
+        ? params.get("story")
+        : storyOptions.includes(params.get("chart"))
+          ? params.get("chart")
+          : "bar";
+
+      document.querySelector("#demo-theme-style").href = THEMES[themeName].href;
+      document.documentElement.dataset.theme = themeName;
+
+      document
+        .querySelectorAll("[data-layout-link]")
+        .forEach((link) => {
+          const active = link.dataset.layoutLink === layoutPreset;
+          link.classList.toggle("is-active", active);
+          if (active) link.setAttribute("aria-current", "page");
+          else link.removeAttribute("aria-current");
+          const url = new URL(link.href);
+          url.searchParams.set("story", storyId);
+          url.searchParams.delete("chart");
+          url.searchParams.set("action", actionMode);
+          if (themeName !== "default") url.searchParams.set("theme", themeName);
+          link.href = `${url.pathname}${url.search}`;
+        });
+
+      document
+        .querySelectorAll("[data-story-link]")
+        .forEach((link) => {
+          const active = link.dataset.storyLink === storyId;
+          link.classList.toggle("is-active", active);
+          if (active) link.setAttribute("aria-current", "page");
+          else link.removeAttribute("aria-current");
+          const url = new URL(link.href);
+          url.searchParams.set("layout", layoutPreset);
+          url.searchParams.set("action", actionMode);
+          url.searchParams.delete("chart");
+          if (themeName !== "default") url.searchParams.set("theme", themeName);
+          link.href = `${url.pathname}${url.search}`;
+        });
+
+      document
+        .querySelectorAll("[data-action-link]")
+        .forEach((link) => {
+          const active = link.dataset.actionLink === actionMode;
+          link.classList.toggle("is-active", active);
+          if (active) link.setAttribute("aria-current", "page");
+          else link.removeAttribute("aria-current");
+          const url = new URL(link.href);
+          url.searchParams.set("layout", layoutPreset);
+          url.searchParams.set("story", storyId);
+          url.searchParams.delete("chart");
+          if (themeName !== "default") url.searchParams.set("theme", themeName);
+          link.href = `${url.pathname}${url.search}`;
+        });
+
+      window.__scrollyLiteStory = await createStory(createDemoSpec({
+        layoutPreset,
+        storyId,
+        actionMode
+      }), {
+        target: "#app",
+        d3: globalThis.d3,
+        aq: globalThis.aq
+      });
+    </script>
+  </body>
+</html>

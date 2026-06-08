@@ -23,7 +23,8 @@ teaching examples: identifier fields plus a `type` field and a `count` field.
 For the weather demo, one row is one `year/decade/type` observation, where
 `type` is `Hot days` or `Cold days`, and `count` is the measured value. If one x
 category maps to multiple y values, authors should use `.where(...)` to choose
-a subset or `.agg(...)` to define the aggregation. Wide-to-long conversion is
+a subset, `.breakdown(...)` to expose segments, or `.rollup(...)` to aggregate.
+Wide-to-long conversion is
 planned as a future data-preparation helper, but the bar demo does not use wide
 input.
 
@@ -87,14 +88,13 @@ called:
 - `.flip()` records the guide intent `{ flip: true }`. Each idiom compiler
   interprets that intent: bar materializes the target orientation and grouped
   offsets, while cartesian point/line-style idioms exchange x/y.
-- `.agg()` records `granularity`
-- `.breakdown()` and `.rollup()` are the preferred granularity verbs; `.split()` and `.collapse()` remain aliases
+- `.breakdown()` and `.rollup()` record granularity changes
 - `.layout()` materializes grouped-bar offsets; default staged order is inferred
 
-`story.init().step()` converts those operations into the current runtime step
+`story().step()` converts those operations into the current runtime step
 shape. The weather demo also exposes `story.demo()` as a preset with data,
 layout, and the main view already configured.
-`authoredSteps()` remains available as the lower-level helper behind the builder:
+Internally, the builder lowers step definitions into this shape:
 
 ```js
 {
@@ -121,7 +121,7 @@ label remains only `guide`.
 
 ## Current Use
 
-The bar weather story in `src/specs/weather/bar-story.js` now uses this API:
+The bar weather story in `examples/weather/specs/bar-story.js` now uses this API:
 
 ```js
 const base = bar("weatherDays")
@@ -133,7 +133,7 @@ const segmented = base.breakdown("type");
 
 return story.demo()
   .data("weatherDays", {
-    url: "./src/data/weather_days_tidy.csv",
+    url: "./examples/weather/data/weather_days_tidy.csv",
     type: "csv"
   })
   .layout("floatToText", {

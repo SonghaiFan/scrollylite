@@ -1,8 +1,8 @@
 # Phase 1 Scene Transition Grammar
 
 This phase implements two layout presets and four scene transition types for
-bar, point, and line. Circle-unit views use the same mark-renderer protocol but only
-implements focus and guide, because its observation is the unit count itself.
+bar, point, and line. Unit views use the same idiom protocol but only implement
+focus and guide, because their observation is the unit count itself.
 
 ## Scene Inference
 
@@ -35,7 +35,7 @@ compiler map generated from `src/charts/manifest.js`.
 `observation` changes the encoded variable while preserving the same entity key.
 
 - Bar changes the quantitative measure for the current category channel.
-- Scatter and line infer xy observation changes by diffing x/y encoded fields.
+- Point and line infer xy observation changes by diffing x/y encoded fields.
   Their normal compiled state should remain the target encoding, not a separate
   observation state patch.
 - Unit charts do not implement observation transitions. Their observation is the
@@ -44,7 +44,7 @@ compiler map generated from `src/charts/manifest.js`.
 `granularity` changes the level of aggregation or grouping.
 
 - Bar folds wide measures into segmented stacked/grouped bars.
-- Scatter supports aggregate/detail split and merge with parent anchors inferred
+- Point supports aggregate/detail split and merge with parent anchors inferred
   from rollup group keys or the current color channel.
 - Line supports single trend versus series-level line segments.
 
@@ -72,9 +72,17 @@ export function createAreaSpecCompiler(context = {}) {
 Expose that compiler through the idiom's `plugin.js`:
 
 ```js
-export function createSpecCompiler(context = {}) {
-  return createAreaSpecCompiler(context);
-}
+export const plugin = defineChartIdiom({
+  key: "area",
+  createRenderer: createAreaRenderer,
+  createSpecCompiler: createAreaSpecCompiler,
+  scenes: ["focus", "guide", "granularity", "observation"],
+  stateOperations: {
+    focus: "filter",
+    guide: "coordinate",
+    granularity: "aggregate"
+  }
+});
 ```
 
 Every operation handler uses `compileX(spec, operationSpec = {}, context = {})`
@@ -116,8 +124,8 @@ protocol helpers such as `renderer()`, `setCartesianState()`, and
 
 Transition planning is based on a semantic diff between the source view state and
 the target view state, not only on the target step's scene labels.
-`src/grammar/diff.js` keeps the older structural `changed` list for inference and
-also exposes `deltas`, a normalized list of net state changes such as:
+`src/grammar/diff.js` exposes `deltas`, a normalized list of net state changes
+such as:
 
 - `filter:change`
 - `bar.guide:add` or `bar.guide:remove`
@@ -158,7 +166,7 @@ Continuous scroll action is implemented by the native controller in
 configured viewport offset and emits `{ index, progress, direction }`.
 
 The renderer then scrubs D3 transition schedules with that progress. This keeps
-mark renderers written in normal D3 enter/update/exit style while allowing the
+idiom renderers written in normal D3 enter/update/exit style while allowing the
 same transition to be either time-driven or scroll-driven.
 
 In ordinary scroll mode, each step renders from a stable authored adjacent
@@ -199,6 +207,6 @@ progress. Existing scroll-driven transition schedules should be cancelled rather
 than finished when switching scroll steps; finishing them can force the old step
 to its endpoint before the new progress is applied.
 
-The current template intentionally keeps only the native controller. Scrollama
+ScrollyLite intentionally keeps only the native controller. Scrollama
 and GSAP adapters were removed to avoid multiple progress semantics during the
 grammar design phase.

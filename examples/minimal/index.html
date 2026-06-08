@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScrollyLite Minimal Example</title>
+    <link rel="stylesheet" href="../../dist/scrollylite.css" />
+    <link rel="stylesheet" href="../../dist/themes/default.css" />
+  </head>
+  <body>
+    <main id="app"></main>
+
+    <script src="../../dist/scrollylite.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+    <script>
+      (async () => {
+        const { createStory, story, bar } = ScrollyLite;
+
+        const spec = story()
+          .title("Revenue")
+          .data("rows", {
+            values: [
+              { category: "A", value: 12 },
+              { category: "B", value: 18 },
+              { category: "C", value: 9 }
+            ]
+          })
+          .view("main", { height: 420 })
+          .step("Baseline", bar("rows")
+            .x("category")
+            .y("value")
+            .key("category"))
+          .step("Highlight B", bar("rows")
+            .x("category")
+            .y("value")
+            .key("category")
+            .highlight({ category: "B" }))
+          .toSpec();
+
+        await createStory(spec, { target: "#app" });
+      })();
+    </script>
+  </body>
+</html>

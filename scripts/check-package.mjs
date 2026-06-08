@@ -1,0 +1,143 @@
+import { readFile, readdir, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+const packageJson = JSON.parse(
+  await readFile(join(root, "package.json"), "utf8")
+);
+const changelog = await readFile(join(root, "CHANGELOG.md"), "utf8");
+const publicExports = {
+  ".": {
+    types: "./dist/index.d.ts",
+    import: "./dist/scrollylite.esm.js"
+  },
+  "./browser": {
+    types: "./dist/browser.d.ts",
+    import: "./dist/scrollylite.browser.js"
+  },
+  "./style.css": "./dist/scrollylite.css",
+  "./themes/default.css": "./dist/themes/default.css"
+};
+const requiredFiles = [
+  "CHANGELOG.md",
+  "LICENSE",
+  "package-lock.json",
+  "README.md",
+  "dist/browser.d.ts",
+  "dist/browser.js",
+  "dist/index.d.ts",
+  "dist/index.js",
+  "dist/scrollylite.browser.js",
+  "dist/scrollylite.esm.js",
+  "dist/scrollylite.global.js",
+  "dist/scrollylite.css",
+  "dist/themes/default.css",
+  "dist/charts/manifest.js"
+];
+const forbiddenDistPatterns = [
+  /(^|\/)examples\//,
+  /(^|\/)specs\//,
+  /weather_(days_tidy|sample)\.csv$/,
+  /runtime\/deps\.js$/,
+  /dist\/styles\.css$/,
+  /\.DS_Store$/
+];
+const forbiddenSourceText = [
+  "?v=",
+  "globalThis.d3",
+  "globalThis.aq",
+  "configureRuntimeDependencies",
+  "getD3",
+  "getArquero",
+  "createScatterStory",
+  "registerMarkRenderer",
+  "availableMarkRenderers",
+  "chartPlugin"
+];
+const browserAdapterFiles = new Set([
+  "dist/browser.js",
+  "dist/scrollylite.browser.js",
+  "dist/scrollylite.global.js"
+]);
+const browserAdapterGlobals = new Set([
+  "globalThis.d3",
+  "globalThis.aq"
+]);
+
+assertEqual(packageJson.exports, publicExports, "package exports");
+assertEqual(packageJson.files, ["dist", "README.md", "CHANGELOG.md", "LICENSE"], "published files");
+assertEqual(packageJson.main, "./dist/scrollylite.esm.js", "main");
+assertEqual(packageJson.module, "./dist/scrollylite.esm.js", "module");
+assertEqual(packageJson.types, "./dist/index.d.ts", "types");
+assertEqual(packageJson.jsdelivr, "./dist/scrollylite.global.js", "jsdelivr");
+assertEqual(packageJson.unpkg, "./dist/scrollylite.global.js", "unpkg");
+assertEqual(packageJson.style, "./dist/scrollylite.css", "style");
+assertEqual(packageJson.repository, {
+  type: "git",
+  url: "git+https://github.com/SonghaiFan/scrolly-grammar-template.git"
+}, "repository");
+assertEqual(packageJson.bugs, {
+  url: "https://github.com/SonghaiFan/scrolly-grammar-template/issues"
+}, "bugs");
+assertEqual(packageJson.homepage, "https://github.com/SonghaiFan/scrolly-grammar-template#readme", "homepage");
+assertEqual(packageJson.publishConfig, { access: "public" }, "publishConfig");
+assertEqual(packageJson.engines, { node: ">=18" }, "engines");
+if (!packageJson.devDependencies?.esbuild) {
+  throw new Error("package.json must pin esbuild as a devDependency for the global build.");
+}
+assertEqual(packageJson.scripts["pack:check"], "node scripts/check-pack-consumer.mjs", "pack:check");
+assertEqual(packageJson.scripts["release:check"], "npm test && npm run pack:check && npm pack --dry-run --ignore-scripts", "release:check");
+assertEqual(packageJson.scripts.prepublishOnly, "npm run release:check", "prepublishOnly");
+if (!changelog.includes(`## ${packageJson.version} - `)) {
+  throw new Error(`CHANGELOG.md must include an entry for ${packageJson.version}.`);
+}
+
+for (const file of requiredFiles) {
+  await assertFile(file);
+}
+
+const distFiles = await listFiles(join(root, "dist"));
+for (const file of distFiles) {
+  const normalized = relative(root, file).replaceAll("\\", "/");
+  if (forbiddenDistPatterns.some((pattern) => pattern.test(normalized))) {
+    throw new Error(`Forbidden file in dist: ${normalized}`);
+  }
+  if (/\.(js|mjs|css|html|md|json|ts)$/.test(file)) {
+    const text = await readFile(file, "utf8");
+    const forbidden = forbiddenSourceText.find((token) => (
+      text.includes(token) &&
+      !(browserAdapterFiles.has(normalized) && browserAdapterGlobals.has(token))
+    ));
+    if (forbidden) {
+      throw new Error(`Forbidden token "${forbidden}" in ${normalized}`);
+    }
+  }
+}
+
+console.log(`Package invariants ok: ${distFiles.length} dist files.`);
+
+async function assertFile(path) {
+  const fullPath = join(root, path);
+  const info = await stat(fullPath).catch(() => null);
+  if (!info?.isFile()) throw new Error(`Missing package file: ${path}`);
+}
+
+async function listFiles(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...await listFiles(path));
+    else files.push(path);
+  }
+  return files;
+}
+
+function assertEqual(actual, expected, label) {
+  const left = JSON.stringify(actual);
+  const right = JSON.stringify(expected);
+  if (left !== right) {
+    throw new Error(`${label} mismatch: expected ${right}, got ${left}`);
+  }
+}

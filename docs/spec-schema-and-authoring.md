@@ -12,7 +12,7 @@ authoring code
   -> authored step spec
   -> effective view spec
   -> transition diff/plan
-  -> mark renderer
+  -> chart idiom renderer
 ```
 
 The runtime renders the effective view spec. Raw authoring fields such as
@@ -46,7 +46,7 @@ runtime sees the step view.
 ```js
 {
   weatherDays: {
-    url: "./src/data/weather_days_tidy.csv",
+    url: "./examples/weather/data/weather_days_tidy.csv",
     type: "csv"
   }
 }
@@ -142,7 +142,8 @@ At the plugin layer, `bar` is currently the complete chart idiom: it owns its
 renderer, spec preparation, transition plan, intermediate staged specs, default
 margin, and inspector metadata. `point`, `line`, and `unit` now have authoring
 entry points and idiom-local scene compilers, but they still rely on
-renderer-local transition behavior rather than bar-style transition-plan hooks.
+renderer-local transition behavior rather than bar-style staged transition
+plans.
 
 Narrative-specific view fields live in one `narrative` block. Removing that
 block leaves a Vega-Lite-shaped UnitSpec for bar views. `narrative` should carry
@@ -367,7 +368,7 @@ The `granularity` and grouped-layout `guide` state is inferred later from
 Import:
 
 ```js
-import { bar, story } from "../../grammar/index.js";
+import { bar, story } from "scrollylite";
 ```
 
 Create a base bar state:
@@ -382,16 +383,15 @@ const base = bar("weatherDays")
 ### StoryBuilder
 
 ```js
-story.init(initialSpec?)
-story.demo() // weather demo helper
+story(initialSpec?)
   .schema(url)
   .title(text)
   .description(text)
   .data(name, source)
   .data({ [name]: source })
-.layout("floatToText" | "textOverVis", options?)
-.layout(runtimeLayout)
-.action(actions)
+  .layout("floatToText" | "textOverVis", options?)
+  .layout(runtimeLayout)
+  .action(actions)
   .view("main", viewConfig)
   .view(viewConfig)
   .step(title, viewState, bodyOrOptions?)
@@ -429,11 +429,8 @@ bar(data)
 .highlight(selector, options?)
 .guide(config)
 .flip(options?)
-.agg(config?)
 .breakdown(segment?, options?)
 .rollup(groupby?, options?)
-.split(segment?, options?) // alias
-.collapse(groupby?, options?) // alias
 .segment(fieldOrConfig?, config?)
 .layout(layout, options?)
 .toSpec()
@@ -604,11 +601,10 @@ exits use `to: "stack-base"`. For parent-child granularity changes,
 `enter.mode = "parent-child-lineage"` points to either `from: "parent-bounds"`
 or `from: "child-bounds"`.
 
-`barStage`, `barSplit`, `barCollapse`, and `barKey` remain compact compatibility
-summaries for the inspector and intermediate-spec helpers. The renderer should
-prefer `key`, `enter`, `exit`, `update.stages`, and `update.timing`, so transition
-decisions stay in the diff/plan layer instead of being re-inferred inside the D3
-renderer.
+The transition plan exposes only execution fields: `key`, `enter`, `exit`,
+`update.stages`, and `update.timing`. The inspector reads the same fields as the
+renderer, so transition decisions stay in the diff/plan layer instead of being
+re-inferred inside the D3 renderer.
 
 ## Transition Plan Source Rules
 
