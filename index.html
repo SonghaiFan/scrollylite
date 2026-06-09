@@ -279,12 +279,14 @@
          For createChart() embeds we zero it so the chart sizes to spec height. */
       #hero-chart .sl-view,
       #showcase-chart-view .sl-view,
-      #stepper-demo-chart .sl-view {
+      #btn-demo-chart .sl-view,
+      #slider-demo-chart .sl-view {
         min-height: 0 !important;
       }
       #hero-chart .sl-empty,
       #showcase-chart-view .sl-empty,
-      #stepper-demo-chart .sl-empty {
+      #btn-demo-chart .sl-empty,
+      #slider-demo-chart .sl-empty {
         min-height: 0 !important;
       }
 
@@ -560,72 +562,138 @@
         white-space: pre;
       }
 
-      /* stepper demo controls */
+      /* ── Mode demo — vertical: chart on top, control below ─────────────────── */
       .mode-demo {
-        padding: 1rem 1.25rem;
+        padding: 1.1rem 1.25rem;
         border-top: 0.5px solid rgba(28,106,228,0.08);
         display: flex;
-        align-items: center;
-        gap: 0.75rem;
+        flex-direction: column;
+        gap: 0.9rem;
       }
 
       .mode-demo-chart {
-        flex: 1;
-        min-height: 0;          /* let chart height come from spec */
+        min-height: 0;
         overflow: hidden;
       }
 
-      .mode-stepper-btns {
+      /* ── Button control ──────────────────────────────────────────────────────── */
+      .btn-control {
         display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .step-btn {
-        display: inline-flex;
         align-items: center;
-        justify-content: center;
-        gap: 0.3rem;
-        padding: 0.5rem 1rem;
-        border-radius: 999px;
-        font-size: 0.82rem;
-        font-weight: 650;
-        border: 1px solid rgba(28,106,228,0.20);
-        background: rgba(245,247,255,0.8);
-        color: var(--sl-color-on-surface);
-        cursor: pointer;
-        transition: background 0.12s, border-color 0.12s;
+        gap: 0.75rem;
+        background: rgba(28,106,228,0.04);
+        border-radius: 12px;
+        padding: 0.65rem 1rem;
       }
 
-      .step-btn:hover { background: rgba(28,106,228,0.08); border-color: var(--sl-color-primary); }
-      .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-      .mode-scroller-preview {
-        position: relative;
-        padding: 1rem 1.25rem;
-        border-top: 0.5px solid rgba(28,106,228,0.08);
+      .state-chip {
+        flex: 1;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 80px;
+        gap: 0.4rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(90,106,138,0.45);
+        transition: color 0.2s;
       }
 
-      .scroller-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.6rem 1.3rem;
-        border-radius: 999px;
-        font-size: 0.88rem;
-        font-weight: 650;
-        text-decoration: none;
+      .state-chip.is-active { color: var(--sl-color-primary); }
+
+      .state-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+        opacity: 0.45;
+        transition: opacity 0.2s;
+      }
+
+      .state-chip.is-active .state-dot { opacity: 1; }
+
+      .state-advance-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
         background: var(--sl-color-primary);
         color: #fff;
-        box-shadow: 0 2px 10px rgba(28,106,228,0.25);
-        transition: opacity 0.12s;
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: transform 0.15s, opacity 0.15s;
+        box-shadow: 0 2px 8px rgba(28,106,228,0.28);
       }
 
-      .scroller-link:hover { opacity: 0.88; }
+      .state-advance-btn:hover  { opacity: 0.88; transform: scale(1.06); }
+      .state-advance-btn:active { transform: scale(0.95); }
+
+      /* ── Slider control ──────────────────────────────────────────────────────── */
+      .slider-control {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        background: rgba(28,106,228,0.04);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+      }
+
+      .slider-track-row {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+      }
+
+      .slider-end-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--sl-color-muted);
+        white-space: nowrap;
+      }
+
+      .slider-input {
+        flex: 1;
+        height: 5px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(28,106,228,0.15);
+        border-radius: 999px;
+        cursor: pointer;
+        accent-color: var(--sl-color-primary);
+      }
+
+      .slider-input::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--sl-color-primary);
+        box-shadow: 0 1px 6px rgba(28,106,228,0.35);
+        cursor: pointer;
+        transition: transform 0.1s;
+      }
+
+      .slider-input::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+      .slider-value-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.72rem;
+        color: var(--sl-color-muted);
+      }
+
+      #slider-val-display {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--sl-color-primary);
+        font-weight: 700;
+        font-size: 0.75rem;
+      }
 
       /* ── Feature grid ───────────────────────────────────────────────────────── */
       .features-grid {
@@ -845,75 +913,79 @@
           <p class="section-label">Control modes</p>
           <h2 class="section-title">Two ways to drive transitions.</h2>
           <p class="section-lede">
-            The same chart spec works with both modes. Stepper for
-            button/keyboard navigation; Scroller for scroll-driven storytelling.
+            Same spec, same API — <code>chart.step(n)</code>. Wire it to a
+            button, a slider, a scroll offset, or a timer. The chart handles
+            the animation either way.
           </p>
 
           <div class="modes-grid">
 
-            <!-- Stepper mode -->
+            <!-- Button control -->
             <div class="mode-card">
               <div class="mode-card-header">
-                <span class="mode-badge stepper">Stepper</span>
-                <h3>Programmatic control</h3>
+                <span class="mode-badge stepper">Button</span>
+                <h3>chart.step(n) on click</h3>
                 <p>
-                  Use <code>createChart()</code> to embed a standalone chart.
-                  Call <code>chart.step(n)</code> from any trigger — button,
-                  keyboard, slider, or route change.
+                  Attach <code>chart.step(n)</code> to any event — a button,
+                  keyboard shortcut, route change, or timer.
                 </p>
               </div>
               <pre class="mode-code"><code><span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createChart</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
   target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
 <span class="tok-p">});</span>
 
-<span class="tok-c">// Jump to any step instantly</span>
-chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">0</span><span class="tok-p">);</span>   <span class="tok-c">// baseline</span>
-chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">1</span><span class="tok-p">);</span>   <span class="tok-c">// filter focus</span>
-chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">2</span><span class="tok-p">);</span>   <span class="tok-c">// guide: flip</span>
-
-<span class="tok-c">// Respond to any user trigger</span>
+<span class="tok-c">// Toggle between two states</span>
+<span class="tok-k">let</span> n <span class="tok-p">=</span> <span class="tok-s">0</span><span class="tok-p">;</span>
 btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span>
-  chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span>next<span class="tok-p">++);</span></code></pre>
+  chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span>n <span class="tok-p">^=</span> <span class="tok-s">1</span><span class="tok-p">);</span>   <span class="tok-c">// 0 ↔ 1</span></code></pre>
               <div class="mode-demo">
-                <div class="mode-demo-chart" id="stepper-demo-chart"></div>
-                <div class="mode-stepper-btns">
-                  <button class="step-btn" id="stepper-prev" disabled>← Prev</button>
-                  <button class="step-btn" id="stepper-next">Next →</button>
-                  <div style="text-align:center;font-size:0.72rem;color:var(--sl-color-muted);margin-top:0.2rem">
-                    Step <span id="stepper-idx">1</span> / <span id="stepper-total">?</span>
-                  </div>
+                <div class="mode-demo-chart" id="btn-demo-chart"></div>
+                <div class="btn-control">
+                  <span class="state-chip is-active" id="btn-state-0">
+                    <span class="state-dot"></span>Hot days
+                  </span>
+                  <button class="state-advance-btn" id="btn-demo-btn" aria-label="Toggle state">→</button>
+                  <span class="state-chip" id="btn-state-1">
+                    <span class="state-dot"></span>Breakdown
+                  </span>
                 </div>
               </div>
             </div>
 
-            <!-- Scroller mode -->
+            <!-- Slider control -->
             <div class="mode-card">
               <div class="mode-card-header">
-                <span class="mode-badge scroller">Scroller</span>
-                <h3>Scroll-driven narrative</h3>
+                <span class="mode-badge scroller">Slider</span>
+                <h3>progress [0 → 1] → step</h3>
                 <p>
-                  Use <code>createStory()</code> for full scrollytelling.
-                  The built-in scroll driver maps page position to chart
-                  state — no manual wiring needed.
+                  Map a continuous 0–1 value to a step index. Works identically
+                  with a range input, scroll progress, or any interpolated value.
                 </p>
               </div>
-              <pre class="mode-code"><code><span class="tok-k">const</span> story <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createStory</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
-  target<span class="tok-p">:</span> <span class="tok-s">"#app"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
+              <pre class="mode-code"><code><span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createChart</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
+  target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
 <span class="tok-p">});</span>
 
-<span class="tok-c">// The scroll driver wires itself.</span>
-<span class="tok-c">// Chart state tracks scroll position</span>
-<span class="tok-c">// — no onscroll handlers needed.</span>
-
-<span class="tok-c">// Layout presets:</span>
-<span class="tok-p">.</span><span class="tok-fn">layout</span><span class="tok-p">(</span><span class="tok-s">"floatToText"</span><span class="tok-p">)</span>
-  <span class="tok-c">// chart sidebar, text scrolls beside</span>
-<span class="tok-p">.</span><span class="tok-fn">layout</span><span class="tok-p">(</span><span class="tok-s">"textOverVis"</span><span class="tok-p">)</span>
-  <span class="tok-c">// chart fills bg, text overlays</span></code></pre>
-              <div class="mode-scroller-preview">
-                <a class="scroller-link" href="./examples/weather/">
-                  Open scroll demo →
-                </a>
+<span class="tok-c">// Map [0 → 1] to step index</span>
+slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
+  chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span>Math<span class="tok-p">.</span><span class="tok-fn">round</span><span class="tok-p">(</span>
+    <span class="tok-p">+</span>slider<span class="tok-p">.</span>value      <span class="tok-c">// 0.00 → 1.00</span>
+  <span class="tok-p">));</span></code></pre>
+              <div class="mode-demo">
+                <div class="mode-demo-chart" id="slider-demo-chart"></div>
+                <div class="slider-control">
+                  <div class="slider-track-row">
+                    <span class="slider-end-label">State 0</span>
+                    <input class="slider-input" type="range" id="slider-demo-input"
+                           min="0" max="1" step="0.01" value="0"
+                           aria-label="Progress 0 to 1">
+                    <span class="slider-end-label">State 1</span>
+                  </div>
+                  <div class="slider-value-row">
+                    <span id="slider-state-name">Hot days</span>
+                    <span id="slider-val-display">0.00</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1175,50 +1247,49 @@ btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span>
         console.warn("Hero chart failed:", e);
       }
 
-      // ── Stepper mode demo ─────────────────────────────────────────────────────
-      const stepperSteps = [
-        ["Baseline",   base.where({ type: "Hot days" }),           "Hot days per decade"],
-        ["Breakdown",  base.breakdown("type"),                      "Split by hot/cold"],
-        ["Highlight",  base.breakdown("type").highlight({ type: "Cold days" }), "Focus: cold days"],
-        ["Grouped",    base.breakdown("type").layout("grouped").flip(), "Grouped horizontal"],
+      // ── Two-state spec shared by both mode demos ──────────────────────────────
+      const DEMO_STATES = [
+        { label: "Hot days",  chart: base.where({ type: "Hot days" }),  desc: "Baseline — one bar per decade" },
+        { label: "Breakdown", chart: base.breakdown("type"),            desc: "Split into Hot & Cold" },
       ];
+      const demoSpec = makeSpec(DEMO_STATES.map(s => [s.label, s.chart, s.desc]), 220);
 
-      const stepperSpec = makeSpec(stepperSteps, 220);
-      let stepperChart = null;
-      let stepperIdx = 0;
-
-      const prevBtn = document.getElementById("stepper-prev");
-      const nextBtn = document.getElementById("stepper-next");
-      const idxEl   = document.getElementById("stepper-idx");
-      const totalEl = document.getElementById("stepper-total");
-
-      totalEl.textContent = stepperSteps.length;
+      // ── Button demo ───────────────────────────────────────────────────────────
+      let btnDemoChart = null;
+      let btnState = 0;
 
       try {
-        stepperChart = await createChart(stepperSpec, {
-          target: "#stepper-demo-chart",
-          d3, aq,
-          initialStep: 0
-        });
-      } catch (e) {
-        console.warn("Stepper chart failed:", e);
-      }
+        btnDemoChart = await createChart(demoSpec, { target: "#btn-demo-chart", d3, aq, initialStep: 0 });
+      } catch (e) { console.warn("Btn demo chart failed:", e); }
 
-      function updateStepperBtns() {
-        idxEl.textContent = stepperIdx + 1;
-        prevBtn.disabled = stepperIdx === 0;
-        nextBtn.disabled = stepperIdx === stepperSteps.length - 1;
-      }
-
-      prevBtn.addEventListener("click", () => {
-        if (stepperIdx > 0) { stepperIdx--; stepperChart?.step(stepperIdx); updateStepperBtns(); }
+      document.getElementById("btn-demo-btn").addEventListener("click", () => {
+        btnState ^= 1;
+        btnDemoChart?.step(btnState);
+        document.getElementById("btn-state-0").classList.toggle("is-active", btnState === 0);
+        document.getElementById("btn-state-1").classList.toggle("is-active", btnState === 1);
       });
 
-      nextBtn.addEventListener("click", () => {
-        if (stepperIdx < stepperSteps.length - 1) { stepperIdx++; stepperChart?.step(stepperIdx); updateStepperBtns(); }
-      });
+      // ── Slider demo ───────────────────────────────────────────────────────────
+      let sliderDemoChart = null;
 
-      updateStepperBtns();
+      try {
+        sliderDemoChart = await createChart(demoSpec, { target: "#slider-demo-chart", d3, aq, initialStep: 0 });
+      } catch (e) { console.warn("Slider demo chart failed:", e); }
+
+      const sliderInput    = document.getElementById("slider-demo-input");
+      const sliderValEl    = document.getElementById("slider-val-display");
+      const sliderStateEl  = document.getElementById("slider-state-name");
+
+      // Reset to 0 on load (browser may persist last value across reloads)
+      sliderInput.value = "0";
+
+      sliderInput.addEventListener("input", () => {
+        const val  = parseFloat(sliderInput.value);
+        const step = Math.round(val * (DEMO_STATES.length - 1));
+        sliderDemoChart?.step(step);
+        sliderValEl.textContent   = val.toFixed(2);
+        sliderStateEl.textContent = DEMO_STATES[step].label;
+      });
     </script>
   </body>
 </html>
