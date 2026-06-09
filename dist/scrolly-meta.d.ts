@@ -1,0 +1,13 @@
+import type { NarrativeSpec, ResolvedNarrativeState, ScrollSpec, SemanticKey, TransitionSpec, ViewSpec } from './types/index.js';
+export declare const NARRATIVE_KEY = "narrative";
+export declare function getNarrative(spec: ViewSpec | Record<string, unknown>): NarrativeSpec;
+export declare function withNarrative<T extends ViewSpec>(spec: T, extension: Partial<NarrativeSpec>): T;
+export declare function externalizeScrollyViewSpec(spec: ViewSpec): ViewSpec;
+export declare function normalizeScrollyViewSpec(spec: ViewSpec): ViewSpec & Record<string, unknown>;
+export declare function narrativeObjectKey(spec: ViewSpec): string | string[] | null;
+export declare function narrativeSemanticKey(spec: ViewSpec): SemanticKey | null;
+export declare function narrativeTransition(spec: ViewSpec): TransitionSpec;
+export declare function narrativeScroll(spec: ViewSpec): ScrollSpec | null;
+export declare function narrativeUnit(spec: ViewSpec): Record<string, unknown> | null;
+export declare function narrativeState(spec: ViewSpec): ResolvedNarrativeState;
+export declare function dataName(dataSpec: unknown): string | null;

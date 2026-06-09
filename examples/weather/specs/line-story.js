@@ -1,73 +1,69 @@
-import { line } from "../../../src/index.js";
-import { COLD_COLOR, COLD_PERIOD_COLOR, HOT_COLOR, story } from "./shared.js";
+import { line } from "../../../dist/index.js";
+import { story } from "./shared.js";
 
-export function createLineStory() {
+export function createLineStory({ actionMode = "stepper" } = {}) {
   const base = line("weather")
     .x("decade")
     .y("hot_days")
-    .color(HOT_COLOR)
     .key("decade")
     .sort("year");
 
   const cold = base
-    .y("cold_days")
-    .color(COLD_COLOR);
+    .y("cold_days");
 
   return story.demo()
+    .action(actionMode)
     .layout("floatToText")
     .description(
-      "This demo keeps the mark fixed as line and demonstrates Focus, Guide, Observation, and Granularity as changes in scale, encoded measure, and line grouping."
+      "Demonstrates Focus, Guide, Observation, and Granularity on a trend line. " +
+      "Each scene changes one dimension of how the line is read or grouped."
     )
     .step(
-      "Baseline: hot-days trend line",
+      "Baseline: hot-days trend",
       base,
       {
-        body: "Start with one continuous line over decades, using vertical position to encode hot days.",
-        authoring: "base"
+        body: "One line over decades — vertical position encodes hot days.",
+        authoring: 'line("weather").x("decade").y("hot_days").key("decade").sort("year")'
       }
     )
     .step(
-      "Focus: zoom to a subset",
+      "Focus: zoom to recent decades",
       base.where({ period: "recent" }),
       {
-        body: "The focus scene keeps the line objects intact, rescales the x range to the recent period, and crops overflow outside the plot.",
+        body: "Focus keeps the line objects intact and rescales x to the recent period.",
         authoring: 'base.where({ period: "recent" })'
       }
     )
     .step(
-      "Guide: change vertical scale",
-      base.guide({
-        y: {
-          scale: { type: "log" }
-        }
-      }),
+      "Guide: logarithmic y scale",
+      base.guide({ y: { scale: { type: "log" } } }),
       {
-        body: "The guide scene keeps hot days as the observation but changes the reading guide to a logarithmic y scale.",
+        body: "Guide changes the reading frame — same data, different scale for the y axis.",
         authoring: 'base.guide({ y: { scale: { type: "log" } } })'
       }
     )
     .step(
-      "Observation: change encoded variable",
+      "Observation: switch to cold days",
       cold,
       {
-        body: "The observation scene keeps the same decade path but changes y from hot days to cold days.",
-        authoring: 'base.y("cold_days").color("#536a9e")'
+        body: "Observation swaps the encoded variable — same decade path, y now encodes cold days.",
+        authoring: 'base.y("cold_days")'
       }
     )
     .step(
-      "Granularity: split trend into periods",
-      cold.breakdown("period", { color: COLD_PERIOD_COLOR }),
+      "Granularity: split line into periods",
+      cold.breakdown("period", { color: { field: "period", type: "nominal" } }),
       {
-        body: "The granularity scene keeps decade points consistent but splits the line into period-level segments.",
-        authoring: 'cold.breakdown("period", { color: COLD_PERIOD_COLOR })'
+        body: "Granularity splits one continuous line into per-period segments — same points, new grouping.",
+        authoring: 'cold.breakdown("period", { color: { field: "period", type: "nominal" } })'
       }
     )
     .step(
-      "Granularity: merge periods into one line",
-      cold.rollup({ color: COLD_COLOR }),
+      "Granularity: merge back to one line",
+      cold.rollup(),
       {
-        body: "The granularity scene merges the period-level line segments back into one continuous trend.",
-        authoring: 'cold.rollup({ color: "#536a9e" })'
+        body: "Granularity merges period segments back into a single continuous trend.",
+        authoring: 'cold.rollup()'
       }
     )
     .toSpec();

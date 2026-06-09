@@ -5,113 +5,268 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ScrollyLite Demo</title>
     <link rel="stylesheet" href="../../src/styles.css" />
-    <link id="demo-theme-style" rel="stylesheet" href="../../src/themes/default.css" />
+    <link id="demo-theme-style" rel="stylesheet" href="../../src/themes/default/index.css" />
+    <style>
+      /* ── Demo toolbar ─────────────────────────────────────────────────────── */
+      .demo-toolbar {
+        position: sticky;
+        top: 12px;
+        margin: 12px 12px 0;
+        border-radius: 14px;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 0.5rem 1.25rem;
+        background: var(--sl-bg, #fff);
+        border-bottom: 1px solid var(--sl-border, #e5e7eb);
+        color: var(--sl-fg, #374151);
+        flex-wrap: wrap;
+      }
+      .demo-toolbar-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        white-space: nowrap;
+      }
+      .demo-toolbar-brand h1 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0;
+        line-height: 1.2;
+        color: var(--sl-fg, #374151);
+      }
+      .demo-toolbar-brand p {
+        font-size: 0.72rem;
+        color: var(--sl-muted, #6b7280);
+        margin: 0;
+      }
+      .demo-toolbar-sep {
+        width: 1px;
+        height: 2rem;
+        background: var(--sl-border, #e5e7eb);
+        flex-shrink: 0;
+      }
+      .demo-nav-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .demo-nav-label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+        color: var(--sl-muted, #6b7280);
+      }
+      .demo-nav-pills {
+        display: flex;
+        gap: 0.25rem;
+      }
+      .demo-nav-pills a {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        text-decoration: none;
+        border: 1px solid var(--sl-border, #e5e7eb);
+        color: var(--sl-fg, #374151);
+        background: transparent;
+        transition: background 0.12s, color 0.12s, border-color 0.12s;
+        white-space: nowrap;
+      }
+      .demo-nav-pills a:hover {
+        background: var(--sl-surface, #f3f4f6);
+      }
+      .demo-nav-pills a.is-active {
+        background: var(--sl-accent, #1c6ae4);
+        border-color: var(--sl-accent, #1c6ae4);
+        color: #fff;
+      }
+      /* Action mode pills — distinct colours so they read as a different kind of control */
+      .demo-nav-pills a[data-action-link].is-active[data-action-link="stepper"] {
+        background: #4f46e5;
+        border-color: #4f46e5;
+        color: #fff;
+      }
+      .demo-nav-pills a[data-action-link].is-active[data-action-link="scroller"] {
+        background: #d97706;
+        border-color: #d97706;
+        color: #fff;
+      }
+      /* Theme swatch pills show a color dot instead of text-only */
+      .demo-theme-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+        border: 1px solid rgba(0,0,0,0.15);
+        flex-shrink: 0;
+      }
+    </style>
   </head>
   <body>
     <header class="demo-toolbar" aria-label="Demo controls">
-      <div>
-        <p class="demo-toolbar-kicker">Layout preset</p>
-        <h1>ScrollyLite demo</h1>
+      <div class="demo-toolbar-brand">
+        <h1>ScrollyLite</h1>
+        <p>Action API demo</p>
       </div>
-      <nav class="demo-layout-switcher" aria-label="Choose demo">
-        <a href="?layout=floatToText&story=bar" data-layout-link="floatToText">Float to Text</a>
-        <a href="?layout=textOverVis&story=bar" data-layout-link="textOverVis">Text over Vis</a>
-        <a href="?layout=floatToText&story=bar" data-story-link="bar">Bar Story</a>
-        <a href="?layout=floatToText&story=point" data-story-link="point">Point Story</a>
-        <a href="?layout=floatToText&story=line" data-story-link="line">Line Story</a>
-        <a href="?layout=floatToText&story=unit" data-story-link="unit">Unit Story</a>
-        <a href="?layout=floatToText&story=bar&action=step" data-action-link="step">Stepped</a>
-        <a href="?layout=floatToText&story=bar&action=scroll" data-action-link="scroll">Scroll</a>
-      </nav>
+
+      <div class="demo-toolbar-sep" role="separator"></div>
+
+      <div class="demo-nav-group">
+        <span class="demo-nav-label">Layout</span>
+        <div class="demo-nav-pills">
+          <a href="?layout=floatToText&story=bar" data-layout-link="floatToText">Float to Text</a>
+          <a href="?layout=textOverVis&story=bar" data-layout-link="textOverVis">Text over Vis</a>
+        </div>
+      </div>
+
+      <div class="demo-nav-group">
+        <span class="demo-nav-label">Story</span>
+        <div class="demo-nav-pills">
+          <a href="?layout=floatToText&story=bar" data-story-link="bar">Bar</a>
+          <a href="?layout=floatToText&story=point" data-story-link="point">Point</a>
+          <a href="?layout=floatToText&story=line" data-story-link="line">Line</a>
+          <a href="?layout=floatToText&story=unit" data-story-link="unit">Unit</a>
+        </div>
+      </div>
+
+      <div class="demo-toolbar-sep" role="separator"></div>
+
+      <div class="demo-nav-group">
+        <span class="demo-nav-label">Action</span>
+        <div class="demo-nav-pills">
+          <a href="?action=stepper" data-action-link="stepper">Stepper</a>
+          <a href="?action=scroller" data-action-link="scroller">Scroller</a>
+        </div>
+      </div>
+
+      <div class="demo-toolbar-sep" role="separator"></div>
+
+      <div class="demo-nav-group">
+        <span class="demo-nav-label">Theme</span>
+        <div class="demo-nav-pills">
+          <a href="?" data-theme-link="default">
+            <span class="demo-theme-dot" style="background:rgb(28,106,228);border-color:rgb(28,106,228)"></span>Default
+          </a>
+          <a href="?" data-theme-link="dark">
+            <span class="demo-theme-dot" style="background:#0c0f13;border-color:#4fa3d4"></span>Arch
+          </a>
+          <a href="?" data-theme-link="paper">
+            <span class="demo-theme-dot" style="background:#f4ede0;border-color:#c8b898"></span>Paper
+          </a>
+        </div>
+      </div>
     </header>
+
     <main id="app"></main>
 
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
     <script type="module">
-      import { createStory } from "../../src/index.js";
-      import { createDemoSpec } from "./specs/demo.js";
+      import { createStory } from "../../dist/index.js";
+      import { createDemoSpec, availableStories } from "./specs/demo.js";
+      import { layoutCopy } from "./specs/shared.js";
 
       const THEMES = {
-        default: {
-          label: "Default",
-          href: "../../src/themes/default.css"
-        }
+        default: { label: "Default", href: "../../src/themes/default/index.css" },
+        dark:    { label: "Arch",    href: "../../src/themes/dark/index.css"    },
+        paper:   { label: "Paper",   href: "../../src/themes/paper/index.css"   },
+        warm:    { label: "Paper",   href: "../../src/themes/paper/index.css"   }  // legacy alias
       };
 
-      function resolveTheme(name) {
-        return THEMES[name] ? name : "default";
-      }
-
+      // ── Resolve URL params ──────────────────────────────────────────────────
       const params = new URLSearchParams(window.location.search);
       const requestedLayout = params.get("layout");
-      const layoutPreset = requestedLayout === "floatToText" ? "floatToText" : "textOverVis";
-      const themeName = resolveTheme(params.get("theme"));
-      const actionMode = params.get("action") === "scroll" ? "scroll" : "step";
-      const storyOptions = ["bar", "unit", "point", "line"];
+      const layoutPreset = layoutCopy[requestedLayout] ? requestedLayout : "textOverVis";
+      const themeName = THEMES[params.get("theme")] ? params.get("theme") : "default";
+      const storyOptions = availableStories().map((s) => s.id);
       const storyId = storyOptions.includes(params.get("story"))
         ? params.get("story")
-        : storyOptions.includes(params.get("chart"))
-          ? params.get("chart")
-          : "bar";
+        : "bar";
 
+      // Action mode: explicit URL param takes priority; otherwise use the layout's
+      // natural default (floatToText → stepper, textOverVis → scroller).
+      const layout = layoutCopy[layoutPreset];
+      const requestedAction = params.get("action");
+      const actionMode = (requestedAction === "stepper" || requestedAction === "scroller")
+        ? requestedAction
+        : layout.actionMode;
+
+      // ── Apply theme ─────────────────────────────────────────────────────────
       document.querySelector("#demo-theme-style").href = THEMES[themeName].href;
       document.documentElement.dataset.theme = themeName;
 
-      document
-        .querySelectorAll("[data-layout-link]")
-        .forEach((link) => {
-          const active = link.dataset.layoutLink === layoutPreset;
-          link.classList.toggle("is-active", active);
-          if (active) link.setAttribute("aria-current", "page");
-          else link.removeAttribute("aria-current");
-          const url = new URL(link.href);
-          url.searchParams.set("story", storyId);
-          url.searchParams.delete("chart");
-          url.searchParams.set("action", actionMode);
-          if (themeName !== "default") url.searchParams.set("theme", themeName);
-          link.href = `${url.pathname}${url.search}`;
-        });
-
-      document
-        .querySelectorAll("[data-story-link]")
-        .forEach((link) => {
-          const active = link.dataset.storyLink === storyId;
-          link.classList.toggle("is-active", active);
-          if (active) link.setAttribute("aria-current", "page");
-          else link.removeAttribute("aria-current");
-          const url = new URL(link.href);
-          url.searchParams.set("layout", layoutPreset);
-          url.searchParams.set("action", actionMode);
-          url.searchParams.delete("chart");
-          if (themeName !== "default") url.searchParams.set("theme", themeName);
-          link.href = `${url.pathname}${url.search}`;
-        });
-
-      document
-        .querySelectorAll("[data-action-link]")
-        .forEach((link) => {
-          const active = link.dataset.actionLink === actionMode;
-          link.classList.toggle("is-active", active);
-          if (active) link.setAttribute("aria-current", "page");
-          else link.removeAttribute("aria-current");
-          const url = new URL(link.href);
-          url.searchParams.set("layout", layoutPreset);
-          url.searchParams.set("story", storyId);
-          url.searchParams.delete("chart");
-          if (themeName !== "default") url.searchParams.set("theme", themeName);
-          link.href = `${url.pathname}${url.search}`;
-        });
-
-      window.__scrollyLiteStory = await createStory(createDemoSpec({
-        layoutPreset,
-        storyId,
-        actionMode
-      }), {
-        target: "#app",
-        d3: globalThis.d3,
-        aq: globalThis.aq
+      // ── Layout links ────────────────────────────────────────────────────────
+      document.querySelectorAll("[data-layout-link]").forEach((link) => {
+        const active = link.dataset.layoutLink === layoutPreset;
+        link.classList.toggle("is-active", active);
+        link.toggleAttribute("aria-current", active);
+        const url = new URL(link.href);
+        url.searchParams.set("story", storyId);
+        url.searchParams.delete("chart");
+        // When switching layout, drop the action override so the new layout's
+        // default takes effect (user can re-select if they want to override).
+        url.searchParams.delete("action");
+        if (themeName !== "default") url.searchParams.set("theme", themeName);
+        link.href = `${url.pathname}${url.search}`;
       });
+
+      // ── Story links ─────────────────────────────────────────────────────────
+      document.querySelectorAll("[data-story-link]").forEach((link) => {
+        const active = link.dataset.storyLink === storyId;
+        link.classList.toggle("is-active", active);
+        link.toggleAttribute("aria-current", active);
+        const url = new URL(link.href);
+        url.searchParams.set("layout", layoutPreset);
+        url.searchParams.delete("chart");
+        if (requestedAction) url.searchParams.set("action", actionMode);
+        if (themeName !== "default") url.searchParams.set("theme", themeName);
+        link.href = `${url.pathname}${url.search}`;
+      });
+
+      // ── Action links ─────────────────────────────────────────────────────────
+      document.querySelectorAll("[data-action-link]").forEach((link) => {
+        const linkAction = link.dataset.actionLink;
+        const active = linkAction === actionMode;
+        link.classList.toggle("is-active", active);
+        link.toggleAttribute("aria-current", active);
+        const url = new URL(link.href);
+        url.searchParams.set("layout", layoutPreset);
+        url.searchParams.set("story", storyId);
+        url.searchParams.set("action", linkAction);
+        if (themeName !== "default") url.searchParams.set("theme", themeName);
+        link.href = `${url.pathname}${url.search}`;
+      });
+
+      // ── Theme links ──────────────────────────────────────────────────────────
+      document.querySelectorAll("[data-theme-link]").forEach((link) => {
+        const linkTheme = link.dataset.themeLink;
+        const active = linkTheme === themeName;
+        link.classList.toggle("is-active", active);
+        link.toggleAttribute("aria-current", active);
+        const url = new URL(link.href);
+        url.searchParams.set("layout", layoutPreset);
+        url.searchParams.set("story", storyId);
+        if (requestedAction) url.searchParams.set("action", actionMode);
+        if (linkTheme !== "default") url.searchParams.set("theme", linkTheme);
+        else url.searchParams.delete("theme");
+        link.href = `${url.pathname}${url.search}`;
+      });
+
+      // ── Create story ────────────────────────────────────────────────────────
+      window.__scrollyLiteStory = await createStory(
+        createDemoSpec({ layoutPreset, storyId, actionMode }),
+        {
+          target: "#app",
+          d3: globalThis.d3,
+          aq: globalThis.aq
+        }
+      );
     </script>
   </body>
 </html>

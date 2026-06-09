@@ -1,54 +1,20 @@
-import { story as createStory } from "../../../src/index.js";
+import { story as createStory } from "../../../dist/index.js";
 
-export const HOT_COLOR = "#b05d3b";
-export const COLD_COLOR = "#536a9e";
-
-export const PERIOD_LUMINANCE = {
-  field: "period",
-  domain: ["early", "middle", "recent"],
-  lightness: [18, 0, -18]
-};
-
-export const PERIOD_LUMINANCE_COLOR = {
-  hue: {
-    value: "#858585"
-  },
-  luminance: PERIOD_LUMINANCE
-};
-
-export const TEMPERATURE_HUE = {
-  field: "type",
-  type: "nominal",
-  domain: ["Hot days", "Cold days"],
-  range: [HOT_COLOR, COLD_COLOR]
-};
-
-export const HOT_PERIOD_COLOR = {
-  hue: {
-    value: HOT_COLOR
-  },
-  luminance: PERIOD_LUMINANCE
-};
-
-export const COLD_PERIOD_COLOR = {
-  hue: {
-    value: COLD_COLOR
-  },
-  luminance: PERIOD_LUMINANCE
-};
-
+// Layout presets — each carries its natural action mode.
+// floatToText: sidebar chart, discrete stepper nav.
+// textOverVis: sticky chart background, scroller-driven transitions.
 export const layoutCopy = {
   floatToText: {
     label: "Float to Text",
-    description:
-      "The chart stays beside the text while each step updates the registered renderer.",
-    preset: "floatToText"
+    description: "Sidebar layout — chart floats beside the text. Navigate with the step buttons.",
+    preset: "floatToText",
+    actionMode: "stepper"
   },
   textOverVis: {
     label: "Text over Vis",
-    description:
-      "The chart becomes a sticky visual stage while the article track scrolls across the center of it.",
-    preset: "textOverVis"
+    description: "Scrolly layout — chart fills the background. Scroll to drive transitions.",
+    preset: "textOverVis",
+    actionMode: "scroller"
   }
 };
 
@@ -86,45 +52,3 @@ export const story = Object.assign(createStory, {
     return createStory(createBaseDemo());
   }
 });
-
-export function withScrollActionMode(demo) {
-  return {
-    ...demo,
-    description: `${demo.description} Continuous mode maps scene transitions to scroll progress.`,
-    steps: demo.steps.map((step, index) => {
-      if (!shouldUseScrollAction(step, index)) return step;
-      return {
-        ...step,
-        action: index === 0 ? ["scroll", "tooltip", "enter"] : ["scroll", "tooltip"],
-        views: Object.fromEntries(
-          Object.entries(step.views || {}).map(([viewId, viewSpec]) => [
-            viewId,
-            withScrollNarrative(viewSpec)
-          ])
-        )
-      };
-    })
-  };
-}
-
-function shouldUseScrollAction(step, index) {
-  return index === 0 || hasTransitionStep(step);
-}
-
-function hasTransitionStep(step) {
-  return Boolean(step.transition?.scene?.length);
-}
-
-function withScrollNarrative(viewSpec) {
-  const narrative = viewSpec.narrative || {};
-  return {
-    ...viewSpec,
-    narrative: {
-      ...narrative,
-      action: {
-        ...(narrative.action || {}),
-        scroll: narrative.action?.scroll || { ease: "linear" }
-      }
-    }
-  };
-}

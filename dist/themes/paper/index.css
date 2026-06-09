@@ -1,0 +1,122 @@
+/* ScrollyLite — Paper / Magazine Theme
+   Ink on newsprint. Serif editorial voice, cream-toned page, minimal chrome.
+   Figure card = print graphic: simple rule border, no shadow, no radius.
+   Step card   = pure text on paper — no card background, just a top rule and
+                 a bold left column rule for the active step.
+   See DESIGN.md for rationale.                                             */
+
+:root {
+  color-scheme: light;
+
+  /* — Color roles — */
+  --sl-color-primary:          #8b1a0a;   /* masthead red — newspaper tradition */
+  --sl-color-surface:          #fefcf5;   /* cream-white, like uncoated stock    */
+  --sl-color-bg:               #f4ede0;   /* newsprint — warm cream paper        */
+  --sl-color-on-surface:       #1a1008;   /* near-black, slightly warm           */
+  --sl-color-muted:            #7a6a50;   /* warm gray ink                       */
+  --sl-color-border:           #c8b898;   /* column rule color                   */
+  --sl-color-outline:          #a89070;   /* aged ink on cream                   */
+  --sl-color-outline-variant:  #e0d4c0;   /* hairline rule between sections      */
+  /* Editorial earthy series palette */
+  --sl-color-series-1:  #8b1a0a;   /* masthead red      */
+  --sl-color-series-2:  #2a5a3a;   /* forest green      */
+  --sl-color-series-3:  #1e3a6a;   /* ink blue          */
+  --sl-color-series-4:  #6a3a1a;   /* umber             */
+  --sl-color-series-5:  #8a6a10;   /* mustard           */
+  --sl-color-series-6:  #2a5a5a;   /* teal              */
+  --sl-color-series-7:  #6a1a4a;   /* plum              */
+  --sl-color-series-8:  #3a5a1a;   /* olive             */
+  --sl-color-series-9:  #5a3a0a;   /* sienna            */
+  --sl-color-series-10: #3a3a3a;   /* charcoal          */
+
+  /* — Shape: minimal rounding — print design is angular — */
+  --sl-rounded-sm:  0;
+  --sl-rounded-md:  1;   /* barely perceptible softening on bars */
+  --sl-rounded-lg:  0;
+
+  /* — Typography: editorial serif — */
+  --sl-type-family:       "Georgia", "Palatino Linotype", Palatino,
+                          "Book Antiqua", serif;
+  --sl-type-label-size:   11px;
+  --sl-type-label-weight: 400;   /* Georgia at 400 is correct for small text */
+
+  /* — Non-cascaded component tokens — */
+  --sl-shadow:      none;         /* print has no drop shadows */
+  --sl-dim-opacity: 0.18;
+  --sl-line-width:  2;            /* thinner — ink drawn, not painted          */
+
+  /* — Figure card: print graphic — plain border, no shadow, no rounding — */
+  --sl-figure-bg:       var(--sl-color-surface);
+  --sl-figure-blur:     0px;
+  --sl-figure-radius:   0px;
+  --sl-figure-border:   1px solid var(--sl-color-border);
+  --sl-figure-shadow:   none;
+
+  /* — Step card: cream newsprint card, no rounding, column rule border — */
+  --sl-step-bg:          rgba(244, 237, 224, 0.92);
+  --sl-step-bg-active:   rgba(254, 252, 245, 0.98);
+  --sl-step-blur:        0px;
+  --sl-step-radius:      0px;
+  --sl-step-border:      1px solid var(--sl-color-border);
+  --sl-step-shadow:      none;
+}
+
+/* ── Page background: newsprint paper ─────────────────────────────────────── */
+body { background: var(--sl-color-bg); }
+.sl-intro { background: var(--sl-color-bg); }
+
+/* ── Axis & grid ─────────────────────────────────────────────────────────── */
+.sl-axis text, .sl-axis-label { fill: var(--sl-muted); font-size: var(--sl-axis-font-size); }
+.sl-legend   { fill: var(--sl-muted); font-size: var(--sl-legend-font-size); }
+.sl-grid line { stroke: var(--sl-grid); stroke-width: var(--sl-grid-width); }
+
+/* ── Figure (chart) card: bordered print graphic — no shadow, no rounding — */
+.sl-figure {
+  border-top: 2px solid var(--sl-color-on-surface);   /* heavy top rule, newspaper column-top */
+}
+.sl-figure-header {
+  border-bottom: 1px solid var(--sl-color-border);
+}
+.sl-figure-title {
+  color: var(--sl-fg);
+  font-family: var(--sl-type-family);
+  font-size: clamp(1rem, 1.6vw, 1.3rem);
+  font-weight: 700;
+  font-style: italic;             /* italic titles — magazine masthead style   */
+  letter-spacing: 0;
+}
+
+/* ── Step card — floatToText: plain text, left column rule only ─────────── */
+.sl-step-card {
+  border-left-color: transparent;
+}
+.sl-step.is-active .sl-step-card {
+  border-left-color: var(--sl-accent);
+}
+.sl-step h2 {
+  font-family: var(--sl-type-family);
+  font-style: italic;
+  font-weight: 700;
+}
+.sl-step p { font-family: var(--sl-type-family); }
+
+/* ── Step card — textOverVis: cream newsprint card, sharp edges ──────────── */
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card {
+  border-left: 3px solid transparent;
+}
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step.is-active .sl-step-card {
+  border-left-color: var(--sl-accent);
+}
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-transition-inspector {
+  background: rgba(254, 252, 245, 0.95);
+  border-color: var(--sl-color-border);
+}
+
+/* ── The ::before separator line between step cards ─────────────────────── */
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card::before {
+  background: var(--sl-color-border);
+}
+
+/* Progress */
+.sl-progress { background: rgba(139, 26, 10, 0.10); }
+.sl-progress-fill { background: var(--sl-accent); }

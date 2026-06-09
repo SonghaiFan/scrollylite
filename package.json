@@ -1,17 +1,17 @@
 {
   "name": "scrollylite",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Declarative scrollytelling visualization grammar for browser ESM.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SonghaiFan/scrolly-grammar-template.git"
+    "url": "git+https://github.com/SonghaiFan/scrollylite.git"
   },
   "bugs": {
-    "url": "https://github.com/SonghaiFan/scrolly-grammar-template/issues"
+    "url": "https://github.com/SonghaiFan/scrollylite/issues"
   },
-  "homepage": "https://github.com/SonghaiFan/scrolly-grammar-template#readme",
+  "homepage": "https://github.com/SonghaiFan/scrollylite#readme",
   "main": "./dist/scrollylite.esm.js",
   "module": "./dist/scrollylite.esm.js",
   "types": "./dist/index.d.ts",
@@ -71,6 +71,7 @@
     "esm"
   ],
   "devDependencies": {
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "typescript": "^5.9.3"
   }
 }

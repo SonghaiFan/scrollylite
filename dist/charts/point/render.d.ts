@@ -1,0 +1,1 @@
+export declare function createPointRenderer(deps: any): (chart: import("../../types/index.js").ChartContext, rows: unknown[], spec: import("../../types/index.js").ViewSpec, tooltip: unknown, d3: import("../../types/index.js").D3Lib) => void;

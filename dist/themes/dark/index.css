@@ -1,0 +1,111 @@
+/* ScrollyLite — Dark / Architecture Theme
+   Blueprint aesthetic: near-black ground, single accent color, zero rounding.
+   Figure card = sharp-edged panel with a top accent line (no glass, no shadow).
+   Step card   = bare minimal — just a left accent rule, transparent bg.
+   Data palette is monochromatic: tints of the single primary blue.
+   See DESIGN.md for rationale.                                             */
+
+:root {
+  color-scheme: dark;
+
+  /* — Color roles — single primary hue: blueprint blue — */
+  --sl-color-primary:          #4fa3d4;
+  --sl-color-surface:          #111318;
+  --sl-color-bg:               #0c0f13;
+  --sl-color-on-surface:       #c8d4e0;
+  --sl-color-muted:            #5e7080;
+  --sl-color-border:           #1e2530;
+  --sl-color-outline:          #263040;
+  --sl-color-outline-variant:  #161c24;
+  /* Monochromatic series — all tints/shades of the primary blue */
+  --sl-color-series-1:  #4fa3d4;   /* primary            */
+  --sl-color-series-2:  #2a7aaa;   /* deeper             */
+  --sl-color-series-3:  #80c4e8;   /* lighter            */
+  --sl-color-series-4:  #1a5a80;   /* darkest            */
+  --sl-color-series-5:  #aadaf4;   /* near-white blue    */
+  --sl-color-series-6:  #3690c0;   /* mid                */
+  --sl-color-series-7:  #c0e8f8;   /* ghost              */
+  --sl-color-series-8:  #265e78;   /* steel              */
+  --sl-color-series-9:  #5ab0d0;   /* bright             */
+  --sl-color-series-10: #90c8dc;   /* muted tint         */
+
+  /* — Shape: zero rounding — architectural, angular — */
+  --sl-rounded-sm:  0;
+  --sl-rounded-md:  0;
+  --sl-rounded-lg:  0;
+
+  /* — Typography: tight, technical — */
+  --sl-type-family:       Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --sl-type-label-size:   11px;
+  --sl-type-label-weight: 400;   /* lighter weight reads architectural */
+
+  /* — Non-cascaded component tokens — */
+  --sl-shadow:      none;         /* no shadows — hard-edge architecture style */
+  --sl-dim-opacity: 0.12;
+  --sl-line-width:  2;            /* thinner line = technical drawing weight   */
+
+  /* — Figure card: sharp container, top accent line — */
+  --sl-figure-bg:       var(--sl-color-surface);
+  --sl-figure-blur:     0px;
+  --sl-figure-radius:   0px;
+  --sl-figure-border:   1px solid var(--sl-color-border);
+  --sl-figure-shadow:   none;
+
+  /* — Step card: near-invisible — text reads directly on the chart — */
+  --sl-step-bg:          rgba(11, 15, 20, 0.82);
+  --sl-step-bg-active:   rgba(11, 15, 20, 0.94);
+  --sl-step-blur:        0px;
+  --sl-step-radius:      0px;
+  --sl-step-border:      0px solid transparent;
+  --sl-step-shadow:      none;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+body { color-scheme: dark; }
+
+/* ── Axis & grid ─────────────────────────────────────────────────────────── */
+.sl-axis text, .sl-axis-label { fill: var(--sl-muted); font-size: var(--sl-axis-font-size); }
+.sl-legend   { fill: var(--sl-muted); font-size: var(--sl-legend-font-size); }
+.sl-grid line { stroke: var(--sl-grid); stroke-width: var(--sl-grid-width); }
+
+/* ── Figure (chart) card: top accent line marks the chart frame ─────────── */
+.sl-figure {
+  border-top: 2px solid var(--sl-color-primary);
+}
+.sl-figure-header {
+  border-bottom: 1px solid var(--sl-color-border);
+}
+.sl-figure-title {
+  color: var(--sl-fg);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: clamp(0.85rem, 1.5vw, 1.05rem);
+}
+
+/* ── Step card — floatToText: plain text, left accent rule ──────────────── */
+.sl-step h2 { letter-spacing: 0.01em; }
+
+/* ── Step card — textOverVis: near-opaque dark panel, no border ─────────── */
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card {
+  border-left: 3px solid transparent;
+}
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step.is-active .sl-step-card {
+  border-left-color: var(--sl-accent);
+}
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-transition-inspector {
+  background: rgba(11, 15, 20, 0.88);
+}
+
+/* Tooltip */
+.sl-tooltip { background: rgba(200, 215, 228, 0.97); color: #0c0f13; }
+
+/* Progress bar */
+.sl-progress { background: rgba(79, 163, 212, 0.12); }
+
+/* Code panel */
+.sl-code-panel pre { background: #08090d; border-color: var(--sl-color-border); color: var(--sl-fg); }
+
+/* Nav dots */
+.sl-nav button { border-color: var(--sl-color-primary); }
+.sl-nav button.is-active { background: var(--sl-color-primary); }

@@ -2,7 +2,7 @@ import { createBarStory } from "./bar-story.js";
 import { createLineStory } from "./line-story.js";
 import { createPointStory } from "./point-story.js";
 import { createUnitStory } from "./unit-story.js";
-import { layoutCopy, withScrollActionMode } from "./shared.js";
+import { layoutCopy } from "./shared.js";
 
 const STORY_REGISTRY = {
   bar: {
@@ -29,25 +29,24 @@ const STORY_REGISTRY = {
 
 export function createDemoSpec({
   layoutPreset = "textOverVis",
-  storyId,
-  mark,
-  chartType,
-  actionMode = "step"
+  storyId = "bar",
+  actionMode = null
 } = {}) {
   const layout = layoutCopy[layoutPreset] || layoutCopy.textOverVis;
-  const storyKey = normalizeStoryId(storyId || mark || chartType);
+  // Explicit actionMode override takes priority; otherwise fall back to the
+  // layout's natural default (floatToText → stepper, textOverVis → scroller).
+  const resolvedActionMode = actionMode || layout.actionMode;
+
+  const storyKey = STORY_REGISTRY[storyId] ? storyId : "bar";
   const storyDefinition = STORY_REGISTRY[storyKey];
-  const storySpec = storyDefinition.create();
-  const preparedStory = actionMode === "scroll"
-    ? withScrollActionMode(storySpec)
-    : storySpec;
+  const storySpec = storyDefinition.create({ actionMode: resolvedActionMode });
 
   return {
-    ...preparedStory,
+    ...storySpec,
     title: `${layout.label}: ${storyDefinition.label} story`,
-    description: `${layout.description} ${preparedStory.description}`,
+    description: `${layout.description} ${storySpec.description ?? ""}`.trim(),
     layout: {
-      ...(preparedStory.layout || {}),
+      ...(storySpec.layout || {}),
       preset: layout.preset
     },
     story: {
@@ -64,10 +63,6 @@ export function availableStories() {
     label: story.label,
     mark: story.mark
   }));
-}
-
-function normalizeStoryId(value) {
-  return STORY_REGISTRY[value] ? value : "bar";
 }
 
 export default createDemoSpec();

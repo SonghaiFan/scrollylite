@@ -1,11 +1,11 @@
-import { point } from "../../../src/index.js";
-import { PERIOD_LUMINANCE_COLOR, story } from "./shared.js";
+import { point } from "../../../dist/index.js";
+import { story } from "./shared.js";
 
-export function createPointStory() {
+export function createPointStory({ actionMode = "stepper" } = {}) {
   const base = point("weather")
     .x("tmin")
     .y("tmax")
-    .color(PERIOD_LUMINANCE_COLOR)
+    .color({ field: "period", type: "nominal" })
     .key("decade")
     .sort("year");
 
@@ -14,57 +14,57 @@ export function createPointStory() {
     .y("cold_days");
 
   return story.demo()
+    .action(actionMode)
     .layout("floatToText")
     .description(
-      "This demo keeps the mark fixed as point and demonstrates Focus, Guide, Observation, and Granularity with semantic split/merge anchors."
+      "Demonstrates Focus, Guide, Observation, and Granularity on scatter points. " +
+      "Circles carry semantic identity across axis and variable changes."
     )
     .step(
-      "Baseline: temperature point plot",
+      "Baseline: temperature scatter",
       base,
       {
-        body: "Start with one circle per decade, encoding minimum temperature on x and maximum temperature on y.",
-        authoring: "base"
+        body: "One circle per decade — x encodes min temperature, y encodes max temperature. Color encodes period.",
+        authoring: 'point("weather").x("tmin").y("tmax")\n  .color({ field: "period", type: "nominal" })\n  .key("decade").sort("year")'
       }
     )
     .step(
-      "Focus: filter to a subset",
+      "Focus: filter to recent decades",
       base.where({ period: "recent" }),
       {
-        body: "The focus scene keeps the point plot form but filters to the recent decades.",
+        body: "Focus removes older decades. The same circles shrink to the recent subset.",
         authoring: 'base.where({ period: "recent" })'
       }
     )
     .step(
-      "Guide: flip axes and use log scale",
-      base.flip({
-        x: { scale: { type: "log" } }
-      }),
+      "Guide: flip axes, log scale",
+      base.flip({ x: { scale: { type: "log" } } }),
       {
-        body: "The guide scene changes how the same variables are read: axes flip and the horizontal scale becomes logarithmic.",
+        body: "Guide flips x and y and applies a log scale — the same circles, read differently.",
         authoring: 'base.flip({ x: { scale: { type: "log" } } })'
       }
     )
     .step(
-      "Observation: change encoded variables",
+      "Observation: hot/cold axes",
       hotCold,
       {
-        body: "The observation scene keeps the decade circles but changes both axes to encode hot and cold days.",
+        body: "Observation remaps both axes — x becomes hot days, y becomes cold days. Circles keep their decade identity.",
         authoring: 'base.x("hot_days").y("cold_days")'
       }
     )
     .step(
-      "Granularity: merge decades into periods",
+      "Granularity: merge to periods",
       hotCold.rollup("period"),
       {
-        body: "The granularity scene merges multiple decade circles into one aggregate circle for each period.",
+        body: "Granularity merges decade circles into three aggregate period circles.",
         authoring: 'hotCold.rollup("period")'
       }
     )
     .step(
-      "Granularity: split periods back to decades",
+      "Granularity: split back to decades",
       hotCold.breakdown("decade"),
       {
-        body: "The granularity scene splits each aggregate period circle back into its decade circles using the period as parent identity.",
+        body: "Granularity splits each period circle back into its constituent decades.",
         authoring: 'hotCold.breakdown("decade")'
       }
     )

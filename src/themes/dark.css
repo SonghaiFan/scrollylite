@@ -1,0 +1,4 @@
+/* ScrollyLite — Dark theme entry point.
+   Imports the subdirectory theme for backward compatibility.
+   The canonical source is src/themes/dark/index.css alongside DESIGN.md. */
+@import "./dark/index.css";

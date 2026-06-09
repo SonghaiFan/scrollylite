@@ -1,47 +1,48 @@
-import { bar } from "../../../src/index.js";
+import { bar } from "../../../dist/index.js";
 import { story } from "./shared.js";
 
-export function createBarStory() {
+export function createBarStory({ actionMode = "stepper" } = {}) {
   const base = bar("weatherDays")
     .x("decade")
     .y("count")
     .sort("year");
 
-
   return story.demo()
+    .action(actionMode)
     .layout("floatToText")
     .description(
-      "This demo keeps the mark fixed as bar and demonstrates Focus, Guide, and Granularity as scene-state changes over tidy data."
+      "Demonstrates Focus, Guide, and Granularity scene transitions on tidy data. " +
+      "Each step changes one semantic dimension of the bar chart."
     )
     .step(
       "Baseline: vertical bar chart",
       base.where({ type: "Hot days" }),
       {
-        body: "Start with one vertical bar per decade, using bar height to encode hot days.",
-        authoring: 'base.where({ type: "Hot days" })'
+        body: "One vertical bar per decade — bar height encodes hot days count.",
+        authoring: 'bar("weatherDays").x("decade").y("count").sort("year")\n  .where({ type: "Hot days" })'
       }
     )
     .step(
-      "Focus: filter to a subset",
-      base.where({ type: "Hot days", period: "recent"}),
+      "Focus: filter to recent decades",
+      base.where({ type: "Hot days", period: "recent" }),
       {
-        body: "The focus scene keeps the bar chart form but filters the data to the recent period.",
+        body: "Focus narrows the data to recent decades only. The bar layout is preserved; only the domain changes.",
         authoring: 'base.where({ type: "Hot days", period: "recent" })'
       }
     )
     .step(
-      "Guide: re-orient and rescale",
-      base.where({ type: "Hot days", period: "recent"}).flip(),
+      "Guide: flip to horizontal bars",
+      base.where({ type: "Hot days", period: "recent" }).flip(),
       {
-        body: "The guide scene turns vertical bars into horizontal bars with a two-stage y-then-x transition.",
+        body: "Guide changes the reading frame — vertical becomes horizontal with a two-stage axis transition.",
         authoring: 'base.where({ type: "Hot days", period: "recent" }).flip()'
       }
     )
     .step(
-      "Focus: switch selected type",
+      "Focus: switch to cold days",
       base.where({ type: "Cold days" }).flip(),
       {
-        body: "In tidy data, changing from hot days to cold days is a keyed filter change over the same count channel.",
+        body: "A keyed focus update swaps the hot/cold filter while keeping the flipped orientation.",
         authoring: 'base.where({ type: "Cold days" }).flip()'
       }
     )
@@ -49,15 +50,15 @@ export function createBarStory() {
       "Baseline: return to hot days",
       base.where({ type: "Hot days" }),
       {
-        body: "Start with one vertical bar per decade, using bar height to encode hot days.",
+        body: "Back to the original baseline — no filter, vertical orientation.",
         authoring: 'base.where({ type: "Hot days" })'
       }
     )
     .step(
-      "Granularity: break down into hot/cold segments",
+      "Granularity: hot/cold stacked segments",
       base.breakdown("type"),
       {
-        body: "The granularity scene changes one aggregate bar into hot/cold segments for each decade.",
+        body: "Granularity splits each decade bar into hot and cold segments — one aggregate becomes two.",
         authoring: 'base.breakdown("type")'
       }
     )
@@ -65,23 +66,23 @@ export function createBarStory() {
       "Focus: highlight cold days",
       base.breakdown("type").highlight({ type: "Cold days" }),
       {
-        body: "The focus scene keeps both hot and cold segments visible while fading the non-selected type.",
+        body: "Focus highlights cold segments by fading the hot ones — shape is preserved, emphasis changes.",
         authoring: 'base.breakdown("type").highlight({ type: "Cold days" })'
       }
     )
     .step(
-      "Guide: stacked to grouped segments",
+      "Guide: stacked → grouped layout",
       base.breakdown("type").layout("grouped").flip(),
       {
-        body: "The guide scene keeps the same hot/cold segments but changes their position and scale from stacked to grouped.",
+        body: "Guide changes the segment layout from stacked to side-by-side, then flips orientation.",
         authoring: 'base.breakdown("type").layout("grouped").flip()'
       }
     )
     .step(
-      "Granularity: roll up to average days",
+      "Granularity: roll up to mean",
       base.rollup("decade", { title: "Average days", op: "mean" }),
       {
-        body: "The granularity scene rolls child segment keys up into one parent average-days bar per decade.",
+        body: "Granularity merges segments back into one average-days bar per decade.",
         authoring: 'base.rollup("decade", { title: "Average days", op: "mean" })'
       }
     )

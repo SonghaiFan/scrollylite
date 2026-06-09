@@ -8,6 +8,8 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const expectedApi = [
   "availableChartIdioms",
   "bar",
+  "createChart",
+  "createPage",
   "createStory",
   "defineChartIdiom",
   "line",
