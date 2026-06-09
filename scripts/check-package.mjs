@@ -75,12 +75,12 @@ assertEqual(packageJson.unpkg, "./dist/scrollylite.global.js", "unpkg");
 assertEqual(packageJson.style, "./dist/scrollylite.css", "style");
 assertEqual(packageJson.repository, {
   type: "git",
-  url: "git+https://github.com/SonghaiFan/scrolly-grammar-template.git"
+  url: "git+https://github.com/SonghaiFan/scrollylite.git"
 }, "repository");
 assertEqual(packageJson.bugs, {
-  url: "https://github.com/SonghaiFan/scrolly-grammar-template/issues"
+  url: "https://github.com/SonghaiFan/scrollylite/issues"
 }, "bugs");
-assertEqual(packageJson.homepage, "https://github.com/SonghaiFan/scrolly-grammar-template#readme", "homepage");
+assertEqual(packageJson.homepage, "https://github.com/SonghaiFan/scrollylite#readme", "homepage");
 assertEqual(packageJson.publishConfig, { access: "public" }, "publishConfig");
 assertEqual(packageJson.engines, { node: ">=18" }, "engines");
 if (!packageJson.devDependencies?.esbuild) {

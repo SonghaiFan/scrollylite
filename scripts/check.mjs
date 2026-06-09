@@ -12,12 +12,15 @@ const targets = [
 const staleTextTargets = [
   "CHANGELOG.md",
   "CONTRIBUTING.md",
+  "package.json",
   "README.md",
   "docs",
   "examples",
   "src"
 ];
 const forbiddenRepoText = [
+  "scrolly-grammar-template",
+  'src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"',
   "src/data/weather",
   "src/specs/",
   "scatter-story"

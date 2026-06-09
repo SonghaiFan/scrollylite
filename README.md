@@ -28,7 +28,7 @@ Load the runtime CSS, ScrollyLite, D3, and Arquero:
 
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
 <script>
@@ -222,7 +222,7 @@ https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js
 It can also serve tagged GitHub releases:
 
 ```text
-https://cdn.jsdelivr.net/gh/SonghaiFan/scrolly-grammar-template@0.1.0/dist/scrollylite.esm.js
+https://cdn.jsdelivr.net/gh/SonghaiFan/scrollylite@0.1.0/dist/scrollylite.esm.js
 ```
 
 For GitHub CDN links, commit `dist/` before tagging because GitHub CDN does not

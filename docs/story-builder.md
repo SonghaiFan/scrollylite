@@ -108,7 +108,7 @@ Sets the **default action list** applied to every subsequent `.step()` call
 (until you call `.action()` again). Accepts a string or array:
 
 ```js
-.action("step")                    // discrete: click/keyboard navigation only
+.action("step")                    // discrete: nav/programmatic jumps only
 .action(["scroll", "tooltip"])     // continuous: scroll-scrubbed transitions + tooltips
 ```
 
@@ -116,7 +116,7 @@ Recognized action values:
 
 | Action     | Meaning |
 |------------|---------|
-| `"step"`   | Render the step fully on click/keyboard navigation (discrete jumps) |
+| `"step"`   | Render the step fully on nav-dot clicks, programmatic `renderStep()` calls, and scroll entry (discrete jumps) |
 | `"scroll"` | Interpolate the transition continuously as the reader scrolls through the step (only applies to steps that have a `transition.scene`) |
 | `"tooltip"`| Enable hover tooltips on marks |
 | `"enter"`  | Play this step's entrance automatically on load — reserved for the **first** step; the builder adds it for you |

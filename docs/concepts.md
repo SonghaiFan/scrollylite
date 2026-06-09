@@ -31,7 +31,7 @@ scrolls or clicks through. Each step also carries:
 
 - `transition.scene` — which kinds of change happened since the previous step
   (inferred automatically; see [Scenes](#scene))
-- `action` — how the step is driven: discrete clicks/keypresses (`"step"`),
+- `action` — how the step is driven: discrete nav/programmatic jumps (`"step"`),
   continuous scroll-scrubbing (`"scroll"`), tooltips (`"tooltip"`), or
   play-on-load (`"enter"`)
 

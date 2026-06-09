@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScrollyLite</title>
+    <meta
+      name="description"
+      content="ScrollyLite is a declarative scrollytelling visualization grammar for browser ESM."
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/themes/default.css" />
+    <style>
+      :root {
+        --page-bg: #f7f5ef;
+        --ink: #1d2329;
+        --muted: #53606a;
+        --line: rgba(29, 35, 41, 0.14);
+        --panel: rgba(255, 255, 255, 0.72);
+        --accent: #a7492f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page-bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem clamp(1rem, 4vw, 3rem);
+        border-bottom: 1px solid var(--line);
+        background: rgba(247, 245, 239, 0.88);
+        backdrop-filter: blur(16px);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        font-weight: 760;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 0.8rem;
+        height: 0.8rem;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0.9rem 0 0 #425d78, 1.8rem 0 0 #d1a64d;
+      }
+
+      .site-nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.35rem;
+      }
+
+      .site-nav a,
+      .hero-actions a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.25rem;
+        padding: 0.48rem 0.72rem;
+        border: 1px solid var(--line);
+        border-radius: 0.45rem;
+        background: rgba(255, 255, 255, 0.55);
+        text-decoration: none;
+        font-size: 0.92rem;
+        font-weight: 680;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.04fr) minmax(18rem, 0.96fr);
+        gap: clamp(1.5rem, 4vw, 4rem);
+        align-items: center;
+        min-height: 76vh;
+        padding: clamp(3rem, 7vw, 6.5rem) clamp(1rem, 4vw, 3rem) 2rem;
+      }
+
+      .hero-copy {
+        max-width: 45rem;
+      }
+
+      .eyebrow {
+        margin: 0 0 1rem;
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 12ch;
+        font-size: clamp(3.2rem, 9vw, 7.2rem);
+        line-height: 0.92;
+        letter-spacing: 0;
+      }
+
+      .hero-copy > p:not(.eyebrow) {
+        max-width: 42rem;
+        margin: 1.35rem 0 0;
+        color: var(--muted);
+        font-size: clamp(1.08rem, 2vw, 1.35rem);
+        line-height: 1.55;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1.6rem;
+      }
+
+      .hero-actions a:first-child {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: white;
+      }
+
+      .code-sample {
+        margin: 0;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: #1f2529;
+        color: #f8f1df;
+        box-shadow: 0 22px 55px rgba(31, 37, 41, 0.16);
+      }
+
+      .code-sample code {
+        display: block;
+        min-width: 28rem;
+        padding: 1.1rem;
+        font: 0.9rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .feature-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-block: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.42);
+      }
+
+      .feature {
+        min-height: 9rem;
+        padding: 1.35rem clamp(1rem, 2vw, 1.5rem);
+        border-right: 1px solid var(--line);
+      }
+
+      .feature:last-child {
+        border-right: 0;
+      }
+
+      .feature h2 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .feature p {
+        margin: 0.6rem 0 0;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .demo-intro {
+        padding: 3rem clamp(1rem, 4vw, 3rem) 0;
+      }
+
+      .demo-intro h2 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4rem);
+        letter-spacing: 0;
+      }
+
+      .demo-intro p {
+        max-width: 48rem;
+        margin: 0.85rem 0 0;
+        color: var(--muted);
+        font-size: 1.08rem;
+        line-height: 1.55;
+      }
+
+      #app {
+        margin-top: 1rem;
+      }
+
+      #app .sl-intro {
+        display: none;
+      }
+
+      footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 2rem clamp(1rem, 4vw, 3rem);
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      footer a {
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      @media (max-width: 900px) {
+        .site-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          min-height: auto;
+        }
+
+        .feature-strip {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .feature:nth-child(2) {
+          border-right: 0;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .feature-strip {
+          grid-template-columns: 1fr;
+        }
+
+        .feature {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .feature:last-child {
+          border-bottom: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="ScrollyLite home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>ScrollyLite</span>
+      </a>
+      <nav class="site-nav" aria-label="Project links">
+        <a href="./docs/getting-started.md">Docs</a>
+        <a href="./examples/weather/">Full demo</a>
+        <a href="https://github.com/SonghaiFan/scrollylite">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Declarative scrollytelling grammar</p>
+          <h1 id="hero-title">ScrollyLite</h1>
+          <p>
+            Describe data, chart states, and narrative steps. ScrollyLite diffs
+            consecutive steps, infers what changed, and renders a sticky
+            scroll-driven visualization with D3.
+          </p>
+          <div class="hero-actions">
+            <a href="#demo">Watch the demo</a>
+            <a href="./docs/getting-started.md">Read the guide</a>
+            <a href="./examples/minimal/">Minimal example</a>
+          </div>
+        </div>
+        <pre class="code-sample"><code>const spec = story()
+  .data("weatherDays", { url: "./weather_days_tidy.csv", type: "csv" })
+  .layout("floatToText")
+  .step("Baseline", bar("weatherDays").x("decade").y("count").key("decade"))
+  .step("Focus", base.where({ period: "recent" }))
+  .step("Granularity", base.breakdown("type"))
+  .toSpec();
+
+await createStory(spec, { target: "#app", d3, aq });</code></pre>
+      </section>
+
+      <section class="feature-strip" aria-label="ScrollyLite features">
+        <article class="feature">
+          <h2>State-first authoring</h2>
+          <p>Write what each step should show, not hand-authored animation code.</p>
+        </article>
+        <article class="feature">
+          <h2>Four built-in idioms</h2>
+          <p>Use bar, line, point, and unit charts with one shared grammar.</p>
+        </article>
+        <article class="feature">
+          <h2>Semantic transitions</h2>
+          <p>Focus, guide, granularity, and observation scenes are inferred for you.</p>
+        </article>
+        <article class="feature">
+          <h2>Browser ESM</h2>
+          <p>Run from npm, jsDelivr, or a static GitHub Pages site.</p>
+        </article>
+      </section>
+
+      <section class="demo-intro" id="demo" aria-labelledby="demo-title">
+        <h2 id="demo-title">A live weather story</h2>
+        <p>
+          This embedded demo uses the same source as the repository example. Scroll
+          through the steps to see filtering, axis changes, grouped bars, and
+          aggregation transitions.
+        </p>
+      </section>
+      <div id="app"></div>
+    </main>
+
+    <footer>
+      <span>MIT licensed. Built for lightweight browser scrollytelling.</span>
+      <a href="./docs/for-developers.md">Developer guide</a>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+    <script type="module">
+      import { createStory } from "./src/index.js";
+      import { createDemoSpec } from "./examples/weather/specs/demo.js";
+
+      window.__scrollyLiteStory = await createStory(createDemoSpec({
+        layoutPreset: "floatToText",
+        storyId: "bar",
+        actionMode: "scroll"
+      }), {
+        target: "#app",
+        d3: globalThis.d3,
+        aq: globalThis.aq
+      });
+    </script>
+  </body>
+</html>

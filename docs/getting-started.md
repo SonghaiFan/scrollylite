@@ -3,7 +3,7 @@
 ScrollyLite turns a declarative spec into a scrolling, narrated data
 visualization. You describe **what the data is**, **what charts to show**, and
 **what changes from step to step** — ScrollyLite figures out how to animate
-between steps and wires up scroll/keyboard/click navigation for you.
+between steps and wires up scroll and click navigation for you.
 
 This guide gets a story on screen in two ways: straight from a CDN (no build
 tools), and via npm for bundler-based projects.
@@ -38,7 +38,7 @@ Load the runtime CSS, ScrollyLite, D3, and Arquero from jsDelivr, then call
   <body>
     <main id="app"></main>
 
-    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
     <script>
@@ -116,23 +116,23 @@ const spec = story()
 await createStory(spec, { target: "#app", d3, aq });
 ```
 
-With the ESM entry, `d3` is **required** and `aq` is required as soon as your
-spec uses any data transform (filters, aggregates, breakdowns, rollups, …).
-Passing both up front is the simplest, safest default.
+With the ESM entry, both `d3` and `aq` are currently **required**. D3 powers
+rendering/loading; Arquero powers the transform pipeline used by filters,
+aggregates, breakdowns, rollups, and other data shaping.
 
 ## 4. What `createStory` does
 
 `createStory(spec, options)`:
 
-1. Validates and **compiles** your spec (normalizes steps, infers
-   transitions between consecutive steps, computes navigation metadata).
+1. Validates and **compiles** your spec (normalizes steps and navigation
+   metadata; builder-authored specs already include inferred transitions).
 2. Applies the story's `theme` (sets `--sl-bg` / `--sl-fg` / `--sl-accent`
    CSS custom properties on `<html>`).
-3. Clears `target` and renders the **story shell**: header, narrated steps,
-   sticky chart figure(s), nav dots, progress bar, tooltip layer.
-4. Loads every dataset declared in `spec.data` (CSV or JSON via D3, or inline
+3. Loads every dataset declared in `spec.data` (CSV or JSON via D3, or inline
    arrays).
-5. Renders step 0, wires up the scroll driver, keyboard/click navigation,
+4. Clears `target` and renders the **story shell**: header, narrated steps,
+   sticky chart figure(s), nav dots, progress bar, tooltip layer.
+5. Renders step 0, wires up the scroll driver, nav-dot click navigation,
    and window resize handling.
 6. Returns a `StoryRuntime` you can use to drive the story programmatically,
    inspect the compiled spec/data, or tear it down.

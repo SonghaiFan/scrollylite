@@ -90,7 +90,7 @@ derives `(index, progress, direction)` purely from layout geometry — no
 IntersectionObserver thresholds or manual breakpoints to tune.
 
 `navigation` controls what happens when the reader **jumps** to a step (via
-the nav rail, keyboard, or a restored URL hash):
+the nav rail or a restored URL hash):
 
 | Field | Default | Effect |
 |---|---|---|
@@ -106,12 +106,12 @@ the nav rail, keyboard, or a restored URL hash):
 ## Step actions and scroll-driven transitions
 
 Whether a step's transitions are **scrubbed by scroll position** or **played
-in full on click/keypress** depends on its `action` list — set via the story
+in full on nav/programmatic jumps** depends on its `action` list — set via the story
 builder's [`.action()`](./story-builder.md#actionactions):
 
-- `["step", "tooltip"]` (default): clicking a nav dot, pressing arrow keys, or
-  scrolling into a step's activation line plays its transition **once, in
-  full**.
+- `["step", "tooltip"]` (default): clicking a nav dot, calling
+  `renderStep()`, or scrolling into a step's activation line plays its
+  transition **once, in full**.
 - `["scroll", "tooltip"]`: the transition is **continuously interpolated**
   as the reader scrolls through the step — scrolling down plays it forward,
   scrolling up plays it backward, and partial scroll positions show partial

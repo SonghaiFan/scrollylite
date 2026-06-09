@@ -26,7 +26,7 @@ terminal, nothing to compile:
   <body>
     <main id="app"></main>
 
-    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
     <script>
@@ -68,7 +68,7 @@ looks like, ScrollyLite figures out the animation between them.**
 |---|---|
 | `scrollylite.css` | Required structural styles — layout, sticky positioning, nav rail, progress bar. Always load this. |
 | `themes/default.css` | The default color palette (backgrounds, text, accent color). Swap or override for your own look — see [Theming](#5-changing-colors-theming). |
-| `scrollylite@…` `<script>` | The library itself. Exposes a global `ScrollyLite` object. |
+| `scrollylite.global.js` `<script>` | The library itself. Exposes a global `ScrollyLite` object. |
 | `d3@7` | Charting/animation engine ScrollyLite is built on. **Required.** |
 | `arquero@8/.../arquero.min.js` | Data-shaping engine (filtering, grouping, aggregating). **Required.** |
 

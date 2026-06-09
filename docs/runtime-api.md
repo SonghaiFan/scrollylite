@@ -17,12 +17,12 @@ async function createStory(spec: object, options: CreateStoryOptions): Promise<S
 |---|---|---|---|---|
 | `target` | `string \| Element` | no | `"#app"` | CSS selector or DOM node to render into. ScrollyLite clears and owns everything inside it. Throws if a selector matches nothing. |
 | `d3` | D3 module | **yes** (ESM entry) | `globalThis.d3` (browser entry only) | The D3 v7+ library. Required for rendering, scales, transitions, easing, and data loading. |
-| `aq` | Arquero module | **yes**, if your spec uses any data transform | `globalThis.aq` (browser entry only) | The Arquero v8+ library. Required for `applyTransforms` (filter, fold, bin, aggregate, sort, …). |
+| `aq` | Arquero module | **yes** (ESM entry) | `globalThis.aq` (browser entry only) | The Arquero v8+ library. Required by the current runtime's data transform path (`applyTransforms`). |
 | `debug` | `boolean` | no | `false` | Enables the demo's debug affordances (e.g. the source-code inspector panel) in the rendered shell. |
 
 > **ESM vs. browser entry:** `import { createStory } from "scrollylite"` (or
-> `"scrollylite/browser"` imported as a module) requires you to pass `d3`
-> (always) and `aq` (whenever transforms are used) explicitly. The **global**
+> `"scrollylite/browser"` imported as a module) requires you to pass both `d3`
+> and `aq` explicitly. The **global**
 > build (`scrollylite.global.js`, exposed as `window.ScrollyLite`) wraps
 > `createStory` to fall back to `globalThis.d3`/`globalThis.aq` when you omit
 > them — convenient for `<script>`-tag usage where D3/Arquero are loaded as
@@ -31,22 +31,21 @@ async function createStory(spec: object, options: CreateStoryOptions): Promise<S
 ### What it does, step by step
 
 1. **Resolves dependencies** — throws immediately with a clear error if `d3`
-   (always) or `aq` (when needed) is missing.
-2. **Compiles the spec** via `compileSpec(spec)` — normalizes structure,
-   computes per-step transitions (if you hand-authored steps without going
-   through the story builder — though `inferTransition` already runs inside
-   `.step()`), and prepares everything the renderer needs.
+   or `aq` is missing.
+2. **Compiles the spec** via `compileSpec(spec)` — normalizes structure and
+   prepares everything the renderer needs. Builder-authored specs already carry
+   transitions inferred by `.step()` / `.steps()`.
 3. **Applies the theme** — sets `--sl-bg`/`--sl-fg`/`--sl-accent` custom
    properties on `document.documentElement` from `spec.theme`.
-4. **Clears `target`** and renders the **story shell**: header, narrated
+4. **Loads every dataset** declared in `spec.data` in parallel (CSV/JSON via
+   D3, or used directly for inline arrays/`values`).
+5. **Clears `target`** and renders the **story shell**: header, narrated
    step list, sticky chart figure(s), nav rail (`layout.nav`), progress bar
    (`layout.progress`), and a shared tooltip layer.
-5. **Loads every dataset** declared in `spec.data` in parallel (CSV/JSON via
-   D3, or used directly for inline arrays/`values`).
 6. **Renders step 0**, then wires up:
    - the **scroll driver** (geometry-based native scroll tracking;
      see [Layouts, Themes & Scrolling](./layouts-themes-and-scrolling.md#scroll-config-reference))
-   - **click/keyboard navigation** on the nav rail
+   - **click navigation** on the nav rail
    - **window resize** handling (recomputes chart dimensions and scroll
      measurements)
    - **URL hash restoration** (jumping straight to a step if the page loads
@@ -57,7 +56,7 @@ async function createStory(spec: object, options: CreateStoryOptions): Promise<S
 
 `createStory` throws synchronously (before any async work) if:
 - `d3` is missing — `"ScrollyLite requires D3. Pass { d3 } to createStory()."`
-- `aq` is missing and a transform needs it — `"ScrollyLite data transforms
+- `aq` is missing — `"ScrollyLite data transforms
   require Arquero. Pass { aq } to createStory()."`
 - `target` doesn't resolve to an element — `"ScrollyLite target not found:
   <selector>"`
@@ -140,7 +139,7 @@ runtime.renderStep(2);                       // jump to step 2
 runtime.renderStep(0, { force: true });       // re-render step 0 even if already active
 ```
 
-This is what the nav rail and keyboard navigation call internally — use it
+This is what the nav rail calls internally — use it
 to build your own "jump to step" controls, a table of contents, deep links,
 or programmatic walkthroughs.
 
@@ -201,7 +200,7 @@ content above the story). `destroy()` tears down its scroll/resize listeners
 ### `destroy()`
 
 Tears the story down completely: cancels pending animation frames, removes
-all scroll/resize/keyboard event listeners, and destroys the scroll driver.
+ScrollyLite's scroll/resize/nav listeners, and destroys the scroll driver.
 Call this when removing a story from the page (e.g. in a framework
 component's unmount/cleanup hook) to avoid leaking listeners:
 
