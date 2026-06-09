@@ -1,7 +1,5 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": false,
     "declaration": true,
     "lib": ["DOM", "ES2021"],
     "module": "ES2020",
@@ -15,6 +13,6 @@
     "strictNullChecks": true,
     "exactOptionalPropertyTypes": false
   },
-  "include": ["src/**/*.ts", "src/**/*.js"],
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

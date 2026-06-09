@@ -140,7 +140,7 @@ function compileBarAggregate(spec, granularitySpec = {}, _context = {}) {
         key: granularitySpec['key'] || [categoryField, segmentField],
         semantic: granularitySpec['semantic'] ||
             granularitySpec['semanticKey'] ||
-            semanticKeyFromParts({ field: categoryField }, { value: valueField })
+            semanticKeyFromParts({ field: categoryField }, { field: sourceField })
     }), {
         granularity: {
             layout,

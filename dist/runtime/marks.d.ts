@@ -1,3 +1,5 @@
+export declare function pickCategoricalColors(n: any, colors: any): any;
+export declare function themeValue(cssVar: any, fallback: any): any;
 export declare function transitionSpec(spec: any, previousSpec: any, { scrollDriven, d3 }?: {
     scrollDriven?: boolean | undefined;
 }): {

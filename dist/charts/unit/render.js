@@ -7,7 +7,7 @@ export function createUnitRenderer(deps) {
 }
 class UnitChart extends BaseChart {
     render(chart, rows, spec, tooltip, d3) {
-        const { bandOrLinear, bindTooltip, colorScale, drawGrid, drawXAxis, drawYAxis, fadeNonUnitShapes, niceExtent, position, staggerDelay, updateGrid } = this.deps;
+        const { bandOrLinear, bindTooltip, colorScale, drawGrid, drawXAxis, drawYAxis, fadeNonUnitShapes, niceExtent, position, staggerDelay, themeValue, updateGrid } = this.deps;
         const enc = spec.encoding || {};
         const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
         const t = chart.transition.base;
@@ -29,8 +29,8 @@ class UnitChart extends BaseChart {
             .attr('cy', layout.y)
             .attr('r', 0)
             .attr('fill', (d) => color(d.__row || d))
-            .attr('stroke', 'white')
-            .attr('stroke-width', 0.5)
+            .attr('stroke', themeValue('--sl-mark-stroke', 'white'))
+            .attr('stroke-width', themeValue('--sl-unit-stroke-width', 0.5))
             .call(bindTooltip, spec, tooltip)
             .transition(t)
             .delay((d, i) => staggerDelay(spec, d, i))

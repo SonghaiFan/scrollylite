@@ -606,6 +606,9 @@ export interface ChartRuntime {
   data: Record<string, unknown>;
   view: Element;
   tooltip: Element;
+  /** Animate to step `index` with a natural (non-scroll-bound) transition. */
+  step(index: number): void;
+  /** Full event interface — for scrubbing, programmatic control, or custom triggers. */
   action(event: RawActionEvent, options?: Record<string, unknown>): void;
   resize(): void;
   destroy(): void;

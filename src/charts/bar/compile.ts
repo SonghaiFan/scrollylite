@@ -176,7 +176,7 @@ function compileBarAggregate(spec: ViewSpec, granularitySpec: AnyRecord = {}, _c
     key: (granularitySpec['key'] as string) || [categoryField, segmentField] as unknown as string,
     semantic: (granularitySpec['semantic'] as AnyRecord) ||
       (granularitySpec['semanticKey'] as AnyRecord) ||
-      semanticKeyFromParts({ field: categoryField }, { value: valueField }) as unknown
+      semanticKeyFromParts({ field: categoryField }, { field: sourceField }) as unknown
   }), {
     granularity: {
       layout,

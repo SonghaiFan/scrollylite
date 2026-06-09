@@ -5,23 +5,45 @@
   --sl-fg: #1f2328;
   --sl-muted: #66707a;
   --sl-border: #dde1e6;
-  --sl-accent: rgb(28, 106, 228);
-  --sl-accent-2: rgb(250, 77, 29);
-  --sl-series-1: rgb(28, 106, 228);
-  --sl-series-2: rgb(250, 77, 29);
-  --sl-series-3: rgb(252, 219, 57);
-  --sl-series-4: rgb(3, 185, 118);
-  --sl-series-5: rgb(250, 195, 211);
-  --sl-series-6: rgb(0, 0, 0);
-  --sl-series-7: rgb(102, 112, 122);
-  --sl-series-8: rgb(180, 187, 195);
-  --sl-semantic-hot: rgb(250, 77, 29);
-  --sl-semantic-cold: rgb(28, 106, 228);
+  --sl-accent: #4e79a7;
+  /* Tableau 10 categorical palette */
+  --sl-series-1:  #4e79a7;
+  --sl-series-2:  #f28e2b;
+  --sl-series-3:  #e15759;
+  --sl-series-4:  #76b7b2;
+  --sl-series-5:  #59a14f;
+  --sl-series-6:  #edc948;
+  --sl-series-7:  #b07aa1;
+  --sl-series-8:  #ff9da7;
+  --sl-series-9:  #9c755f;
+  --sl-series-10: #bab0ac;
   --sl-grid: #eceff2;
   --sl-axis: #aeb4bb;
   --sl-shadow: 0 1px 2px rgba(31, 35, 40, 0.05);
   --sl-font-family: Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* ── Mark geometry tokens ─────────────────────────────────────────────────
+     These control the visual style of data marks and are read at render time
+     via themeValue(). Override in .theme({ barRadius: 6 }) or via CSS.     */
+  --sl-bar-radius: 3;           /* bar/segment corner rounding (SVG rx, unitless) */
+  --sl-line-width: 3;           /* line path stroke-width (unitless)              */
+  --sl-mark-stroke: white;      /* circle mark outline color                      */
+  --sl-point-stroke-width: 1.5; /* point + line-point outline width (unitless)    */
+  --sl-unit-stroke-width: 0.5;  /* unit circle outline width — tight packing      */
+  --sl-line-point-size: 4.5;    /* dot radius on line charts (unitless)           */
+  --sl-dim-opacity: 0.22;       /* non-highlighted mark opacity in focus mode     */
+
+  /* ── Axis & grid tokens ───────────────────────────────────────────────────*/
+  --sl-axis-font-size: 11px;    /* tick label and axis title font size            */
+  --sl-axis-label-offset: 48;   /* distance (px) from axis to label text          */
+  --sl-tick-count: 6;           /* preferred number of ticks on linear scales     */
+  --sl-grid-width: 1px;         /* grid line stroke-width                         */
+
+  /* ── Legend tokens ────────────────────────────────────────────────────────*/
+  --sl-legend-swatch-size: 9;   /* colored square width and height (unitless)     */
+  --sl-legend-swatch-radius: 1.5; /* swatch corner radius (unitless)              */
+  --sl-legend-font-size: 11px;  /* legend label font size                         */
   font-family: var(--sl-font-family);
 }
 
@@ -385,18 +407,18 @@ body {
 
 .sl-axis text {
   fill: var(--sl-muted);
-  font-size: 11px;
+  font-size: var(--sl-axis-font-size);
 }
 
 .sl-axis-label {
   fill: var(--sl-muted);
-  font-size: 11px;
+  font-size: var(--sl-axis-font-size);
   font-weight: 700;
 }
 
 .sl-grid line {
   stroke: var(--sl-grid);
-  stroke-width: 1px;
+  stroke-width: var(--sl-grid-width);
   shape-rendering: crispEdges;
 }
 
@@ -449,7 +471,7 @@ body {
 }
 
 .sl-legend {
-  font-size: 11.5px;
+  font-size: var(--sl-legend-font-size);
   fill: var(--sl-muted);
   font-weight: 500;
 }

@@ -4,7 +4,7 @@ import { barCategoryChannel, barMeasureChannel, barOrientationFromEncoding, barR
 import { narrativeState } from '../../../scrolly-meta.js';
 
 export function createStackedBarRenderer(deps, kit) {
-  const { bindTooltip, channelDomain, colorScale, drawGrid, drawXAxis, drawYAxis, position, updateGrid } = deps;
+  const { bindTooltip, channelDomain, colorScale, drawGrid, drawXAxis, drawYAxis, position, themeValue, updateGrid } = deps;
 
   return function renderStackedBar(chart, rows, spec, tooltip, d3, segmentField) {
     const enc = spec.encoding || {};
@@ -57,7 +57,7 @@ export function createStackedBarRenderer(deps, kit) {
       chart, rows: stackedRows, spec, tooltip, d3, bindTooltip, key,
       category: (d) => d[categoryField],
       className: 'sl-bar sl-bar-segment sl-bar-stacked',
-      orientation: rendererOrientation, rx: 2,
+      orientation: rendererOrientation, rx: themeValue('--sl-bar-radius', 3),
       fill: (d) => color(d),
       applyIdentity: applyBarIdentity, updatePlan, geometry
     });

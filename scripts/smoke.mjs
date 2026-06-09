@@ -12,6 +12,8 @@ import * as distApi from "../dist/scrollylite.esm.js";
 const publicApi = [
   "availableChartIdioms",
   "bar",
+  "createChart",
+  "createPage",
   "createStory",
   "defineChartIdiom",
   "line",

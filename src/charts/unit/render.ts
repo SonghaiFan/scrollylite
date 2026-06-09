@@ -20,6 +20,7 @@ class UnitChart extends BaseChart {
       niceExtent,
       position,
       staggerDelay,
+      themeValue,
       updateGrid
     } = this.deps;
 
@@ -47,8 +48,8 @@ class UnitChart extends BaseChart {
           .attr('cy', layout.y)
           .attr('r', 0)
           .attr('fill', (d) => color(d.__row || d))
-          .attr('stroke', 'white')
-          .attr('stroke-width', 0.5)
+          .attr('stroke', themeValue('--sl-mark-stroke', 'white'))
+          .attr('stroke-width', themeValue('--sl-unit-stroke-width', 0.5))
           .call(bindTooltip, spec, tooltip)
           .transition(t)
           .delay((d, i) => staggerDelay(spec, d, i))

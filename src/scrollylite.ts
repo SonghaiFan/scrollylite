@@ -1,6 +1,4 @@
-// TODO: migrate this file to strict TypeScript (Phase 2)
-/* eslint-disable */
-// @ts-nocheck
+// @ts-nocheck — D3-heavy rendering; strict typing deferred (Phase 3)
 import { applyTransforms } from "./data/transforms.js";
 import { chartModules } from "./charts/manifest.js";
 import {
@@ -51,6 +49,7 @@ import {
   quantitativeScale,
   showTooltip,
   staggerDelay,
+  themeValue,
   transitionSpec,
   updateGrid
 } from "./runtime/marks.js";
@@ -146,6 +145,19 @@ export async function createStory(spec: AnyRecord, options: RuntimeOptions): Pro
   };
 }
 
+// ─── Decoupled embedding ───────────────────────────────────────────────────────
+//
+// createPage()  — renders only the story shell (header, step sections, figure
+//                 containers, tooltip layer). No data loading, no charts, no
+//                 scroll tracking. Use this to own the layout yourself and
+//                 attach createChart() instances to the view containers it returns.
+//
+// createChart() — renders only the animated chart into any target element.
+//                 chart.step(n) triggers a discrete animated transition to step n.
+//                 chart.action(event) is the full event interface for scrubbing,
+//                 programmatic control, or any non-scroll trigger (button, slider,
+//                 route change, …).
+
 export async function createPage(spec: AnyRecord, options: PageOptions = {}): Promise<PageRuntime> {
   const target = resolveTarget(options.target || "#app");
   const compiled = compileSpec(spec);
@@ -185,12 +197,7 @@ export async function createChart(spec: AnyRecord, options: ChartOptions): Promi
   const renderer = createRenderer(shell, compiled, data, runtime);
   const initialStep = clamp(options.initialStep ?? 0, 0, compiled.steps.length - 1);
 
-  renderer.action({
-    type: "enter",
-    step: initialStep,
-    action: "stepper",
-    force: true
-  });
+  renderer.action({ type: "enter", step: initialStep, action: "stepper", force: true });
 
   return {
     spec: compiled,
@@ -198,11 +205,50 @@ export async function createChart(spec: AnyRecord, options: ChartOptions): Promi
     view: shell.views[viewId],
     tooltip: shell.tooltip,
     action: renderer.action,
+    step(index) {
+      renderer.action({ type: "click", step: index, action: "stepper", force: true });
+    },
     resize: renderer.resize,
     destroy() {
       renderer.destroy();
       disposeTheme();
     }
+  };
+}
+
+function renderChartShell(target: Element, spec: AnyRecord, viewId = "main") {
+  target.className = ["sl-chart-root", target.className].filter(Boolean).join(" ");
+
+  const figure = document.createElement("figure");
+  figure.className = "sl-figure sl-chart-figure";
+  figure.innerHTML = `
+    <figcaption class="sl-figure-header">
+      <p class="sl-figure-title"></p>
+      <span class="sl-mark-name"></span>
+    </figcaption>
+  `;
+
+  const view = document.createElement("div");
+  view.className = "sl-view";
+  view.dataset.viewId = viewId;
+  figure.append(view);
+  target.append(figure);
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "sl-tooltip";
+  target.append(tooltip);
+
+  return {
+    root: target,
+    story: null,
+    figure,
+    figureTitle: figure.querySelector(".sl-figure-title"),
+    markName: figure.querySelector(".sl-mark-name"),
+    steps: [],
+    navButtons: [],
+    progressFill: null,
+    views: { [viewId]: view },
+    tooltip
   };
 }
 
@@ -341,42 +387,6 @@ function createRenderer(shell: AnyRecord, spec: AnyRecord, datasets: AnyRecord, 
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
       cancelScrollProgress();
     }
-  };
-}
-
-function renderChartShell(target: Element, spec: AnyRecord, viewId = "main") {
-  target.className = ["sl-chart-root", target.className].filter(Boolean).join(" ");
-
-  const figure = document.createElement("figure");
-  figure.className = "sl-figure sl-chart-figure";
-  figure.innerHTML = `
-    <figcaption class="sl-figure-header">
-      <p class="sl-figure-title"></p>
-      <span class="sl-mark-name"></span>
-    </figcaption>
-  `;
-
-  const view = document.createElement("div");
-  view.className = "sl-view";
-  view.dataset.viewId = viewId;
-  figure.append(view);
-  target.append(figure);
-
-  const tooltip = document.createElement("div");
-  tooltip.className = "sl-tooltip";
-  target.append(tooltip);
-
-  return {
-    root: target,
-    story: null,
-    figure,
-    figureTitle: figure.querySelector(".sl-figure-title"),
-    markName: figure.querySelector(".sl-mark-name"),
-    steps: [],
-    navButtons: [],
-    progressFill: null,
-    views: { [viewId]: view },
-    tooltip
   };
 }
 
@@ -861,24 +871,40 @@ function themeVariables(theme: AnyRecord = {}) {
   return {
     ...themeVariableAliases(theme),
     ...themeSeriesVariables(theme),
-    ...themeSemanticVariables(theme),
     ...normalizeThemeVariables(theme.variables || theme.customProperties || {})
   };
 }
 
 function themeVariableAliases(theme: AnyRecord = {}) {
   const aliases = {
-    background: "--sl-bg",
-    foreground: "--sl-fg",
-    surface: "--sl-surface",
-    muted: "--sl-muted",
-    border: "--sl-border",
-    accent: "--sl-accent",
-    accent2: "--sl-accent-2",
-    grid: "--sl-grid",
-    axis: "--sl-axis",
-    shadow: "--sl-shadow",
-    fontFamily: "--sl-font-family"
+    // Color / surface
+    background:          "--sl-bg",
+    foreground:          "--sl-fg",
+    surface:             "--sl-surface",
+    muted:               "--sl-muted",
+    border:              "--sl-border",
+    accent:              "--sl-accent",
+    grid:                "--sl-grid",
+    axis:                "--sl-axis",
+    shadow:              "--sl-shadow",
+    // Typography
+    fontFamily:          "--sl-font-family",
+    axisFontSize:        "--sl-axis-font-size",
+    legendFontSize:      "--sl-legend-font-size",
+    // Mark geometry
+    barRadius:           "--sl-bar-radius",
+    lineWidth:           "--sl-line-width",
+    markStroke:          "--sl-mark-stroke",
+    pointStrokeWidth:    "--sl-point-stroke-width",
+    unitStrokeWidth:     "--sl-unit-stroke-width",
+    dimOpacity:          "--sl-dim-opacity",
+    // Axis / grid
+    axisLabelOffset:     "--sl-axis-label-offset",
+    tickCount:           "--sl-tick-count",
+    gridWidth:           "--sl-grid-width",
+    // Legend
+    legendSwatchSize:    "--sl-legend-swatch-size",
+    legendSwatchRadius:  "--sl-legend-swatch-radius"
   };
   return Object.fromEntries(
     Object.entries(aliases)
@@ -894,18 +920,6 @@ function themeSeriesVariables(theme: AnyRecord = {}) {
     series
       .filter((value) => value != null)
       .map((value, index) => [`--sl-series-${index + 1}`, value])
-  );
-}
-
-function themeSemanticVariables(theme: AnyRecord = {}) {
-  const semantic = theme.semantic || {};
-  return Object.fromEntries(
-    Object.entries({
-      hot: "--sl-semantic-hot",
-      cold: "--sl-semantic-cold"
-    })
-      .filter(([key]) => semantic[key] != null)
-      .map(([key, variable]) => [variable, semantic[key]])
   );
 }
 
@@ -972,6 +986,7 @@ const CHART_RUNTIME_DEPS = {
   quantitativeScale,
   showTooltip,
   staggerDelay,
+  themeValue,
   updateGrid
 };
 

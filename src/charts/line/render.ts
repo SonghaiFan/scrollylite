@@ -20,7 +20,8 @@ class LineChart extends BaseChart {
       niceExtent,
       position,
       quantitativeScale,
-      staggerDelay
+      staggerDelay,
+      themeValue
     } = this.deps;
 
     const enc = spec.encoding || {};
@@ -56,7 +57,7 @@ class LineChart extends BaseChart {
           .attr('data-key', lineSeriesKey)
           .attr('fill', 'none')
           .attr('stroke', (d) => color(d.rows[0]))
-          .attr('stroke-width', spec.strokeWidth || 3)
+          .attr('stroke-width', spec.strokeWidth || themeValue('--sl-line-width', 3))
           .attr('d', (d) => line(d.rows))
           .style('opacity', 0)
           .call((selection) => drawPath(selection, t, d3)),
@@ -67,7 +68,7 @@ class LineChart extends BaseChart {
           .transition(t)
           .style('opacity', 1)
           .attr('stroke', (d) => color(d.rows[0]))
-          .attr('stroke-width', spec.strokeWidth || 3)
+          .attr('stroke-width', spec.strokeWidth || themeValue('--sl-line-width', 3))
           .attr('d', (d) => line(d.rows)),
         (exit) => exit
           .attr('stroke-dasharray', null)
@@ -87,15 +88,15 @@ class LineChart extends BaseChart {
           .attr('cx', (d) => position(x, d[enc.x.field]))
           .attr('cy', (d) => y(d[enc.y.field]))
           .attr('r', 0)
-          .attr('data-scroll-radius', spec.pointSize || 4.5)
+          .attr('data-scroll-radius', spec.pointSize || themeValue('--sl-line-point-size', 4.5))
           .attr('fill', (d) => color(d))
-          .attr('stroke', 'white')
-          .attr('stroke-width', 1.5)
+          .attr('stroke', themeValue('--sl-mark-stroke', 'white'))
+          .attr('stroke-width', themeValue('--sl-point-stroke-width', 1.5))
           .call(bindTooltip, spec, tooltip)
           .transition(t)
           .delay((d, i) => 260 + staggerDelay(spec, d, i))
           .style('opacity', 1)
-          .attr('r', spec.pointSize || 4.5),
+          .attr('r', spec.pointSize || themeValue('--sl-line-point-size', 4.5)),
         (update) => update
           .attr('data-key', (d, i) => key(d, i))
           .call(bindTooltip, spec, tooltip)
@@ -104,8 +105,8 @@ class LineChart extends BaseChart {
           .attr('cx', (d) => position(x, d[enc.x.field]))
           .attr('cy', (d) => y(d[enc.y.field]))
           .attr('fill', (d) => color(d))
-          .attr('data-scroll-radius', spec.pointSize || 4.5)
-          .attr('r', spec.pointSize || 4.5),
+          .attr('data-scroll-radius', spec.pointSize || themeValue('--sl-line-point-size', 4.5))
+          .attr('r', spec.pointSize || themeValue('--sl-line-point-size', 4.5)),
         (exit) => exit
           .transition(t)
           .style('opacity', 0)

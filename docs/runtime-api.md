@@ -7,9 +7,9 @@ inside a larger app's lifecycle.
 
 Use `createStory()` when you want ScrollyLite to own the whole page
 experience: header, text steps, sticky chart, scroll driver, nav, and progress
-bar. Use `createPage()` and `createChart()` when you want to compose those
-pieces yourself and drive chart transitions from another trigger such as a
-button, slider, timeline, route change, or agent-controlled UI.
+bar. Use `createPage()` and `createChart()` when you want the layout and the
+animated chart to be independent — so you can wire transitions to any trigger
+you like (button, slider, route change, agent-controlled UI, …).
 
 ## `createStory(spec, options)`
 
@@ -72,12 +72,15 @@ async function createStory(spec: object, options: CreateStoryOptions): Promise<S
 Always `await createStory(...)` (or `.catch()` the promise) so these surface
 in your own error handling rather than as unhandled rejections.
 
-## Decoupled page and chart embedding
+## Decoupled embedding: `createPage` + `createChart`
 
-`createPage()` renders only the story page framework. It creates the same
-header, step containers, figure containers, and tooltip layer as `createStory`,
-but it does not load data, render charts, install scroll tracking, or attach
-nav behavior.
+These two functions let you use layout and animated chart independently — the
+action system (scroll driver, stepper nav) is only wired up by `createStory`.
+
+### `createPage(spec, options?)`
+
+Renders only the story shell: header, step text sections, figure containers,
+and tooltip layer. No data loading, no charts, no scroll tracking or nav.
 
 ```ts
 async function createPage(spec: object, options?: {
@@ -86,9 +89,14 @@ async function createPage(spec: object, options?: {
 }): Promise<PageRuntime>
 ```
 
-`createChart()` renders only the animated chart. It loads the story data and
-uses the same compiled step transitions as `createStory`, but it leaves the
-trigger up to you:
+Returns `{ spec, root, story, steps, views, tooltip, destroy }`.  
+The `views` object maps view IDs to the empty `<div>` containers that
+`createChart` can target.
+
+### `createChart(spec, options)`
+
+Renders only the animated chart into any target element. No page shell, no
+scroll driver, no nav — trigger transitions however you like.
 
 ```ts
 async function createChart(spec: object, options: {
@@ -100,6 +108,30 @@ async function createChart(spec: object, options: {
 }): Promise<ChartRuntime>
 ```
 
+#### `chart.step(index)`
+
+The primary trigger: animates to step `index` using a natural, timer-driven
+D3 transition. Use this for buttons, route changes, keyboard shortcuts, or
+any discrete trigger.
+
+```js
+nextButton.addEventListener("click", () => chart.step(currentStep + 1));
+prevButton.addEventListener("click", () => chart.step(currentStep - 1));
+```
+
+#### `chart.action(event)`
+
+The full event interface — same as `StoryRuntime.action`. Use this when you
+need scrubbing (e.g. a range slider tied to scroll progress):
+
+```js
+slider.addEventListener("input", (e) =>
+  chart.action({ type: "progress", step: 2, value: e.target.valueAsNumber })
+);
+```
+
+#### Example: button-driven chart
+
 ```js
 import * as d3 from "d3";
 import * as aq from "arquero";
@@ -110,27 +142,29 @@ const spec = story()
   .data("rows", { values: [
     { category: "A", value: 12 },
     { category: "B", value: 18 }
-  ] })
+  ]})
   .view("main", { height: 420 })
   .step("Baseline", bar("rows").x("category").y("value").key("category"))
-  .step("Highlight B", bar("rows").x("category").y("value").key("category").highlight({ category: "B" }))
+  .step("Highlight B", bar("rows").x("category").y("value").key("category")
+    .highlight({ category: "B" }))
   .toSpec();
 
 const chart = await createChart(spec, { target: "#chart", d3, aq });
 
+let step = 0;
 document.querySelector("#next").addEventListener("click", () => {
-  chart.action({ type: "click", step: 1 }); // discrete animated transition
-});
-
-document.querySelector("#scrub").addEventListener("input", (event) => {
-  chart.action(event, { step: 1 }); // continuous progress from range value, 0..1
+  chart.step(++step);
 });
 ```
 
-`chart.action(event)` intentionally does not depend on the step's authored
-`action` list. It accepts one-shot events such as `"enter"`, `"click"`, and
-`"unclick"`, or progress events whose value is clamped to `[0, 1]`. This keeps
-page layout, trigger behavior, and animated chart state separate.
+#### Example: slider-scrubbed chart
+
+```js
+const scrub = document.querySelector("#scrub"); // <input type="range" min="0" max="1" step="0.01">
+scrub.addEventListener("input", () =>
+  chart.action({ type: "progress", step: 1, value: scrub.valueAsNumber })
+);
+```
 
 ## `StoryRuntime`
 
