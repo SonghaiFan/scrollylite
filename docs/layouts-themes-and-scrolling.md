@@ -109,14 +109,15 @@ Whether a step's transitions are **scrubbed by scroll position** or **played
 in full on nav/programmatic jumps** depends on its `action` list — set via the story
 builder's [`.action()`](./story-builder.md#actionactions):
 
-- `["step", "tooltip"]` (default): clicking a nav dot, calling
-  `renderStep()`, or scrolling into a step's activation line plays its
+- `["step", "tooltip"]` (default): clicking a nav dot, sending a discrete
+  `action({ type: "click" | "enter", step })` event, or scrolling into a step's activation line plays its
   transition **once, in full**.
 - `["scroll", "tooltip"]`: the transition is **continuously interpolated**
   as the reader scrolls through the step — scrolling down plays it forward,
   scrolling up plays it backward, and partial scroll positions show partial
-  transitions. Internally this calls `renderScrollProgress(index, progress,
-  direction)` on every scroll tick, which maps `progress ∈ [0, 1]` onto the
+  transitions. Internally the scroll driver sends
+  `action({ type: "progress", step, value, direction })` on every scroll tick,
+  which maps `value ∈ [0, 1]` onto the
   step's D3 transition schedule via `easeProgress`.
 
 Per-view scroll easing can be tuned via `narrative.action.scroll.ease`:
@@ -124,9 +125,22 @@ Per-view scroll easing can be tuned via `narrative.action.scroll.ease`:
 
 ```js
 story()
-  .action(["scroll", "tooltip"])
+  .action("scroller")
   .step("Intro", base)                          // first step always also gets "enter"
   .step("Reveal", base.where({ period: "recent" }))
+```
+
+Use `.action("stepper")` for the default discrete mode, `.action("scroller")`
+for the default scroll-scrubbed mode, or pass `action` to a single `.step()`
+when only one reveal should use a different mode:
+
+```js
+story()
+  .action("stepper")
+  .step("Intro", base)
+  .step("Scroll-scrubbed reveal", base.where({ period: "recent" }), {
+    action: "scroller"
+  })
 ```
 
 Only steps that actually carry a `transition.scene` benefit from `"scroll"`
@@ -149,9 +163,16 @@ story()
     href: "./my-theme.css",
     background: "#fafafa",   // → --sl-bg
     foreground: "#222",      // → --sl-fg
-    accent: "#b05d3b",       // → --sl-accent
+    accent: "rgb(28, 106, 228)",       // → --sl-accent
     fontFamily: "Inter, sans-serif",
-    series: ["#4f5d68", "#747c84", "#8b8580"],
+    series: [
+      "rgb(28, 106, 228)",
+      "rgb(250, 77, 29)",
+      "rgb(252, 219, 57)",
+      "rgb(3, 185, 118)",
+      "rgb(250, 195, 211)",
+      "rgb(0, 0, 0)"
+    ],
     variables: {
       surface: "#fff",       // → --sl-surface
       "--sl-step-gap": "42px"
@@ -191,10 +212,17 @@ that default color scheme without touching each chart idiom:
 
 ```js
 story().theme({
-  series: ["#2f4f4f", "#6b7280", "#9ca3af"],
+  series: [
+    "rgb(28, 106, 228)",
+    "rgb(250, 77, 29)",
+    "rgb(252, 219, 57)",
+    "rgb(3, 185, 118)",
+    "rgb(250, 195, 211)",
+    "rgb(0, 0, 0)"
+  ],
   semantic: {
-    hot: "#8a4f44",
-    cold: "#4f678a"
+    hot: "rgb(250, 77, 29)",
+    cold: "rgb(28, 106, 228)"
   }
 })
 ```

@@ -71,6 +71,7 @@
     "esm"
   ],
   "devDependencies": {
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "typescript": "^5.9.3"
   }
 }

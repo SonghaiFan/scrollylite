@@ -99,9 +99,16 @@ story()
     href: "./my-theme.css",
     background: "#fafafa",
     foreground: "#222",
-    accent: "#6b7280",
+    accent: "rgb(28, 106, 228)",
     fontFamily: "Inter, sans-serif",
-    series: ["#4f5d68", "#747c84", "#8b8580"],
+    series: [
+      "rgb(28, 106, 228)",
+      "rgb(250, 77, 29)",
+      "rgb(252, 219, 57)",
+      "rgb(3, 185, 118)",
+      "rgb(250, 195, 211)",
+      "rgb(0, 0, 0)"
+    ],
     variables: {
       surface: "#fff",
       "--sl-step-gap": "42px"
@@ -112,7 +119,7 @@ story()
 The string shorthand also accepts overrides as the second argument:
 
 ```js
-story().theme("./my-theme.css", { accent: "#6b7280" })
+story().theme("./my-theme.css", { accent: "rgb(28, 106, 228)" })
 ```
 
 Each call merges into `spec.theme`, so you can layer defaults and local
@@ -146,25 +153,39 @@ Sets the **default action list** applied to every subsequent `.step()` call
 (until you call `.action()` again). Accepts a string or array:
 
 ```js
-.action("step")                    // discrete: nav/programmatic jumps only
-.action(["scroll", "tooltip"])     // continuous: scroll-scrubbed transitions + tooltips
+.action("stepper")                 // alias for ["step", "tooltip"]
+.action("scroller")                // alias for ["scroll", "tooltip"]
+.action("step")                    // lower-level token: discrete jumps only
+.action(["scroll", "tooltip"])     // lower-level tokens: scroll-scrubbed transitions + tooltips
 ```
 
 Recognized action values:
 
 | Action     | Meaning |
 |------------|---------|
-| `"step"`   | Render the step fully on nav-dot clicks, programmatic `renderStep()` calls, and scroll entry (discrete jumps) |
+| `"step"`   | Render the step fully on nav-dot clicks, discrete `action()` events, and scroll entry |
 | `"scroll"` | Interpolate the transition continuously as the reader scrolls through the step (only applies to steps that have a `transition.scene`) |
 | `"tooltip"`| Enable hover tooltips on marks |
 | `"enter"`  | Play this step's entrance automatically on load — reserved for the **first** step; the builder adds it for you |
 
 The builder's default is `["step", "tooltip"]`. The very first step always
-gets `"enter"` appended automatically, regardless of `.action()`.
+gets `"enter"` appended automatically, regardless of `.action()` or a
+per-step override.
 
 > Calling `.action()` recompiles all previously-defined steps with the new
 > default — so it's safe to call before *or* after `.step()` calls, though
 > calling it once up front is the clearest pattern.
+
+You can also override one step without changing the story default:
+
+```js
+story()
+  .action("stepper")
+  .step("Baseline", base)
+  .step("Scrub this reveal", base.where({ period: "recent" }), {
+    action: "scroller"
+  })
+```
 
 ## `.step(titleOrDefinition, view?, options?)`
 
@@ -173,11 +194,12 @@ Appends one step. Three call shapes:
 ```js
 // 1) Full definition object — anything you'd put in a compiled step,
 //    plus `view` (a chart-state builder or raw view spec)
-.step({ title: "…", body: "…", view: bar("rows").x("a").y("b"), authoring: "…" })
+.step({ title: "…", body: "…", view: bar("rows").x("a").y("b"), action: "scroller", authoring: "…" })
 
 // 2) (title, chartState, optionsObject)
 .step("Baseline", bar("rows").x("a").y("b"), {
   body: "Narrative copy shown beside/above the chart.",
+  action: "stepper",               // optional per-step override
   authoring: 'bar("rows").x("a").y("b")'   // optional: source snippet shown in the inspector
 })
 
@@ -201,8 +223,8 @@ What happens when you call `.step()`:
 3. If you passed `authoring`/`authoringCode`/`code`, it's stored under
    `inspector.authoringCode` (shown in the demo's source-code inspector
    panel — handy for tutorials and live-coding walkthroughs).
-4. It assigns `action`: `["step", "tooltip", "enter"]` for the first step,
-   or your current `.action()` default for the rest.
+4. It assigns `action`: your per-step `action` override if present, otherwise
+   the current `.action()` default. The first step also receives `"enter"`.
 5. It pushes the compiled step and **recompiles the whole step list** —
    ScrollyLite always re-derives transitions from scratch so reordering or
    inserting steps stays consistent.

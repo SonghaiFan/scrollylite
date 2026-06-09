@@ -1,4 +1,4 @@
-import { bar } from "../../../src/index.js";
+import { bar } from "../../../dist/index.js";
 import { story } from "./shared.js";
 
 export function createBarStory() {

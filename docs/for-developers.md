@@ -108,11 +108,10 @@ src/
   data/             dataset loading + transform pipeline (filter, fold, bin, aggregate, sort, …)
   transitions/      spec compilation from plugin transition capabilities
   identity/         semantic-key resolution across steps
-  runtime/          step actions, scroll-progress easing
+  runtime/          action events, scroll-progress easing
   themes/           default theme CSS
-  scrollylite.js    createStory: lifecycle, theming, layout, rendering, cleanup
-  index.js          public exports (ESM)
-  index.d.ts        TypeScript definitions
+  scrollylite.ts    createStory/createPage/createChart lifecycle and rendering
+  index.ts          public exports (ESM + generated declarations)
 ```
 
 Each built-in chart idiom lives in `src/charts/<idiom>/` and exports a

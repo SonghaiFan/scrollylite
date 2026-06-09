@@ -185,7 +185,7 @@ The runtime has four clean layers:
 - `src/charts/`: chart idiom plugins, renderers, compilers, state, and keys.
 - `src/transitions/`: scene inference and spec compilation from plugin
   capabilities.
-- `src/scrollylite.js`: story lifecycle, data loading, layout, scene rendering,
+- `src/scrollylite.ts`: story lifecycle, data loading, layout, scene rendering,
   scroll control, and cleanup.
 
 Each idiom exposes one plugin:

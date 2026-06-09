@@ -1,24 +1,15 @@
-export * from "./index.js";
-
+import * as core from "./index.js";
 type AnyRecord = Record<string, any>;
-type Target = string | Element;
-
-interface BrowserCreateStoryOptions {
-  target?: Target;
-  d3?: any;
-  aq?: any;
-  debug?: boolean;
-}
-
-export function createStory(
-  spec: AnyRecord,
-  options?: BrowserCreateStoryOptions
-): Promise<{
-  spec: AnyRecord;
-  data: AnyRecord;
-  signature: string;
-  renderStep(index: number, options?: AnyRecord): void;
-  renderScrollProgress(index: number, progress: number, direction?: "up" | "down" | string): void;
-  scrollDriver: AnyRecord;
-  destroy(): void;
-}>;
+export declare const availableChartIdioms: typeof core.availableChartIdioms;
+export declare const bar: typeof core.bar;
+export declare const createPage: typeof core.createPage;
+export declare const defineChartIdiom: typeof core.defineChartIdiom;
+export declare const line: typeof core.line;
+export declare const point: typeof core.point;
+export declare const registerChartIdiom: typeof core.registerChartIdiom;
+export declare const registerChartModule: typeof core.registerChartModule;
+export declare const story: typeof core.story;
+export declare const unit: typeof core.unit;
+export declare function createChart(spec: AnyRecord, options?: AnyRecord): Promise<core.ChartRuntime>;
+export declare function createStory(spec: AnyRecord, options?: AnyRecord): Promise<core.StoryRuntime>;
+export {};

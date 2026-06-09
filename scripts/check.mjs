@@ -75,7 +75,7 @@ async function collect(dir) {
 async function collectText(path) {
   const entries = await readdir(path, { withFileTypes: true }).catch(() => null);
   if (!entries) {
-    if (/\.(css|html|js|md|mjs)$/.test(path)) textFiles.push(path);
+    if (/\.(css|html|js|md|mjs|ts)$/.test(path)) textFiles.push(path);
     return;
   }
 
@@ -84,7 +84,7 @@ async function collectText(path) {
     const childPath = join(path, entry.name);
     if (entry.isDirectory()) {
       await collectText(childPath);
-    } else if (/\.(css|html|js|md|mjs)$/.test(entry.name)) {
+    } else if (/\.(css|html|js|md|mjs|ts)$/.test(entry.name)) {
       textFiles.push(childPath);
     }
   }
@@ -92,7 +92,7 @@ async function collectText(path) {
 
 async function assertDebugInspectorGate() {
   const shell = await readFile(join(root, "src", "runtime", "shell.js"), "utf8");
-  const runtime = await readFile(join(root, "src", "scrollylite.js"), "utf8");
+  const runtime = await readFile(join(root, "src", "scrollylite.ts"), "utf8");
   if (!shell.includes("options.debug ? renderStepInspector(step) : \"\"")) {
     throw new Error("Step inspector must be gated behind createStory({ debug: true }).");
   }

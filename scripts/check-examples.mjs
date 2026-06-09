@@ -40,12 +40,9 @@ async function assertHtmlLocalAssets(source, baseDir) {
 
 function assertPublicApiImports(source) {
   const imports = [...source.matchAll(/\bfrom\s+"([^"]+)"/g)].map((match) => match[1]);
-  const badImport = imports.find((value) =>
-    value.startsWith("../../src/") &&
-    value !== "../../src/index.js"
-  );
+  const badImport = imports.find((value) => value.startsWith("../../src/"));
   if (badImport) {
-    throw new Error(`Example must import library code only through src/index.js, got ${badImport}`);
+    throw new Error(`Example must import library code only through the built public API, got ${badImport}`);
   }
 }
 

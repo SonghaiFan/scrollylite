@@ -6,12 +6,14 @@ import {
 } from "../src/charts/index.js";
 import { createDemoSpec, availableStories } from "../examples/weather/specs/demo.js";
 import { compileSpec } from "../src/runtime/spec.js";
-import * as sourceApi from "../src/index.js";
+import * as sourceApi from "../dist/index.js";
 import * as distApi from "../dist/scrollylite.esm.js";
 
 const publicApi = [
   "availableChartIdioms",
   "bar",
+  "createChart",
+  "createPage",
   "createStory",
   "defineChartIdiom",
   "line",
@@ -36,6 +38,23 @@ const themeSpec = sourceApi.story()
   .data("rows", { values: [{ category: "A", value: 1 }] })
   .step("Theme", sourceApi.bar("rows").x("category").y("value"))
   .toSpec();
+const actionBase = sourceApi.bar("rows").x("category").y("value").key("category");
+const actionSpec = sourceApi.story()
+  .data("rows", {
+    values: [
+      { category: "A", value: 1 },
+      { category: "B", value: 2 }
+    ]
+  })
+  .action("scroller")
+  .step("Scroller default", actionBase)
+  .step("Stepper override", actionBase.where({ category: "A" }), { action: "stepper" })
+  .step({
+    title: "Scroller object override",
+    view: actionBase.where({ category: "B" }),
+    action: "scroller"
+  })
+  .toSpec();
 
 const expected = ["bar", "line", "point", "unit"];
 assertSame(Object.keys(sourceApi).sort(), publicApi, "source public API");
@@ -47,6 +66,11 @@ assertSame(themeSpec.theme, {
   accent: "#b05d3b",
   variables: { muted: "#777" }
 }, "story theme builder");
+assertSame(actionSpec.steps.map((step) => step.action), [
+  ["scroll", "tooltip", "enter"],
+  ["step", "tooltip"],
+  ["scroll", "tooltip"]
+], "story action aliases and per-step overrides");
 await assertRejects(
   () => sourceApi.createStory({ steps: [{ views: { main: { mark: "bar" } } }] }),
   "Pass { d3 } to createStory()",

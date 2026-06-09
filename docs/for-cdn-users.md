@@ -162,9 +162,16 @@ story()
   .theme({
     background: "#fafafa",   // page/figure background
     foreground: "#222",      // text and axis color
-    accent: "#6b7280",       // highlight / emphasis color
+    accent: "rgb(28, 106, 228)",       // highlight / emphasis color
     fontFamily: "Inter, sans-serif",
-    series: ["#4f5d68", "#747c84", "#8b8580"]
+    series: [
+      "rgb(28, 106, 228)",
+      "rgb(250, 77, 29)",
+      "rgb(252, 219, 57)",
+      "rgb(3, 185, 118)",
+      "rgb(250, 195, 211)",
+      "rgb(0, 0, 0)"
+    ]
   })
   .data(/* … */)
   // …
@@ -175,9 +182,13 @@ story()
 :root {
   --sl-bg: #fafafa;
   --sl-fg: #222;
-  --sl-accent: #6b7280;
-  --sl-series-1: #4f5d68;
-  --sl-series-2: #747c84;
+  --sl-accent: rgb(28, 106, 228);
+  --sl-series-1: rgb(28, 106, 228);
+  --sl-series-2: rgb(250, 77, 29);
+  --sl-series-3: rgb(252, 219, 57);
+  --sl-series-4: rgb(3, 185, 118);
+  --sl-series-5: rgb(250, 195, 211);
+  --sl-series-6: rgb(0, 0, 0);
   --sl-font-family: Inter, sans-serif;
 }
 ```

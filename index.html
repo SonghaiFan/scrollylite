@@ -724,8 +724,8 @@
             <article class="feature-card">
               <h3>Runtime controls</h3>
               <p>
-                Drive stories programmatically with `renderStep`,
-                `renderScrollProgress`, and the native scroll driver.
+                Drive stories programmatically with the unified
+                `action(event)` interface and the native scroll driver.
               </p>
             </article>
           </div>
@@ -873,7 +873,7 @@ public_api:
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
     <script type="module">
-      import { createStory } from "./src/index.js";
+      import { createStory } from "./dist/index.js";
       import { createDemoSpec } from "./examples/weather/specs/demo.js";
 
       const demoTarget = document.querySelector("#app");

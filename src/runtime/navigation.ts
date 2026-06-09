@@ -10,15 +10,15 @@ export function setupScroll(spec, shell, renderer) {
     isLocked: () => isNavigationLocked(shell),
     onEnter: ({ index, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderStep(index, { direction });
+      renderer.action({ type: "enter", step: index, direction });
     },
     onExit: ({ index, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderScrollProgress(index, direction === "down" ? 1 : 0, direction);
+      renderer.action({ type: "exit", step: index, value: direction === "down" ? 1 : 0, direction });
     },
     onProgress: ({ index, progress, direction }) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.renderScrollProgress(index, progress, direction);
+      renderer.action({ type: "progress", step: index, value: progress, direction });
     }
   });
 
@@ -49,7 +49,7 @@ export function restoreHashPosition(shell, renderer, scrollDriver) {
   window.requestAnimationFrame(() => {
     const target = document.querySelector(window.location.hash);
     if (!target) return;
-    const index = Number(target.dataset.stepIndex);
+    const index = Number((target as HTMLElement).dataset.stepIndex);
     if (Number.isFinite(index)) lockRenderStep(shell, renderer, scrollDriver, index, target);
   });
 }
@@ -69,7 +69,7 @@ function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null)
   } else {
     step.scrollIntoView({ behavior: "instant", block: "center" });
   }
-  renderer.renderStep(index, navigationRenderOptions(step));
+  renderer.action({ type: "click", step: index, ...navigationRenderOptions(step) });
   waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step);
 }
 
@@ -83,7 +83,7 @@ function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, ta
   const finish = () => {
     if (cancelled || !isCurrentNavigation(shell, token)) return;
     if (hasScrollAction(step)) {
-      renderer.renderStep(index, navigationRenderOptions(step));
+      renderer.action({ type: "click", step: index, ...navigationRenderOptions(step) });
     }
     endNavigationLock(shell, token);
     scrollDriver?.refresh?.();
@@ -158,4 +158,3 @@ function addNavigationCleanup(shell, cleanup) {
   cleanups.push(cleanup);
   shell.story.__scrollyLiteNavCleanups = cleanups;
 }
-

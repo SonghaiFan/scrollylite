@@ -1,4 +1,4 @@
-import { story as createStory } from "../../../src/index.js";
+import { story as createStory } from "../../../dist/index.js";
 
 export const HOT_COLOR = "#b05d3b";
 export const COLD_COLOR = "#536a9e";

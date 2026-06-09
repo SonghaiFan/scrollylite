@@ -5,6 +5,12 @@ the object it returns, and how to drive a story programmatically — useful for
 custom navigation UI, debugging, analytics hooks, or embedding ScrollyLite
 inside a larger app's lifecycle.
 
+Use `createStory()` when you want ScrollyLite to own the whole page
+experience: header, text steps, sticky chart, scroll driver, nav, and progress
+bar. Use `createPage()` and `createChart()` when you want to compose those
+pieces yourself and drive chart transitions from another trigger such as a
+button, slider, timeline, route change, or agent-controlled UI.
+
 ## `createStory(spec, options)`
 
 ```ts
@@ -66,6 +72,66 @@ async function createStory(spec: object, options: CreateStoryOptions): Promise<S
 Always `await createStory(...)` (or `.catch()` the promise) so these surface
 in your own error handling rather than as unhandled rejections.
 
+## Decoupled page and chart embedding
+
+`createPage()` renders only the story page framework. It creates the same
+header, step containers, figure containers, and tooltip layer as `createStory`,
+but it does not load data, render charts, install scroll tracking, or attach
+nav behavior.
+
+```ts
+async function createPage(spec: object, options?: {
+  target?: string | Element;
+  debug?: boolean;
+}): Promise<PageRuntime>
+```
+
+`createChart()` renders only the animated chart. It loads the story data and
+uses the same compiled step transitions as `createStory`, but it leaves the
+trigger up to you:
+
+```ts
+async function createChart(spec: object, options: {
+  target?: string | Element;
+  d3: object;
+  aq?: object;
+  view?: string;
+  initialStep?: number;
+}): Promise<ChartRuntime>
+```
+
+```js
+import * as d3 from "d3";
+import * as aq from "arquero";
+import { createChart, story, bar } from "scrollylite";
+import "scrollylite/style.css";
+
+const spec = story()
+  .data("rows", { values: [
+    { category: "A", value: 12 },
+    { category: "B", value: 18 }
+  ] })
+  .view("main", { height: 420 })
+  .step("Baseline", bar("rows").x("category").y("value").key("category"))
+  .step("Highlight B", bar("rows").x("category").y("value").key("category").highlight({ category: "B" }))
+  .toSpec();
+
+const chart = await createChart(spec, { target: "#chart", d3, aq });
+
+document.querySelector("#next").addEventListener("click", () => {
+  chart.action({ type: "click", step: 1 }); // discrete animated transition
+});
+
+document.querySelector("#scrub").addEventListener("input", (event) => {
+  chart.action(event, { step: 1 }); // continuous progress from range value, 0..1
+});
+```
+
+`chart.action(event)` intentionally does not depend on the step's authored
+`action` list. It accepts one-shot events such as `"enter"`, `"click"`, and
+`"unclick"`, or progress events whose value is clamped to `[0, 1]`. This keeps
+page layout, trigger behavior, and animated chart state separate.
+
 ## `StoryRuntime`
 
 The object `createStory` resolves to:
@@ -75,8 +141,7 @@ interface StoryRuntime {
   spec: object;                 // The compiled, normalized story spec
   data: Record<string, any[]>;  // Loaded datasets, keyed by name: { weatherDays: [...], … }
   signature: StepSignature[];   // Lightweight per-step metadata for nav/analytics
-  renderStep(index: number, options?: RenderStepOptions): void;
-  renderScrollProgress(index: number, progress: number, direction?: "up" | "down"): void;
+  action(event: ActionEvent, options?: ActionOptions): void;
   scrollDriver: ScrollDriver;
   destroy(): void;
 }
@@ -123,50 +188,57 @@ runtime.signature.forEach(({ index, title, transition }) => {
 });
 ```
 
-### `renderStep(index, options?)`
+### `action(event, options?)`
 
-Jumps directly to a step and renders it **fully** (not scroll-scrubbed):
+The single trigger interface. It accepts discrete events and continuous
+progress values:
 
 ```ts
-renderStep(index: number, options?: {
-  force?: boolean;            // re-render even if already on this step
-  scrollProgress?: number;    // initial progress to seed for scroll-mode steps (0–1)
-  direction?: "up" | "down";  // affects default enter/exit direction
-}): void
+type ActionEvent =
+  | "enter" | "click" | "unclick" | "exit" | string
+  | number
+  | Event
+  | {
+      type?: string;
+      step?: number;
+      index?: number;
+      value?: number;          // progress value, 0..1
+      progress?: number;       // alias of value
+      scrollProgress?: number; // alias of value
+      direction?: "up" | "down" | string;
+      action?: "stepper" | "scroller" | string | string[];
+      force?: boolean;
+    };
+
+runtime.action(event: ActionEvent, options?: ActionOptions): void
 ```
 
 ```js
-runtime.renderStep(2);                       // jump to step 2
-runtime.renderStep(0, { force: true });       // re-render step 0 even if already active
+runtime.action({ type: "enter", step: 0 });    // one-shot page/view entry
+runtime.action({ type: "click", step: 2 });    // button/nav style trigger
+runtime.action({ type: "unclick", step: 2 });  // one-shot reset-style trigger
+runtime.action({ type: "progress", step: 2, value: 0.5 }); // scrubbed transition
 ```
 
-This is what the nav rail calls internally — use it
-to build your own "jump to step" controls, a table of contents, deep links,
-or programmatic walkthroughs.
+DOM events can be passed directly. `input`/`change` events from range or
+number controls become progress events; buttons become discrete events. Add
+`data-step-index` to the control, or pass the step as an option:
 
-### `renderScrollProgress(index, progress, direction?)`
-
-Scrubs a step's transition to a specific point of completion — what the
-scroll driver calls on every scroll tick for steps with `"scroll"` in their
-`action` list:
-
-```ts
-renderScrollProgress(index: number, progress: number, direction?: "up" | "down"): void
+```html
+<button data-step-index="1">Reveal</button>
+<input id="scrub" type="range" min="0" max="1" step="0.01">
 ```
-
-`progress` is clamped to `[0, 1]`: `0` is the step's *source* state (start of
-its transition), `1` is its *target* state (transition complete). Calling
-this on a step without a `"scroll"` action is a no-op.
 
 ```js
-runtime.renderScrollProgress(2, 0.5);          // show step 2's transition halfway through
-runtime.renderScrollProgress(2, 1, "down");    // jump straight to step 2's completed state
+button.addEventListener("click", runtime.action);
+scrub.addEventListener("input", (event) => runtime.action(event, { step: 2 }));
 ```
 
-Useful for building custom scroll-linked experiences (e.g. driving progress
-from an external scrubber, video playback position, or a non-native scroll
-container) instead of — or in addition to — the built-in native scroll
-driver.
+When the event carries a numeric value, the runtime uses scroll-style
+transition scrubbing even if the step was authored with the default stepper
+mode. When the event is discrete, the runtime plays the step transition once
+in full. The built-in scroll driver and nav rail both use this same interface
+internally.
 
 ### `scrollDriver`
 

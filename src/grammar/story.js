@@ -94,7 +94,7 @@ export class StoryBuilder {
   }
 
   action(actions) {
-    this._stepAction = Array.isArray(actions) ? [...actions] : [actions];
+    this._stepAction = normalizeStepActions(actions);
     this.#compileSteps();
     return this;
   }
@@ -142,6 +142,7 @@ export class StoryBuilder {
 
 function compileStep(definition, view, scenes, isFirst, action) {
   const authoringCode = definition.authoringCode || definition.authoring || definition.code;
+  const stepAction = normalizeStepActions(definition.action ?? action);
   const compiledView = withNarrative(compileView(view), {
     annotation: {
       title: definition.title,
@@ -157,11 +158,30 @@ function compileStep(definition, view, scenes, isFirst, action) {
       }
     } : {}),
     transition: scenes.length ? { scene: scenes } : undefined,
-    action: isFirst ? ["step", "tooltip", "enter"] : action,
+    action: isFirst ? withEnterAction(stepAction) : stepAction,
     views: {
       main: compiledView
     }
   };
+}
+
+function normalizeStepActions(actions = ["step", "tooltip"]) {
+  const values = Array.isArray(actions) ? actions : [actions];
+  return uniqueActions(values.flatMap(expandActionAlias));
+}
+
+function expandActionAlias(action) {
+  if (action === "stepper") return ["step", "tooltip"];
+  if (action === "scroller") return ["scroll", "tooltip"];
+  return [action];
+}
+
+function withEnterAction(actions) {
+  return uniqueActions([...actions, "enter"]);
+}
+
+function uniqueActions(actions) {
+  return [...new Set(actions.filter(Boolean))];
 }
 
 function compileView(view) {

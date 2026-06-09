@@ -1,0 +1,38 @@
+export function transitionSpec(spec: any, previousSpec: any, { scrollDriven, d3 }?: {
+    scrollDriven?: boolean;
+}): any;
+export function effectiveTransitionSpec(spec?: {}): {
+    stagger: any;
+    duration: number;
+    ease: string;
+};
+export function easeFor(name: any, d3: any): any;
+export function activeMarkLayer(scene: any, mark: any, transition: any): any;
+export function fadeLayers(scene: any, activeMark: any, transition?: any, d3?: any): void;
+export function staggerDelay(spec: any, datum: any, index: any, override: any): number;
+export function curveFor(spec: any, d3: any): any;
+export function drawPath(selection: any, transition: any, d3: any): void;
+export function fadeNonBarShapes(chart: any): void;
+export function fadeNonLineShapes(chart: any): void;
+export function fadeNonPointShapes(chart: any): void;
+export function fadeNonUnitShapes(chart: any): void;
+export function applyPlotClip(chart: any, enabled: any): void;
+export function drawTextBoard(scene: any, spec: any): void;
+export function drawUnsupported(chart: any, spec: any, availableTypes?: any[]): void;
+export function bandOrLinear(rows: any, channel: any, range: any, d3: any): any;
+export function quantitativeScale(rows: any, channel: {}, range: any, d3: any): any;
+export function position(scale: any, value: any): any;
+export function niceExtent(rows: any, field: any, floor: any): any[];
+export function quantitativeDomain(rows: any, channel: {}, floor: any): any;
+export function channelDomain(rows: any, channel?: {}): any;
+export function colorScale(rows: any, channel: any, d3: any): (row?: {}) => any;
+export function drawXAxis(chart: any, scale: any, title: any, d3: any, transition?: any): void;
+export function drawYAxis(chart: any, scale: any, title: any, d3: any, transition?: any): void;
+export function drawGrid(chart: any, y: any, d3: any, transition?: any): void;
+export function updateGrid(chart: any, y: any, d3: any, transition?: any): void;
+export function drawLegend(chart: any, rows: any, channel: any, d3: any): void;
+export function bindTooltip(selection: any, spec: any, tooltip: any): void;
+export function showTooltip(tooltip: any, event: any, html: any): void;
+export function moveTooltip(tooltip: any, event: any): void;
+export function hideTooltip(tooltip: any): void;
+export function markAxisInactive(axisGroup: any): void;

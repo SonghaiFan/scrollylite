@@ -4,10 +4,9 @@ import * as bar from "./bar/plugin.js";
 import * as line from "./line/plugin.js";
 import * as point from "./point/plugin.js";
 import * as unit from "./unit/plugin.js";
-
 export const chartModules = [
-  bar,
-  line,
-  point,
-  unit
+    bar,
+    line,
+    point,
+    unit
 ];

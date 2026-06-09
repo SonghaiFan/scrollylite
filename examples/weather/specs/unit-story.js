@@ -1,4 +1,4 @@
-import { unit } from "../../../src/index.js";
+import { unit } from "../../../dist/index.js";
 import { HOT_PERIOD_COLOR, story } from "./shared.js";
 
 export function createUnitStory() {

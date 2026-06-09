@@ -1,4 +1,4 @@
-import { line } from "../../../src/index.js";
+import { line } from "../../../dist/index.js";
 import { COLD_COLOR, COLD_PERIOD_COLOR, HOT_COLOR, story } from "./shared.js";
 
 export function createLineStory() {

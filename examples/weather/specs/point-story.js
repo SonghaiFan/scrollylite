@@ -1,4 +1,4 @@
-import { point } from "../../../src/index.js";
+import { point } from "../../../dist/index.js";
 import { PERIOD_LUMINANCE_COLOR, story } from "./shared.js";
 
 export function createPointStory() {

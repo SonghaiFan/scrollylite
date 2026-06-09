@@ -14,6 +14,8 @@ import {
   defaultScrollProgress,
   easeProgress,
   hasScrollAction,
+  normalizeActionEvent,
+  normalizeActionTokens,
   normalizeScrollAction
 } from "./runtime/actions.js";
 import {
@@ -80,6 +82,15 @@ import {
   installTransitionProgress
 } from "./transition-progress.js";
 import { compileEffectiveView, compileTransitionSource } from "./runtime/view-compile.js";
+import type {
+  AnyRecord,
+  ChartOptions,
+  ChartRuntime,
+  PageOptions,
+  PageRuntime,
+  RuntimeOptions,
+  StoryRuntime
+} from "./types.js";
 const BUILT_IN_CHART_IDIOMS = createChartIdiomRegistry();
 
 export function registerChartIdiom(idiom) {
@@ -94,7 +105,7 @@ export function availableChartIdioms() {
   return BUILT_IN_CHART_IDIOMS.types();
 }
 
-export async function createStory(spec, options = {}) {
+export async function createStory(spec: AnyRecord, options: RuntimeOptions): Promise<StoryRuntime> {
   const runtime = resolveRuntimeDependencies(options);
   const { d3 } = runtime;
   installTransitionProgress(d3);
@@ -111,7 +122,7 @@ export async function createStory(spec, options = {}) {
   });
   const renderer = createRenderer(shell, compiled, data, runtime);
 
-  renderer.renderStep(0);
+  renderer.action({ type: "enter", step: 0, force: true });
   const scrollDriver = setupScroll(compiled, shell, renderer);
   setupNav(shell, renderer, scrollDriver);
   const disposeResize = setupResize(renderer, scrollDriver);
@@ -121,8 +132,7 @@ export async function createStory(spec, options = {}) {
     spec: compiled,
     data,
     signature: storySignature(compiled),
-    renderStep: renderer.renderStep,
-    renderScrollProgress: renderer.renderScrollProgress,
+    action: renderer.action,
     scrollDriver,
     destroy() {
       disposeResize();
@@ -133,19 +143,108 @@ export async function createStory(spec, options = {}) {
   };
 }
 
-function createRenderer(shell, spec, datasets, runtime) {
+export async function createPage(spec: AnyRecord, options: PageOptions = {}): Promise<PageRuntime> {
+  const target = resolveTarget(options.target || "#app");
+  const compiled = compileSpec(spec);
+  const disposeTheme = await applyTheme(compiled.theme);
+  target.innerHTML = "";
+  const shell = renderShell(target, compiled, {
+    debug: options.debug === true,
+    idioms: BUILT_IN_CHART_IDIOMS
+  });
+
+  return {
+    spec: compiled,
+    shell,
+    root: shell.root,
+    story: shell.story,
+    steps: shell.steps,
+    views: shell.views as Record<string, Element>,
+    tooltip: shell.tooltip,
+    destroy() {
+      disposeTheme();
+    }
+  };
+}
+
+export async function createChart(spec: AnyRecord, options: ChartOptions): Promise<ChartRuntime> {
+  const runtime = resolveRuntimeDependencies(options);
+  const { d3 } = runtime;
+  installTransitionProgress(d3);
+  const target = resolveTarget(options.target || "#app");
+  const compiled = compileSpec(spec);
+  const viewId = options.view || options.viewId || "main";
+
+  const disposeTheme = await applyTheme(compiled.theme);
+  target.innerHTML = "";
+  const data = await loadData(compiled.data, d3);
+  const shell = renderChartShell(target, compiled, viewId);
+  const renderer = createRenderer(shell, compiled, data, runtime);
+  const initialStep = clamp(options.initialStep ?? 0, 0, compiled.steps.length - 1);
+
+  renderer.action({
+    type: "enter",
+    step: initialStep,
+    action: "stepper",
+    force: true
+  });
+
+  return {
+    spec: compiled,
+    data,
+    view: shell.views[viewId],
+    tooltip: shell.tooltip,
+    action: renderer.action,
+    resize: renderer.resize,
+    destroy() {
+      renderer.destroy();
+      disposeTheme();
+    }
+  };
+}
+
+function createRenderer(shell: AnyRecord, spec: AnyRecord, datasets: AnyRecord, runtime: AnyRecord) {
   const { d3, aq } = runtime;
   let activeIndex = -1;
+  let activeAction = null;
   let resizeFrame = null;
   let progressFrame = null;
   let pendingProgress = null;
 
-  const renderStep = (index, options = {}) => {
-    const bounded = clamp(index, 0, spec.steps.length - 1);
-    if (bounded === activeIndex && !options.force) return;
+  const action = (event, options = {}) => {
+    const command = normalizeActionEvent(event, options, {
+      activeIndex,
+      stepCount: spec.steps.length
+    });
 
+    if (command.progress) {
+      applyDiscreteStep(command.index, {
+        action: command.action,
+        direction: command.direction,
+        force: command.force === true,
+        scrollProgress: command.value
+      });
+      applyProgressStep(command.index, command.value, command.direction, {
+        force: true
+      });
+      return;
+    }
+
+    applyDiscreteStep(command.index, {
+      action: command.action,
+      direction: command.direction,
+      force: command.force !== false
+    });
+  };
+
+  const applyDiscreteStep = (index: number, options: AnyRecord = {}) => {
+    const bounded = clamp(index, 0, spec.steps.length - 1);
     const step = spec.steps[bounded];
+    const stepAction = normalizeActionTokens(options.action || step.action);
+    const actionSignature = stepAction.join(" ");
+    if (bounded === activeIndex && actionSignature === activeAction && !options.force) return;
     activeIndex = bounded;
+    activeAction = actionSignature;
 
     shell.steps.forEach((node, nodeIndex) => {
       node.classList.toggle("is-active", nodeIndex === bounded);
@@ -158,13 +257,17 @@ function createRenderer(shell, spec, datasets, runtime) {
       shell.progressFill.style.width = `${pct}%`;
     }
 
-    const firstViewSpec = Object.values(step.views)[0] || {};
-    shell.figureTitle.textContent = spec.views.main?.title || step.title || "";
+    const firstViewSpec = (Object.values(step.views)[0] || {}) as AnyRecord;
+    if (shell.figureTitle) {
+      shell.figureTitle.textContent = spec.views.main?.title || step.title || "";
+    }
     const markLabel = firstViewSpec.mark ? `mark: ${firstViewSpec.mark}` : "";
-    shell.markName.dataset.chartLabel = markLabel;
-    shell.markName.textContent = markLabel;
+    if (shell.markName) {
+      shell.markName.dataset.chartLabel = markLabel;
+      shell.markName.textContent = markLabel;
+    }
 
-    Object.entries(shell.views).forEach(([viewId, node]) => {
+    Object.entries(shell.views).forEach(([viewId, node]: [string, any]) => {
       const viewConfig = spec.views[viewId] || {};
       const viewSpec = step.views[viewId] || step.views.main || {};
       node.__scrollyLiteMarkName = shell.markName;
@@ -172,21 +275,23 @@ function createRenderer(shell, spec, datasets, runtime) {
       const previousViewSpec = previousStep
         ? previousStep.views[viewId] || previousStep.views.main || null
         : null;
-      drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, aq, step.transition, step.action, {
+      drawView(node, viewSpec, viewConfig, datasets, shell.tooltip, d3, aq, step.transition, stepAction, {
         previousViewSpec,
         previousTransition: previousStep?.transition || {}
       });
     });
 
-    if (hasScrollAction(step)) {
-      applyStepScrollProgress(shell, spec, bounded, options.scrollProgress ?? defaultScrollProgress(options.direction), d3);
+    if (hasScrollAction(stepAction)) {
+      applyStepScrollProgress(shell, spec, bounded, options.scrollProgress ?? defaultScrollProgress(options.direction), d3, {
+        force: true
+      });
     }
   };
 
-  const renderScrollProgress = (index, progress, direction = "down") => {
+  const applyProgressStep = (index: number, progress: number, direction = "down", options: AnyRecord = {}) => {
     const bounded = clamp(index, 0, spec.steps.length - 1);
     const step = spec.steps[bounded];
-    if (!hasScrollAction(step)) return;
+    if (!options.force && !hasScrollAction(step)) return;
 
     pendingProgress = {
       index: bounded,
@@ -204,7 +309,9 @@ function createRenderer(shell, spec, datasets, runtime) {
       if (activeIndex !== next.index) return;
 
       updateStoryProgress(shell, spec, next.index, next.progress);
-      applyStepScrollProgress(shell, spec, next.index, next.progress, d3);
+      applyStepScrollProgress(shell, spec, next.index, next.progress, d3, {
+        force: options.force === true
+      });
     });
   };
 
@@ -219,13 +326,12 @@ function createRenderer(shell, spec, datasets, runtime) {
   const resize = () => {
     if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
     resizeFrame = window.requestAnimationFrame(() => {
-      if (activeIndex >= 0) renderStep(activeIndex, { force: true });
+      if (activeIndex >= 0) applyDiscreteStep(activeIndex, { force: true });
     });
   };
 
   return {
-    renderStep,
-    renderScrollProgress,
+    action,
     cancelScrollProgress,
     resize,
     destroy() {
@@ -235,7 +341,43 @@ function createRenderer(shell, spec, datasets, runtime) {
   };
 }
 
-function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, aq, stepTransition = {}, stepAction = [], options = {}) {
+function renderChartShell(target: Element, spec: AnyRecord, viewId = "main") {
+  target.className = ["sl-chart-root", target.className].filter(Boolean).join(" ");
+
+  const figure = document.createElement("figure");
+  figure.className = "sl-figure sl-chart-figure";
+  figure.innerHTML = `
+    <figcaption class="sl-figure-header">
+      <p class="sl-figure-title"></p>
+      <span class="sl-mark-name"></span>
+    </figcaption>
+  `;
+
+  const view = document.createElement("div");
+  view.className = "sl-view";
+  view.dataset.viewId = viewId;
+  figure.append(view);
+  target.append(figure);
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "sl-tooltip";
+  target.append(tooltip);
+
+  return {
+    root: target,
+    story: null,
+    figure,
+    figureTitle: figure.querySelector(".sl-figure-title"),
+    markName: figure.querySelector(".sl-mark-name"),
+    steps: [],
+    navButtons: [],
+    progressFill: null,
+    views: { [viewId]: view },
+    tooltip
+  };
+}
+
+function drawView(node: any, viewSpec: AnyRecord, viewConfig: AnyRecord, datasets: AnyRecord, tooltip: Element, d3: AnyRecord, aq: AnyRecord, stepTransition: AnyRecord = {}, stepAction: string[] = [], options: AnyRecord = {}) {
   const scene = getScene(node, viewConfig, d3);
   scene.progressRoots = [
     node,
@@ -312,7 +454,7 @@ function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, aq, stepTra
   });
 }
 
-function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, tooltip, d3, aq, stepAction = [], sceneTransition = {}, renderOptions = {}) {
+function renderCompiledView(node: any, effectiveViewSpec: AnyRecord, viewConfig: AnyRecord, datasets: AnyRecord, tooltip: Element, d3: AnyRecord, aq: AnyRecord, stepAction: string[] = [], sceneTransition: AnyRecord = {}, renderOptions: AnyRecord = {}) {
   const scene = getScene(node, viewConfig, d3);
   const scrollDriven = renderOptions.scrollDriven ?? hasScrollAction(stepAction);
   if (scrollDriven && !renderOptions.skipScrollSourcePrep) {
@@ -347,7 +489,7 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
   resizeScene(scene, width, height);
 
   const rendererKey = resolveMarkRendererKey(renderSpec);
-  const chart = {
+  const chart: AnyRecord = {
     scene,
     type: rendererKey,
     width,
@@ -360,7 +502,7 @@ function renderCompiledView(node, effectiveViewSpec, viewConfig, datasets, toolt
       ...(idiom?.defaultMargin?.(renderSpec) || {}),
       ...(effectiveViewSpec.margin || {})
     },
-    transition: transitionSpec(renderSpec, previousSpec, { scrollDriven, d3 }),
+    transition: transitionSpec(renderSpec, previousSpec, { scrollDriven, d3 } as AnyRecord),
     transitionPlan: idiom?.resolveTransitionPlan?.(previousSpec, renderSpec) || {},
     sceneTransition,
     scrollDriven,
@@ -477,7 +619,7 @@ function sceneTransitionForPhase(phase) {
   };
 }
 
-function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, aq, transitionSource = {}) {
+function prepareScrollSourceState(node: any, viewConfig: AnyRecord, datasets: AnyRecord, tooltip: Element, d3: AnyRecord, aq: AnyRecord, transitionSource: AnyRecord = {}) {
   const scene = getScene(node, viewConfig, d3);
   const sourceSpec = transitionSource?.effectiveViewSpec || null;
   if (!sourceSpec) {
@@ -493,7 +635,7 @@ function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, aq, t
     tooltip,
     d3,
     aq,
-    { action: ["scroll"] },
+    ["scroll"],
     transitionSource.sceneTransition || {},
     {
       scrollDriven: true,
@@ -506,7 +648,7 @@ function prepareScrollSourceState(node, viewConfig, datasets, tooltip, d3, aq, t
 }
 
 
-function virtualRenderDelay(phaseOrSpec = {}) {
+function virtualRenderDelay(phaseOrSpec: AnyRecord = {}) {
   const spec = phaseOrSpec.spec || phaseOrSpec;
   const plannedDuration = Number(phaseOrSpec.transitionPlanDuration);
   if (Number.isFinite(plannedDuration)) return Math.max(1, plannedDuration);
@@ -629,9 +771,9 @@ function updateStoryProgress(shell, spec, index, progress = 0) {
 
 
 
-function applyStepScrollProgress(shell, spec, index, progress, d3) {
+function applyStepScrollProgress(shell: AnyRecord, spec: AnyRecord, index: number, progress: number, d3: AnyRecord, options: AnyRecord = {}) {
   const step = spec.steps[index];
-  if (!step || !hasScrollAction(step)) return;
+  if (!step || (!options.force && !hasScrollAction(step))) return;
 
   Object.entries(shell.views).forEach(([viewId, node]) => {
     const viewSpec = step.views[viewId] || step.views.main || {};
@@ -643,7 +785,7 @@ function applyScrollAction(node, viewSpec, progress, d3) {
   const scene = node.__scrollyLiteScene;
   if (!scene || !viewSpec?.mark) return;
 
-  const action = normalizeScrollAction(narrativeScroll(viewSpec));
+  const action = normalizeScrollAction(narrativeScroll(viewSpec)) as AnyRecord;
   const eased = easeProgress(progress, action.ease, d3);
   if (applyVirtualScrollSequence(scene, eased)) return;
   scene.transitionProgress?.progress(eased);
@@ -654,7 +796,7 @@ function applyScrollAction(node, viewSpec, progress, d3) {
 
 
 
-async function applyTheme(theme = {}) {
+async function applyTheme(theme: AnyRecord = {}) {
   const root = document.documentElement;
   const previous = new Map();
   const insertedLinks = await installThemeStylesheets(theme);
@@ -677,12 +819,12 @@ async function applyTheme(theme = {}) {
   };
 }
 
-async function installThemeStylesheets(theme = {}) {
+async function installThemeStylesheets(theme: AnyRecord = {}) {
   const hrefs = themeStylesheetHrefs(theme);
   const inserted = [];
   await Promise.all(hrefs.map((href) => new Promise((resolve, reject) => {
     const absoluteHref = new URL(href, document.baseURI).href;
-    const existing = Array.from(document.querySelectorAll('link[rel~="stylesheet"]'))
+    const existing = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel~="stylesheet"]'))
       .find((link) => link.href === absoluteHref);
     if (existing) {
       resolve(existing);
@@ -701,7 +843,7 @@ async function installThemeStylesheets(theme = {}) {
   return inserted;
 }
 
-function themeStylesheetHrefs(theme = {}) {
+function themeStylesheetHrefs(theme: AnyRecord = {}) {
   const candidates = [
     theme.href,
     theme.url,
@@ -712,7 +854,7 @@ function themeStylesheetHrefs(theme = {}) {
   return Array.from(new Set(candidates.filter((href) => typeof href === "string" && href.trim())));
 }
 
-function themeVariables(theme = {}) {
+function themeVariables(theme: AnyRecord = {}) {
   return {
     ...themeVariableAliases(theme),
     ...themeSeriesVariables(theme),
@@ -721,7 +863,7 @@ function themeVariables(theme = {}) {
   };
 }
 
-function themeVariableAliases(theme = {}) {
+function themeVariableAliases(theme: AnyRecord = {}) {
   const aliases = {
     background: "--sl-bg",
     foreground: "--sl-fg",
@@ -742,7 +884,7 @@ function themeVariableAliases(theme = {}) {
   );
 }
 
-function themeSeriesVariables(theme = {}) {
+function themeSeriesVariables(theme: AnyRecord = {}) {
   const series = theme.series || theme.palette || theme.colorScheme;
   if (!Array.isArray(series)) return {};
   return Object.fromEntries(
@@ -752,7 +894,7 @@ function themeSeriesVariables(theme = {}) {
   );
 }
 
-function themeSemanticVariables(theme = {}) {
+function themeSemanticVariables(theme: AnyRecord = {}) {
   const semantic = theme.semantic || {};
   return Object.fromEntries(
     Object.entries({
@@ -764,7 +906,7 @@ function themeSemanticVariables(theme = {}) {
   );
 }
 
-function normalizeThemeVariables(variables = {}) {
+function normalizeThemeVariables(variables: AnyRecord = {}) {
   return Object.fromEntries(
     Object.entries(variables)
       .filter(([, value]) => value != null)
@@ -786,7 +928,7 @@ function resolveTarget(target) {
   return node;
 }
 
-function resolveRuntimeDependencies(options = {}) {
+function resolveRuntimeDependencies(options: AnyRecord = {}) {
   if (!options.d3) {
     throw new Error("ScrollyLite requires D3. Pass { d3 } to createStory().");
   }

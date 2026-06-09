@@ -4,21 +4,21 @@ import { SCROLL_TRANSITION_NAME } from "../transition-progress.js";
 import { clamp, escapeHtml, titleize } from "./utils.js";
 
 const DEFAULT_PALETTE = [
-  ["--sl-series-1", "#4f5d68"],
-  ["--sl-series-2", "#747c84"],
-  ["--sl-series-3", "#8b8580"],
-  ["--sl-series-4", "#65737e"],
-  ["--sl-series-5", "#93979b"],
-  ["--sl-series-6", "#5f6972"],
-  ["--sl-series-7", "#a0a4a8"],
-  ["--sl-series-8", "#3f4852"]
+  ["--sl-series-1", "rgb(28, 106, 228)"],
+  ["--sl-series-2", "rgb(250, 77, 29)"],
+  ["--sl-series-3", "rgb(252, 219, 57)"],
+  ["--sl-series-4", "rgb(3, 185, 118)"],
+  ["--sl-series-5", "rgb(250, 195, 211)"],
+  ["--sl-series-6", "rgb(0, 0, 0)"],
+  ["--sl-series-7", "rgb(102, 112, 122)"],
+  ["--sl-series-8", "rgb(180, 187, 195)"]
 ];
-const DEFAULT_LUMINANCE_BASE = ["--sl-accent", "#4f5d68"];
+const DEFAULT_LUMINANCE_BASE = ["--sl-accent", "rgb(28, 106, 228)"];
 const SEMANTIC_CATEGORY_COLORS = {
-  "hot": ["--sl-semantic-hot", "#8a635b"],
-  "hot days": ["--sl-semantic-hot", "#8a635b"],
-  "cold": ["--sl-semantic-cold", "#596d83"],
-  "cold days": ["--sl-semantic-cold", "#596d83"]
+  "hot": ["--sl-semantic-hot", "rgb(250, 77, 29)"],
+  "hot days": ["--sl-semantic-hot", "rgb(250, 77, 29)"],
+  "cold": ["--sl-semantic-cold", "rgb(28, 106, 228)"],
+  "cold days": ["--sl-semantic-cold", "rgb(28, 106, 228)"]
 };
 
 export function transitionSpec(spec, previousSpec, { scrollDriven = false, d3 } = {}) {
@@ -243,16 +243,16 @@ export function channelDomain(rows, channel = {}) {
 
 export function colorScale(rows, channel, d3) {
   const resolved = resolveColorChannel(rows, channel);
-  if (!resolved) return () => "var(--sl-accent)";
+  if (!resolved) return () => cssColor("var(--sl-accent)", "rgb(28, 106, 228)");
   channel = resolved;
-  if (channel.value) return () => channel.value;
+  if (channel.value) return () => cssColor(channel.value, "rgb(28, 106, 228)");
   if (channel.hue || channel.luminance) return compositeColorScale(channel, d3);
-  if (!channel.field) return () => "var(--sl-accent)";
+  if (!channel.field) return () => cssColor("var(--sl-accent)", "rgb(28, 106, 228)");
 
   if (channel.type === "quantitative") return luminanceColorScale(rows, channel, d3);
 
   const domain = channelDomain(rows, channel);
-  const scale = d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
+  const scale = d3.scaleOrdinal(colorRange(channel.range || categoricalRange(domain))).domain(domain);
   return (row) => scale(row[channel.field]);
 }
 
@@ -596,7 +596,7 @@ function semanticCategoryColor(value) {
 
 function luminanceColorScale(rows, channel, d3) {
   const domain = quantitativeDomain(rows, channel);
-  const base = channel.base || channel.value || themeColor(DEFAULT_LUMINANCE_BASE);
+  const base = cssColor(channel.base || channel.value || themeColor(DEFAULT_LUMINANCE_BASE), "rgb(28, 106, 228)");
   const lightness = channel.lightness || [22, -18];
   const scale = d3
     .scaleLinear()
@@ -613,11 +613,27 @@ function themeColor([name, fallback] = []) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
+function colorRange(range = []) {
+  return range.map((color, index) => cssColor(color, themeColor(DEFAULT_PALETTE[index % DEFAULT_PALETTE.length])));
+}
+
+function cssColor(color, fallback = "rgb(28, 106, 228)") {
+  if (typeof color !== "string") return color || fallback;
+  const value = color.trim();
+  if (!value.startsWith("var(")) return value || fallback;
+  if (typeof document === "undefined") return fallback;
+  const name = value.match(/^var\(\s*(--[^,\s)]+)/)?.[1];
+  if (!name) return fallback;
+  const resolved = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const inlineFallback = value.match(/,\s*([^)]+)\)$/)?.[1]?.trim();
+  return resolved || inlineFallback || fallback;
+}
+
 function compositeColorScale(channel, d3) {
   const hue = channel.hue || {};
   const luminance = channel.luminance || {};
   const hueDomain = hue.domain || [];
-  const hueScale = d3.scaleOrdinal(hue.range || categoricalRange(hueDomain)).domain(hueDomain);
+  const hueScale = d3.scaleOrdinal(colorRange(hue.range || categoricalRange(hueDomain))).domain(hueDomain);
   const luminanceDomain = luminance.domain || [];
   const continuousLuminance =
     luminance.type === "quantitative" ||
@@ -633,7 +649,7 @@ function compositeColorScale(channel, d3) {
         .domain(luminanceDomain);
 
   return (row = {}) => {
-    const base = hue.value || hueScale(row[hue.field]);
+    const base = cssColor(hue.value || hueScale(row[hue.field]), "rgb(28, 106, 228)");
     const luminanceValue = row[luminance.field];
     const offset =
       luminance.field && (continuousLuminance || luminanceDomain.includes(luminanceValue))
@@ -644,8 +660,9 @@ function compositeColorScale(channel, d3) {
 }
 
 function adjustLightness(color, offset, d3) {
-  const hcl = d3.hcl(color || "var(--sl-accent)");
-  if (!Number.isFinite(hcl.l)) return color || "var(--sl-accent)";
+  const resolved = cssColor(color, "rgb(28, 106, 228)");
+  const hcl = d3.hcl(resolved);
+  if (!Number.isFinite(hcl.l)) return resolved;
   hcl.l = clamp(hcl.l + offset, 0, 100);
   return hcl.formatHex();
 }

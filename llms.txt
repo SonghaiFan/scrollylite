@@ -30,12 +30,12 @@ npm install scrollylite d3 arquero
 ```js
 import * as d3 from "d3";
 import * as aq from "arquero";
-import { createStory, story, bar, line, point, unit } from "scrollylite";
+import { createStory, createChart, createPage, story, bar, line, point, unit } from "scrollylite";
 import "scrollylite/style.css";          // required structural CSS
 // import "scrollylite/themes/default.css";  // optional default palette
 ```
 Primary practice: follow D3's ESM-first style. Import dependencies explicitly
-and pass both `d3` and `aq` to `createStory`.
+and pass both `d3` and `aq` to `createStory` / `createChart`.
 
 Browser CDN ESM (pin versions in production, `@latest` is unstable):
 ```html
@@ -68,13 +68,26 @@ const spec = story()                                      // StoryBuilder
   .data("rows", { url: "./data.csv", type: "csv" })       // or { values: [...] } / [...]
   .layout("floatToText")                                  // or "textOverVis"
   .view("main", { title: "…", height: 520 })
-  .action(["scroll", "tooltip"])                          // default actions for following steps
+  .action("scroller")                                      // default alias for ["scroll", "tooltip"]
   .step("Title A", bar("rows").x("category").y("value").key("category"), "Narrative copy")
   .step("Title B", bar("rows").x("category").y("value").key("category").highlight({ category: "B" }))
   .toSpec();                                              // → plain JSON-serializable object
 
 const runtime = await createStory(spec, { target: "#app", d3, aq });
 ```
+
+Runtime choice:
+- `createStory(spec, { target, d3, aq })`: full scrollytelling page; owns
+  page shell, chart, scroll driver, nav, progress bar.
+- `createPage(spec, { target })`: page shell only; creates header, text
+  steps, figure containers, tooltip; does not render chart or install
+  triggers.
+- `createChart(spec, { target, d3, aq })`: animated chart only; call
+  `chart.action(event, options?)` for every trigger. Send one-shot events
+  like `{ type: "click", step: 1 }` or continuous progress events like
+  `{ type: "progress", step: 1, value: 0.5 }`. DOM `click`/`input` events and
+  numeric `0..1` progress values are accepted. Runtime action events do **not**
+  depend on step authoring action.
 
 `story()` returns a `StoryBuilder`. Every method returns `this` (chainable).
 Chart-idiom builders (`bar()`, `line()`, …) are **immutable** — every
@@ -99,26 +112,28 @@ story()
 | `.data(name, source)` / `.data({name: source, …})` | see Data below | merges into `spec.data`, additive |
 | `.layout(presetOrConfig, options?)` | `"floatToText" \| "textOverVis"` or raw config | merges into `spec.layout`, additive |
 | `.view(idOrConfig, config?)` | `(id, {title, height})` or `({id: {…}, …})` | registers named view(s); 2-arg form = single id, map form = many |
-| `.action(actions)` | `string \| string[]` | sets default action list for **subsequent** `.step()` calls; recompiles all steps |
+| `.action(actions)` | `string \| string[]` | sets default action list; `"stepper"` = `["step","tooltip"]`, `"scroller"` = `["scroll","tooltip"]`; recompiles all steps |
 | `.step(titleOrDef, view?, options?)` | 3 call shapes — see below | infers transition, appends, recompiles whole list |
 | `.steps(definitions[])` | `[{title, view, body}, …]` | replaces entire step list at once |
 | `.toSpec()` | → `object` | deep clone of compiled spec, JSON-serializable, idempotent |
 
 `.step()` call shapes:
 ```js
-.step({ title, body, view, authoring })                           // 1: full definition object
-.step("Title", chartState, { body: "…", authoring: 'bar(...)' })  // 2: title, state, options
+.step({ title, body, view, action: "scroller", authoring })       // 1: full definition object
+.step("Title", chartState, { body: "…", action: "stepper", authoring: 'bar(...)' })  // 2: title, state, options
 .step("Title", chartState, "Narrative body as plain string")      // 3: title, state, body shorthand
 ```
 `view` = a chart-idiom builder (its `.toSpec()` is called for you) or a raw
 view-spec object. The **first step always gets `"enter"` appended** to its
 action list automatically — you don't need to set this.
 
-Action values: `"step"` (discrete nav/programmatic playback — default),
-`"scroll"` (continuous scroll-scrubbed transition; only meaningful on steps
-with an inferred `transition.scene`), `"tooltip"` (hover tooltips), `"enter"`
-(auto-played entrance, reserved for step 0, added automatically). Default:
-`["step", "tooltip"]`.
+Action aliases: `"stepper"` = `["step", "tooltip"]`; `"scroller"` =
+`["scroll", "tooltip"]`. Lower-level action values: `"step"` (discrete
+nav/programmatic playback), `"scroll"` (continuous scroll-scrubbed transition;
+only meaningful on steps with an inferred `transition.scene`), `"tooltip"`
+(hover tooltips), `"enter"` (auto-played entrance, reserved for step 0, added
+automatically). Default: `["step", "tooltip"]`. Per-step action overrides are
+allowed in `.step(..., { action })` and `.step({ action, ... })`.
 
 ## Agent skill seed
 
@@ -143,6 +158,8 @@ public_api:
   - point
   - unit
   - createStory
+  - createPage
+  - createChart
 ```
 
 Use `.theme()` for story-scoped theme intent:
@@ -153,7 +170,14 @@ story().theme({
   foreground: "#222",
   accent: "#b05d3b",
   fontFamily: "Inter, sans-serif",
-  series: ["#4f5d68", "#747c84", "#8b8580"]
+  series: [
+    "rgb(28, 106, 228)",
+    "rgb(250, 77, 29)",
+    "rgb(252, 219, 57)",
+    "rgb(3, 185, 118)",
+    "rgb(250, 195, 211)",
+    "rgb(0, 0, 0)"
+  ]
 })
 ```
 → loads optional CSS and sets `--sl-*` custom properties. `series` maps to
@@ -365,8 +389,7 @@ interface StoryRuntime {
   spec: object;                    // fully compiled spec (no authoring shorthand left)
   data: Record<string, any[]>;     // loaded datasets by name
   signature: { index, id?, title, transition: string[], action: string[] }[];
-  renderStep(index, { force?, scrollProgress?, direction? }): void;       // jump + render fully
-  renderScrollProgress(index, progress: 0-1, direction?: "up"|"down"): void; // scrub a step's transition
+  action(event, options?): void;    // one-shot or progress trigger; accepts DOM Event, object, string, or number
   scrollDriver: { type: "native", scrollToStep(index, {behavior?, progress?}), resize(), refresh(), destroy() };
   destroy(): void;                 // tears down listeners; does NOT clear `target`'s DOM
 }
