@@ -340,6 +340,10 @@ function alignEdgeTickLabels(axisGroup, scale, d3) {
   });
 }
 
+function axisKind(placement, scale) {
+  return `${placement}:${typeof scale.bandwidth === 'function' ? 'band' : 'continuous'}`;
+}
+
 function renderAxisWithGuard(axisGroup, axis, transition, kind) {
   const node = axisGroup.node();
   const canTransition = node?.__scrollyLiteAxisActive && node.__scrollyLiteAxisKind === kind;
