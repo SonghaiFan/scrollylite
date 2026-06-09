@@ -1,1 +1,1 @@
-export function createLineRenderer(deps: any): any;
+export declare function createLineRenderer(deps: any): (chart: import("../../types/index.js").ChartContext, rows: unknown[], spec: import("../../types/index.js").ViewSpec, tooltip: unknown, d3: import("../../types/index.js").D3Lib) => void;

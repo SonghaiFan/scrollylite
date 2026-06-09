@@ -1,5 +1,5 @@
-export function expandUnits(rows: any, spec: any, d3: any): any[];
-export function unitLayout(units: any, chart: any, spec: any, deps: any): {
+export declare function expandUnits(rows: any, spec: any, d3: any): any[];
+export declare function unitLayout(units: any, chart: any, spec: any, deps: any): {
     name: string;
     axes: boolean;
     r: number;

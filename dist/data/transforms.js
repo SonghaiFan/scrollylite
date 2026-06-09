@@ -1,29 +1,30 @@
 export function applyTransforms(source, transforms = [], aq) {
     if (!aq) {
-        throw new Error("ScrollyLite data transforms require Arquero. Pass { aq } to createStory().");
+        throw new Error('ScrollyLite data transforms require Arquero. Pass { aq } to createStory().');
     }
     let table = aq.from(source.map((row) => ({ ...row })));
     transforms.forEach((transform) => {
-        if (transform.filter)
-            table = filterRows(table, transform.filter, aq);
-        if (transform.timeUnit)
-            table = timeUnitRows(table, transform.timeUnit, aq);
-        if (transform.fold)
-            table = foldRows(table, transform.fold, aq);
-        if (transform.bin)
-            table = binRows(table, transform.bin, aq);
-        if (transform.aggregate)
-            table = aggregateRows(table, transform.aggregate, aq);
-        if (transform.sort)
-            table = sortRows(table, transform.sort, aq);
-        if (transform.limit)
-            table = table.slice(0, transform.limit);
+        const t = transform;
+        if (t['filter'])
+            table = filterRows(table, t['filter'], aq);
+        if (t['timeUnit'])
+            table = timeUnitRows(table, t['timeUnit'], aq);
+        if (t['fold'])
+            table = foldRows(table, t['fold'], aq);
+        if (t['bin'])
+            table = binRows(table, t['bin'], aq);
+        if (t['aggregate'])
+            table = aggregateRows(table, t['aggregate'], aq);
+        if (t['sort'])
+            table = sortRows(table, t['sort'], aq);
+        if (t['limit'])
+            table = table.slice(0, t['limit']);
     });
     return table.objects();
 }
 function timeUnitRows(table, timeUnit, aq) {
     const as = timeUnit.as || `${timeUnit.field}_${timeUnit.unit}`;
-    if (timeUnit.unit !== "month")
+    if (timeUnit.unit !== 'month')
         return table;
     return table.derive({
         [as]: aq.escape((row) => monthLabel(row[timeUnit.field]))
@@ -32,16 +33,16 @@ function timeUnitRows(table, timeUnit, aq) {
 function monthLabel(value) {
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime()))
-        return String(value ?? "");
-    return date.toLocaleString("en", { month: "short" });
+        return String(value ?? '');
+    return date.toLocaleString('en', { month: 'short' });
 }
 function filterRows(table, filter, aq) {
     return table.filter(aq.escape((row) => matchFilter(row, filter)));
 }
 function foldRows(table, fold, aq) {
     const fields = fold.fields || [];
-    const [keyAs = "key", valueAs = "value"] = fold.as || [];
-    const sourceAs = fold.sourceAs || "__foldField";
+    const [keyAs = 'key', valueAs = 'value'] = fold.as || [];
+    const sourceAs = fold.sourceAs || '__foldField';
     const labelAs = fold.labelAs || keyAs;
     let folded = table.fold(fields, { as: [sourceAs, valueAs] });
     if (sourceAs !== keyAs || fold.labels) {
@@ -79,25 +80,25 @@ function binRows(table, bin, aq) {
 }
 function aggregateRows(table, aggregate, aq) {
     const groupby = aggregate.groupby || [];
-    const fields = aggregate.fields || [{ op: "count", as: "count" }];
+    const fields = aggregate.fields || [{ op: 'count', as: 'count' }];
     const values = Object.fromEntries(fields.map((fieldSpec) => [
-        fieldSpec.as || `${fieldSpec.op || "count"}_${fieldSpec.field || "rows"}`,
+        fieldSpec.as || `${fieldSpec.op || 'count'}_${fieldSpec.field || 'rows'}`,
         aggregateExpression(fieldSpec, aq)
     ]));
     return table.groupby(...groupby).rollup(values);
 }
 function aggregateExpression(fieldSpec, aq) {
-    const op = fieldSpec.op || "count";
-    const field = fieldSpec.field;
-    if (op === "count")
+    const op = fieldSpec.op || 'count';
+    const field = fieldSpec.field || '';
+    if (op === 'count')
         return aq.op.count();
-    if (op === "mean")
+    if (op === 'mean')
         return aq.op.mean(field);
-    if (op === "min")
+    if (op === 'min')
         return aq.op.min(field);
-    if (op === "max")
+    if (op === 'max')
         return aq.op.max(field);
-    if (op === "median")
+    if (op === 'median')
         return aq.op.median(field);
     return aq.op.sum(field);
 }
@@ -108,29 +109,29 @@ function sortRows(table, sort, aq) {
     return table.orderby(sortField(sort, aq));
 }
 function sortField(sort, aq) {
-    if (typeof sort === "string")
+    if (typeof sort === 'string')
         return sort;
-    if (sort.order === "descending")
-        return aq.desc(sort.field);
+    if (sort.order === 'descending')
+        return aq.desc(sort.field || '');
     return sort.field;
 }
 function matchFilter(row, filter) {
-    if (typeof filter === "string")
+    if (typeof filter === 'string')
         return matchFilterExpression(row, filter);
     const value = row[filter.field];
-    if ("equal" in filter)
+    if ('equal' in filter)
         return value === filter.equal;
-    if ("notEqual" in filter)
-        return value !== filter.notEqual;
-    if ("oneOf" in filter)
+    if ('notEqual' in filter)
+        return value !== filter['notEqual'];
+    if ('oneOf' in filter)
         return filter.oneOf.includes(value);
-    if ("gte" in filter && value < filter.gte)
+    if ('gte' in filter && value < filter.gte)
         return false;
-    if ("gt" in filter && value <= filter.gt)
+    if ('gt' in filter && value <= filter.gt)
         return false;
-    if ("lte" in filter && value > filter.lte)
+    if ('lte' in filter && value > filter.lte)
         return false;
-    if ("lt" in filter && value >= filter.lt)
+    if ('lt' in filter && value >= filter.lt)
         return false;
     return true;
 }
@@ -141,23 +142,23 @@ function matchFilterExpression(row, expression) {
     const [, field, operator, rawValue] = match;
     const left = row[field];
     const right = parseFilterLiteral(rawValue);
-    if (operator === "==" || operator === "===")
+    if (operator === '==' || operator === '===')
         return left === right;
-    if (operator === "!=" || operator === "!==")
+    if (operator === '!=' || operator === '!==')
         return left !== right;
-    if (operator === ">=")
+    if (operator === '>=')
         return left >= right;
-    if (operator === ">")
+    if (operator === '>')
         return left > right;
-    if (operator === "<=")
+    if (operator === '<=')
         return left <= right;
-    if (operator === "<")
+    if (operator === '<')
         return left < right;
     return true;
 }
 function parseFilterLiteral(value) {
     const trimmed = String(value).trim();
-    if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) ||
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
         (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
         return trimmed.slice(1, -1);
     }

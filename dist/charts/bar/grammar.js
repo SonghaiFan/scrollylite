@@ -1,1 +1,1 @@
-export { bar, BarState } from "./authoring.js";
+export { bar, BarState } from './authoring.js';

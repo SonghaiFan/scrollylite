@@ -1,6 +1,6 @@
-import { cloneEncoding, compileFilter, compileHighlight, copyDefined, identitySpec, resolveGuideStaging, withObject, withSceneState } from "../compiler-utils.js";
-import { narrativeObjectKey, narrativeUnit, withNarrative } from "../../scrolly-meta.js";
-export function createUnitSpecCompiler(context = {}) {
+import { cloneEncoding, compileFilter, compileHighlight, copyDefined, identitySpec, resolveGuideStaging, withObject, withSceneState } from '../compiler-utils.js';
+import { narrativeObjectKey, narrativeUnit, withNarrative } from '../../scrolly-meta.js';
+export function createUnitSpecCompiler(_context = {}) {
     return {
         base: compileUnitBase,
         operations: {
@@ -12,43 +12,30 @@ export function createUnitSpecCompiler(context = {}) {
         }
     };
 }
-function compileUnitBase(spec, context = {}) {
+function compileUnitBase(spec, _context = {}) {
     return identitySpec(spec);
 }
-function compileUnitLayout(spec, guideSpec = {}, context = {}) {
+function compileUnitLayout(spec, guideSpec = {}, _context = {}) {
     const unit = {
         ...(narrativeUnit(spec) || {}),
         ...copyDefined(guideSpec, [
-            "layout",
-            "columns",
-            "groupColumns",
-            "radius",
-            "x",
-            "y",
-            "group",
-            "value",
-            "label",
-            "maxUnits"
+            'layout', 'columns', 'groupColumns', 'radius', 'x', 'y',
+            'group', 'value', 'label', 'maxUnits'
         ])
     };
     const encoding = cloneEncoding(spec.encoding);
-    if (guideSpec.color)
-        encoding.color = guideSpec.color;
-    return withSceneState(withObject(withNarrative({
-        ...spec,
-        encoding
-    }, {
-        unit
-    }), {
-        key: guideSpec.key || narrativeObjectKey(spec)
+    if (guideSpec['color'])
+        encoding['color'] = guideSpec['color'];
+    return withSceneState(withObject(withNarrative({ ...spec, encoding: encoding }, { unit }), {
+        key: guideSpec['key'] || narrativeObjectKey(spec)
     }), {
         guide: {
-            layout: unit.layout || "grid",
-            x: unit.x || null,
-            y: unit.y || null,
-            group: unit.group || null,
-            value: unit.value || null,
-            staging: resolveGuideStaging(guideSpec, "unit")
+            layout: unit['layout'] || 'grid',
+            x: unit['x'] || null,
+            y: unit['y'] || null,
+            group: unit['group'] || null,
+            value: unit['value'] || null,
+            staging: resolveGuideStaging(guideSpec, 'unit')
         }
     });
 }

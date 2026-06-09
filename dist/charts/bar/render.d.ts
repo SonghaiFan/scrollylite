@@ -1,1 +1,1 @@
-export function createBarRenderer(deps: any): any;
+export declare function createBarRenderer(deps: any): (chart: import("../../types/index.js").ChartContext, rows: unknown[], spec: import("../../types/index.js").ViewSpec, tooltip: unknown, d3: import("../../types/index.js").D3Lib) => void;

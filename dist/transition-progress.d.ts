@@ -1,12 +1,12 @@
-export function installTransitionProgress(d3: any): void;
-export function createSceneTransitionProgress(scene: any, options?: {}): {
+export declare const SCROLL_TRANSITION_NAME = "__scrollyLiteScroll";
+export declare function installTransitionProgress(d3: any): void;
+export declare function createSceneTransitionProgress(scene: any, options?: {}): {
     items: any[];
     progress(value: any): void;
     destroy({ finish }?: {
-        finish?: boolean;
+        finish?: boolean | undefined;
     }): void;
 };
-export function clearSceneTransitionProgress(scene: any, { finish }?: {
-    finish?: boolean;
+export declare function clearSceneTransitionProgress(scene: any, { finish }?: {
+    finish?: boolean | undefined;
 }): void;
-export const SCROLL_TRANSITION_NAME: "__scrollyLiteScroll";

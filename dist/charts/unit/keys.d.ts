@@ -1,1 +1,1 @@
-export function unitKey(datum: any): any;
+export declare function unitKey(datum: Record<string, unknown>): unknown;

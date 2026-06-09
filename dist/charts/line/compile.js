@@ -1,5 +1,5 @@
-import { compileCartesianCoordinate, compileCartesianScale, compileFilter, compileHighlight, identitySpec, selectorToFilter, withSceneState } from "../compiler-utils.js";
-export function createLineSpecCompiler(context = {}) {
+import { compileCartesianCoordinate, compileCartesianScale, compileFilter, compileHighlight, identitySpec, selectorToFilter, withSceneState } from '../compiler-utils.js';
+export function createLineSpecCompiler(_context = {}) {
     return {
         base: compileLineBase,
         operations: {
@@ -13,66 +13,62 @@ export function createLineSpecCompiler(context = {}) {
         }
     };
 }
-function compileLineBase(spec, context = {}) {
+function compileLineBase(spec, _context = {}) {
     return identitySpec(spec);
 }
-function compileLineFilter(spec, focusSpec = {}, context = {}) {
-    const filter = focusSpec.filter || selectorToFilter(focusSpec);
+function compileLineFilter(spec, focusSpec = {}, _context = {}) {
+    const filter = focusSpec['filter'] || selectorToFilter(focusSpec);
     if (!filter)
         return spec;
-    if (focusSpec.mode === "filter" || focusSpec.mode === "highlight") {
-        return focusSpec.mode === "highlight"
-            ? compileHighlight(spec, focusSpec, context)
-            : compileFilter(spec, focusSpec, context);
+    if (focusSpec['mode'] === 'filter' || focusSpec['mode'] === 'highlight') {
+        return focusSpec['mode'] === 'highlight'
+            ? compileHighlight(spec, focusSpec)
+            : compileFilter(spec, focusSpec);
     }
-    return withSceneState({
-        ...spec
-    }, {
+    return withSceneState({ ...spec }, {
         focus: {
             filter,
-            mode: focusSpec.mode || "rangeCrop",
-            crop: focusSpec.crop !== false
+            mode: focusSpec['mode'] || 'rangeCrop',
+            crop: focusSpec['crop'] !== false
         }
     });
 }
-function compileLineCoordinate(spec, operationSpec = {}, context = {}) {
-    return compileCartesianCoordinate(spec, operationSpec, context);
+function compileLineCoordinate(spec, operationSpec = {}, _context = {}) {
+    return compileCartesianCoordinate(spec, operationSpec);
 }
-function compileLineScale(spec, operationSpec = {}, context = {}) {
-    return compileCartesianScale(spec, operationSpec, context);
+function compileLineScale(spec, operationSpec = {}, _context = {}) {
+    return compileCartesianScale(spec, operationSpec);
 }
 function compileLineAggregate(spec, granularitySpec = {}, context = {}) {
     return compileLineSeries(spec, granularitySpec, context);
 }
-function compileLineSeries(spec, granularitySpec = {}, context = {}) {
-    const mode = granularitySpec.mode || "series";
+function compileLineSeries(spec, granularitySpec = {}, _context = {}) {
+    const mode = granularitySpec['mode'] || 'series';
     const encoding = { ...(spec.encoding || {}) };
-    const seriesField = granularitySpec.series || granularitySpec.field || encoding.color?.field;
-    if (mode === "series" && seriesField) {
-        encoding.color =
-            granularitySpec.color || {
-                field: seriesField,
-                type: "nominal",
-                range: granularitySpec.range || [
-                    "var(--sl-series-1)",
-                    "var(--sl-series-2)",
-                    "var(--sl-series-3)"
-                ]
-            };
+    const seriesField = granularitySpec['series'] ||
+        granularitySpec['field'] ||
+        encoding['color']?.['field'];
+    if (mode === 'series' && seriesField) {
+        encoding['color'] = granularitySpec['color'] || {
+            field: seriesField,
+            type: 'nominal',
+            range: granularitySpec['range'] || [
+                'var(--sl-series-1)',
+                'var(--sl-series-2)',
+                'var(--sl-series-3)'
+            ]
+        };
     }
-    if (mode === "single" && granularitySpec.color) {
-        encoding.color = granularitySpec.color;
+    if (mode === 'single' && granularitySpec['color']) {
+        encoding['color'] = granularitySpec['color'];
     }
-    return withSceneState({
-        ...spec,
-        encoding
-    }, {
+    return withSceneState({ ...spec, encoding: encoding }, {
         granularity: {
             mode,
-            seriesField: mode === "series" ? seriesField : null
+            seriesField: mode === 'series' ? seriesField : null
         }
     });
 }
-function compileLineLayout(spec, operationSpec = {}, context = {}) {
+function compileLineLayout(spec, _operationSpec = {}, _context = {}) {
     return spec;
 }

@@ -1,34 +1,27 @@
-import { cloneState } from "../../grammar/view-state.js";
-import { externalizeScrollyViewSpec } from "../../scrolly-meta.js";
-import { compileViewSpec } from "../../transitions/index.js";
-import { labelFromValue, titleize } from "../../labels.js";
-import { IdiomState, channelFrom, colorFrom } from "../authoring.js";
+import { compileViewSpec } from '../../transitions/index.js';
+import { externalizeScrollyViewSpec } from '../../scrolly-meta.js';
+import { cloneState } from '../../grammar/view-state.js';
+import { labelFromValue, titleize } from '../../labels.js';
+import { IdiomState, channelFrom, colorFrom } from '../authoring.js';
 export function bar(data) {
-    return new BarState({
-        data,
-        mark: "bar",
-        encoding: {}
-    });
+    return new BarState({ data, mark: 'bar', encoding: {} });
 }
 export class BarState extends IdiomState {
     toSpec() {
         const spec = cloneState(this.state);
         delete spec.__grammar;
         const filters = [
-            ...(spec.where || []),
+            ...(spec.where ?? []),
             ...(spec.filter ? [spec.filter] : [])
         ];
         if (filters.length) {
             spec.transform = [
                 ...filters.map((filter) => ({ filter })),
-                ...(spec.transform || [])
+                ...(spec.transform ?? [])
             ];
         }
-        if (spec.where?.length) {
-            delete spec.where;
-        }
-        delete spec.filter;
         delete spec.where;
+        delete spec.filter;
         if (spec.granularity == null)
             delete spec.granularity;
         if (spec.guide == null)
@@ -39,19 +32,17 @@ export class BarState extends IdiomState {
         return pruneAuthoringState(compileViewSpec(externalizeScrollyViewSpec(spec), { scene: [] }));
     }
     x(field, options = {}) {
-        const channel = channelFrom(field, { type: "nominal", ...options });
+        const channel = channelFrom(field, { type: 'nominal', ...options });
         return this.with({
-            key: this.state.key || channel.field,
-            encoding: {
-                x: channel
-            }
+            key: this.state.key ?? channel.field,
+            encoding: { x: channel }
         });
     }
     y(field, options = {}) {
-        if (typeof options === "string")
+        if (typeof options === 'string')
             options = { title: options };
         const { color, tooltip, ...channelOptions } = options;
-        const channel = channelFrom(field, { type: "quantitative", ...channelOptions });
+        const channel = channelFrom(field, { type: 'quantitative', ...channelOptions });
         return this.with({
             encoding: {
                 y: channel,
@@ -62,168 +53,155 @@ export class BarState extends IdiomState {
     }
     where(selector) {
         if (selector == null) {
-            return this.with({ where: [] }, "focus");
+            return this.with({ where: [] }, 'focus');
         }
         const selectors = normalizeSelectors(selector);
         const identity = identityFromSelectors(this.state, selectors);
         const measureTitle = measureTitleFromSelectors(this.state, selectors);
         return this.with({
-            where: setConstraints(this.state.where || [], selectors),
-            ...(identity ? identity : {}),
-            ...(measureTitle ? {
-                encoding: {
-                    y: {
-                        ...this.state.encoding.y,
-                        title: measureTitle
+            where: setConstraints(this.state.where ?? [], selectors),
+            ...(identity ?? {}),
+            ...(measureTitle
+                ? {
+                    encoding: {
+                        y: {
+                            ...(this.state.encoding?.y ?? {}),
+                            title: measureTitle
+                        }
                     }
                 }
-            } : {}),
+                : {}),
             __grammar: {
                 lastWhere: {
                     selectors: cloneState(selectors),
-                    fields: selectors.map((item) => item.field)
+                    fields: selectors.map((s) => s.field)
                 },
-                ...(measureTitle ? {
-                    measureSelector: {
-                        title: measureTitle,
-                        fields: selectors.map((item) => item.field)
-                    }
-                } : {})
+                ...(measureTitle
+                    ? { measureSelector: { title: measureTitle, fields: selectors.map((s) => s.field) } }
+                    : {})
             }
-        }, "focus");
+        }, 'focus');
     }
     flip(options = {}) {
-        const domain = options.domain || options.scale?.domain;
+        const domain = options.domain ?? options.scale?.domain;
         const scale = domain || options.scale
+            ? { ...(options.scale ?? {}), ...(domain ? { domain } : {}) }
+            : undefined;
+        const staging = options.staging ?? options.stage ?? options.order
             ? {
-                ...(options.scale || {}),
-                ...(domain ? { domain } : {})
+                ...(typeof options.staging === 'object' ? options.staging : {}),
+                order: options.order ?? options.stage ?? options.staging?.order ?? ['y', 'x']
             }
             : undefined;
-        const staging = options.staging || options.stage || options.order
-            ? {
-                ...(typeof options.staging === "object" ? options.staging : {}),
-                order: options.order || options.stage || options.staging?.order || ["y", "x"]
-            }
-            : undefined;
-        return this.guide({
-            flip: true,
-            ...(scale ? { scale } : {}),
-            ...(staging ? { staging } : {})
-        });
+        return this.guide({ flip: true, ...(scale ? { scale } : {}), ...(staging ? { staging } : {}) });
     }
-    breakdown(segment = "type", options = {}) {
-        const category = options.category || this.state.encoding?.x?.field;
-        const value = options.value || this.state.encoding?.y?.field || "count";
-        const { by, category: _category, value: _value, ...rest } = options;
+    breakdown(segment = 'type', options = {}) {
+        const category = options.category ?? this.state.encoding?.x?.field;
+        const value = options.value ?? this.state.encoding?.y?.field ?? 'count';
+        const { by, category: _cat, value: _val, ...rest } = options;
         const next = aggregateBarState(this, {
             ...rest,
-            by: by || [category, segment],
+            by: by ?? [category, segment].filter(Boolean),
             segment,
             value,
-            layout: options.layout || "stacked",
-            op: options.op || "sum"
+            layout: options.layout ?? 'stacked',
+            op: options.op ?? 'sum'
         });
-        return options.title === false
-            ? next
-            : next.y(value, { title: options.title || titleize(value) });
+        return (options.title === false ? next : next.y(value, { title: options.title ?? titleize(value) }));
     }
-    rollup(groupby = null, options = {}) {
-        if (groupby && typeof groupby === "object") {
-            options = groupby;
-            groupby = options.groupby || options.by || null;
+    rollup(groupbyOrOptions = null, options = {}) {
+        if (groupbyOrOptions && typeof groupbyOrOptions === 'object' && !Array.isArray(groupbyOrOptions)) {
+            options = groupbyOrOptions;
+            groupbyOrOptions = options.groupby ?? options.by ?? null;
         }
-        const parent = groupby || options.groupby || options.by || this.state.encoding?.x?.field;
+        const parent = groupbyOrOptions ?? options.groupby ?? options.by
+            ?? this.state.encoding?.x?.field;
         const fields = asArray(parent).filter(Boolean);
-        const value = options.value || this.state.encoding?.y?.field || "count";
-        const { color, title, by, groupby: _groupby, value: _value, ...rest } = options;
-        let next = aggregateBarState(this, {
+        const value = options.value ?? this.state.encoding?.y?.field ?? 'count';
+        const { color, title, by: _by, groupby: _groupby, value: _value, ...rest } = options;
+        let nextState = aggregateBarState(this, {
             ...rest,
             groupby: fields,
             value,
-            as: options.as || value,
-            op: options.op || "sum"
+            as: options.as ?? value,
+            op: options.op ?? 'sum'
         });
         if (title)
-            next = next.y(value, { title });
+            nextState = nextState.y(value, { title });
         if (color)
-            next = next.color(color);
-        return next;
+            nextState = nextState.color(color);
+        return nextState;
     }
     segment(fieldOrConfig = {}, maybeConfig = {}) {
-        const config = typeof fieldOrConfig === "string"
+        const config = typeof fieldOrConfig === 'string'
             ? { ...maybeConfig, segment: fieldOrConfig }
             : fieldOrConfig;
-        const category = config.category || this.state.encoding?.x?.field;
-        const value = config.value || config.as?.[1] || "value";
-        const segment = config.segment || config.as?.[0] || "segment";
-        const fields = config.fields || [];
+        const state = this.state;
+        const category = config.category ?? state.encoding?.x?.field;
+        const value = config.value ?? config.as?.[1] ?? 'value';
+        const segment = config.segment ?? config.as?.[0] ?? 'segment';
+        const fields = config.fields ?? [];
         const tidy = !fields.length && Boolean(config.segment);
-        const labels = config.labels || Object.fromEntries(fields.map((field) => [field, titleize(field)]));
+        const labels = config.labels ?? Object.fromEntries(fields.map((f) => [f, titleize(f)]));
         return this.with({
-            key: config.key || [category, segment],
-            where: tidy ? clearConstraint(this.state.where || [], segment) : this.state.where,
+            key: config.key ?? [category, segment],
+            where: tidy ? clearConstraint(state.where ?? [], segment) : state.where,
             granularity: {
                 category,
-                categoryTitle: config.categoryTitle || this.state.encoding?.x?.title,
+                categoryTitle: config.categoryTitle ?? state.encoding?.x?.title,
                 fields,
                 labels,
                 segment,
                 value,
-                valueTitle: config.valueTitle || titleize(value),
-                layout: config.layout || "stacked",
+                valueTitle: config.valueTitle ?? titleize(value),
+                layout: config.layout ?? 'stacked',
                 color: cloneState(config.color),
                 domain: config.domain,
                 range: config.range,
                 source: tidy ? segment : config.source,
-                groupby: tidy ? [category, segment] : config.groupby
+                groupby: tidy ? [category, segment].filter(Boolean) : config.groupby
             },
             ...(config.tooltip
-                ? {
-                    encoding: {
-                        tooltip: cloneState(config.tooltip)
-                    }
-                }
+                ? { encoding: { tooltip: cloneState(config.tooltip) } }
                 : {})
-        }, "granularity");
+        }, 'granularity');
     }
     layout(layout, options = {}) {
+        const state = this.state;
         const next = this.with({
-            granularity: this.state.granularity
-                ? {
-                    ...this.state.granularity,
-                    layout
-                }
+            granularity: state.granularity
+                ? { ...state.granularity, layout }
                 : undefined,
             guide: {
-                ...(this.state.guide || {}),
+                ...(state.guide ?? {}),
                 layout,
-                staging: options.staging || this.state.guide?.staging
+                staging: options.staging ?? state.guide?.staging
             }
         });
-        return options.stage ? next.stage(options.stage) : next.with({}, "guide");
+        return options.stage ? next.stage(options.stage) : next.with({}, 'guide');
     }
     stage(order, options = {}) {
+        const state = this.state;
         return this.with({
             guide: {
-                ...(this.state.guide || {}),
+                ...(state.guide ?? {}),
                 staging: {
-                    ...(this.state.guide?.staging || {}),
+                    ...(state.guide?.staging ?? {}),
                     ...options,
                     order
                 }
             }
-        }, "guide");
+        }, 'guide');
     }
 }
-function aggregateBarState(view, config = {}) {
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+function aggregateBarState(view, config) {
     const normalized = normalizeAggregation(config, view.state);
-    const groupby = normalized.groupby;
-    const segment = normalized.segment;
+    const { groupby, segment } = normalized;
     if (segment) {
         return view.with({
-            key: normalized.key || [normalized.category, segment],
-            where: clearConstraint(view.state.where || [], segment),
+            key: normalized.key ?? [normalized.category, segment],
+            where: clearConstraint(view.state.where ?? [], segment),
             granularity: {
                 category: normalized.category,
                 categoryTitle: normalized.categoryTitle,
@@ -232,7 +210,7 @@ function aggregateBarState(view, config = {}) {
                 segment,
                 value: normalized.value,
                 valueTitle: normalized.valueTitle,
-                layout: normalized.layout || "stacked",
+                layout: normalized.layout ?? 'stacked',
                 color: cloneState(normalized.color),
                 domain: normalized.domain,
                 range: normalized.range,
@@ -240,60 +218,45 @@ function aggregateBarState(view, config = {}) {
                 groupby,
                 op: normalized.op
             },
-            __grammar: {
-                measureSelector: null
-            },
-            ...(normalized.tooltip
-                ? {
-                    encoding: {
-                        tooltip: cloneState(normalized.tooltip)
-                    }
-                }
-                : {})
-        }, "granularity");
+            __grammar: { measureSelector: null },
+            ...(normalized.tooltip ? { encoding: { tooltip: cloneState(normalized.tooltip) } } : {})
+        }, 'granularity');
     }
     return view.with({
-        key: normalized.key || (groupby.length === 1 ? groupby[0] : groupby),
+        key: normalized.key ?? (groupby.length === 1 ? groupby[0] : groupby),
         granularity: null,
         guide: null,
-        semanticKey: normalized.semanticKey || null,
+        semanticKey: normalized.semanticKey ?? null,
         where: view.state.where,
         transform: [
-            ...(view.state.transform || []),
+            ...(view.state.transform ?? []),
             {
                 aggregate: {
                     groupby,
-                    fields: [{
-                            op: normalized.op,
-                            field: normalized.value,
-                            as: normalized.as
-                        }]
+                    fields: [{ op: normalized.op, field: normalized.value, as: normalized.as }]
                 }
             }
         ],
-        __grammar: {
-            measureSelector: null
-        }
-    }, "granularity");
+        __grammar: { measureSelector: null }
+    }, 'granularity');
 }
-function normalizeSelectors(selector = {}) {
-    if (selector.field)
-        return [cloneState(selector)];
-    return Object.entries(selector).map(([field, equal]) => ({ field, equal }));
+function normalizeSelectors(selector) {
+    const sel = selector;
+    if (sel.field)
+        return [cloneState(sel)];
+    return Object.entries(sel).map(([field, equal]) => ({ field, equal }));
 }
 function setConstraints(constraints, selectors) {
-    const fields = new Set(selectors.map((selector) => selector.field));
-    const next = constraints.filter((constraint) => !fields.has(constraint.field));
+    const fields = new Set(selectors.map((s) => s.field));
+    const next = constraints.filter((c) => !fields.has(c.field));
     return [...next, ...selectors.map(cloneState)];
 }
 function clearConstraint(constraints, field) {
-    return constraints.filter((constraint) => constraint.field !== field);
+    return constraints.filter((c) => c.field !== field);
 }
-function identityFromSelectors(state = {}, selectors = []) {
+function identityFromSelectors(state, selectors) {
     const category = state.encoding?.x?.field;
-    const measure = selectors.find((selector) => (selector.field &&
-        Object.prototype.hasOwnProperty.call(selector, "equal") &&
-        isMeasureSelectorField(selector.field)));
+    const measure = selectors.find((s) => s.field && Object.prototype.hasOwnProperty.call(s, 'equal') && isMeasureSelectorField(s.field));
     if (!category || !measure)
         return null;
     return {
@@ -304,46 +267,48 @@ function identityFromSelectors(state = {}, selectors = []) {
         }
     };
 }
-function measureTitleFromSelectors(state = {}, selectors = []) {
+function measureTitleFromSelectors(state, selectors) {
     const y = state.encoding?.y;
     if (!y?.field)
         return null;
-    const measure = selectors.find((selector) => (selector.field &&
-        Object.prototype.hasOwnProperty.call(selector, "equal") &&
-        isMeasureSelectorField(selector.field)));
+    const measure = selectors.find((s) => s.field && Object.prototype.hasOwnProperty.call(s, 'equal') && isMeasureSelectorField(s.field));
     if (!measure)
         return null;
-    const currentTitle = y.title || titleize(y.field);
-    const previousMeasureTitle = state.__grammar?.measureSelector?.title;
-    const titleCanFollowSelector = currentTitle === titleize(y.field) ||
-        currentTitle === previousMeasureTitle;
+    const currentTitle = y.title ?? titleize(y.field);
+    const previousMeasureTitle = state.__grammar
+        ? state.__grammar?.measureSelector
+            ? state.__grammar.measureSelector?.title
+            : undefined
+        : undefined;
+    const titleCanFollowSelector = currentTitle === titleize(y.field) || currentTitle === previousMeasureTitle;
     return titleCanFollowSelector ? labelFromValue(measure.equal) : null;
 }
 function isMeasureSelectorField(field) {
-    return field === "type" || field === "kind" || field.endsWith("_type") || field.endsWith("_kind");
+    return (field === 'type' ||
+        field === 'kind' ||
+        field.endsWith('_type') ||
+        field.endsWith('_kind'));
 }
-function normalizeAggregation(config = {}, state = {}) {
-    const aggregate = typeof config === "string" ? { groupby: config } : config;
+function normalizeAggregation(config, state) {
     const xField = state.encoding?.x?.field;
     const yField = state.encoding?.y?.field;
-    const groupby = asArray(aggregate.by ||
-        aggregate.groupby ||
-        xField).filter(Boolean);
-    const value = aggregate.value || aggregate.field || yField || "value";
-    const as = aggregate.as || value;
-    const op = aggregate.op || aggregate.use || "sum";
-    const segment = aggregate.segment ||
-        groupby.find((field) => field !== xField);
-    const category = aggregate.category || xField || groupby.find((field) => field !== segment);
+    const groupby = asArray((config.by ?? config.groupby ?? xField)).filter(Boolean);
+    const value = (config.value ?? config.field ?? yField ?? 'value');
+    const as = (config.as ?? value);
+    const op = (config.op ?? config.use ?? 'sum');
+    const segment = (config.segment ?? groupby.find((f) => f !== xField));
+    const category = (config.category ?? xField ?? groupby.find((f) => f !== segment));
     return {
-        ...aggregate,
+        ...config,
         groupby,
         category,
-        categoryTitle: aggregate.categoryTitle || titleize(category),
+        categoryTitle: (config.categoryTitle ?? titleize(category ?? '')),
         segment,
         value,
         as,
-        valueTitle: aggregate.valueTitle || (segment ? titleize(value) : state.encoding?.y?.title || titleize(as)),
+        valueTitle: (config.valueTitle ?? (segment
+            ? titleize(value)
+            : state.encoding?.y?.title ?? titleize(as))),
         op
     };
 }
@@ -358,18 +323,19 @@ function pruneAuthoringState(spec) {
     const state = next.narrative?.state;
     if (!state)
         return next;
-    const sceneState = state.sceneState || {};
+    const sceneState = (state.sceneState ?? {});
     const preservedSceneState = {};
-    const focus = sceneState.focus || state.focus;
-    const guide = sceneState.guide || state.guide;
-    if (focus?.mode === "highlight") {
+    const focus = sceneState.focus ?? state.focus;
+    const guide = sceneState.guide ?? state.guide;
+    if (focus?.mode === 'highlight') {
         preservedSceneState.focus = focus;
     }
     if (hasCustomGuideStaging(guide)) {
+        const g = guide;
         preservedSceneState.guide = {
-            ...(guide.layout ? { layout: guide.layout } : {}),
-            ...(guide.orientation ? { orientation: guide.orientation } : {}),
-            staging: guide.staging
+            ...(g.layout ? { layout: g.layout } : {}),
+            ...(g.orientation ? { orientation: g.orientation } : {}),
+            staging: g.staging
         };
     }
     delete state.focus;
@@ -384,7 +350,7 @@ function pruneAuthoringState(spec) {
         delete next.narrative;
     return next;
 }
-function hasCustomGuideStaging(guide = null) {
+function hasCustomGuideStaging(guide) {
     if (!guide?.staging)
         return false;
     const staging = guide.staging;
@@ -392,8 +358,8 @@ function hasCustomGuideStaging(guide = null) {
         return true;
     if (!Array.isArray(staging.order))
         return false;
-    return staging.order.join("|") !== defaultGuideOrder(guide).join("|");
+    return staging.order.join('|') !== defaultGuideOrder(guide).join('|');
 }
-function defaultGuideOrder(guide = {}) {
-    return guide.orientation === "horizontal" ? ["y", "x"] : ["x", "y"];
+function defaultGuideOrder(guide) {
+    return guide.orientation === 'horizontal' ? ['y', 'x'] : ['x', 'y'];
 }

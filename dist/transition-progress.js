@@ -1,17 +1,16 @@
+// @ts-nocheck — D3 internal transition scheduling API
 const STARTING = 2;
 const STARTED = 3;
 const RUNNING = 4;
 const ENDING = 5;
 const ENDED = 6;
-export const SCROLL_TRANSITION_NAME = "__scrollyLiteScroll";
+export const SCROLL_TRANSITION_NAME = '__scrollyLiteScroll';
 export function installTransitionProgress(d3) {
     const transition = d3.transition();
     const proto = transition?.constructor?.prototype;
     if (!proto || proto.__scrollyLiteProgressInstalled)
         return;
-    Object.defineProperty(proto, "__scrollyLiteProgressInstalled", {
-        value: true
-    });
+    Object.defineProperty(proto, '__scrollyLiteProgressInstalled', { value: true });
     proto.progress = function progress(value) {
         if (!this.__scrollyLiteProgressController) {
             this.__scrollyLiteProgressController = createProgressController(transitionNodes(this), { transitionId: this._id });
@@ -20,7 +19,6 @@ export function installTransitionProgress(d3) {
         return this;
     };
 }
-;
 export function createSceneTransitionProgress(scene, options = {}) {
     return createProgressController(sceneNodes(scene), options);
 }
@@ -64,13 +62,11 @@ function collectSchedules(nodes, { transitionId, transitionName } = {}) {
                 return;
             schedule.timer?.stop();
             items.push({
-                id,
-                node,
-                schedule,
+                id, node, schedule,
                 time: Number(schedule.time) || 0,
                 delay: Number(schedule.delay) || 0,
                 duration: Math.max(0, Number(schedule.duration) || 0),
-                ease: typeof schedule.ease === "function" ? schedule.ease : (t) => t,
+                ease: typeof schedule.ease === 'function' ? schedule.ease : (t) => t,
                 tweens: null,
                 started: false,
                 finished: false
@@ -98,7 +94,7 @@ function initializeSchedule(item) {
     schedule.timer?.stop();
     if (schedule.state < STARTED) {
         schedule.state = STARTING;
-        schedule.on?.call("start", node, node.__data__, schedule.index, schedule.group);
+        schedule.on?.call('start', node, node.__data__, schedule.index, schedule.group);
         if (schedule.state !== STARTING)
             return;
         schedule.state = STARTED;
@@ -119,14 +115,14 @@ function finishSchedule(item) {
     }
     item.tweens.forEach((tween) => tween.call(item.node, 1));
     item.schedule.state = ENDING;
-    item.schedule.on?.call("end", item.node, item.node.__data__, item.schedule.index, item.schedule.group);
+    item.schedule.on?.call('end', item.node, item.node.__data__, item.schedule.index, item.schedule.group);
     cleanupSchedule(item);
 }
 function cancelSchedule(item) {
     if (item.finished)
         return;
     const active = item.schedule.state > STARTING && item.schedule.state < ENDING;
-    item.schedule.on?.call(active ? "interrupt" : "cancel", item.node, item.node.__data__, item.schedule.index, item.schedule.group);
+    item.schedule.on?.call(active ? 'interrupt' : 'cancel', item.node, item.node.__data__, item.schedule.index, item.schedule.group);
     cleanupSchedule(item);
 }
 function cleanupSchedule(item) {
@@ -147,17 +143,15 @@ function sceneNodes(scene) {
     const nodes = new Set();
     roots.forEach((root) => {
         nodes.add(root);
-        root.querySelectorAll?.("*").forEach((node) => nodes.add(node));
+        root.querySelectorAll?.('*').forEach((node) => nodes.add(node));
     });
     return Array.from(nodes);
 }
 function transitionNodes(transition) {
     const nodes = [];
     transition._groups.forEach((group) => {
-        group.forEach((node) => {
-            if (node)
-                nodes.push(node);
-        });
+        group.forEach((node) => { if (node)
+            nodes.push(node); });
     });
     return nodes;
 }

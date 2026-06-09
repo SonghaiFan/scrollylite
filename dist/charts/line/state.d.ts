@@ -1,9 +1,13 @@
-export function lineState(spec?: {}, enc?: {}): {
-    focus: any;
-    seriesField: any;
-};
-export function lineSeries(rows: any, seriesField: any): {
+import type { ChannelSpec, FocusSpec, ViewSpec } from '../../types/index.js';
+interface LineState {
+    focus: FocusSpec | null;
+    seriesField: string | null;
+}
+interface LineSeries {
     key: string;
-    rows: any;
-}[];
-export function focusedLineXScale(rows: any, channel: any, chart: any, focus: any, deps: any): any;
+    rows: Record<string, unknown>[];
+}
+export declare function lineState(spec?: ViewSpec, enc?: Record<string, ChannelSpec>): LineState;
+export declare function lineSeries(rows: Record<string, unknown>[], seriesField: string | null): LineSeries[];
+export declare function focusedLineXScale(rows: Record<string, unknown>[], channel: ChannelSpec | undefined, chart: Record<string, unknown>, focus: FocusSpec | null, deps: Record<string, unknown>): unknown;
+export {};

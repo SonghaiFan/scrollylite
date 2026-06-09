@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const chartsDir = join(root, "src", "charts");
-const manifestPath = join(chartsDir, "manifest.js");
+const manifestPath = join(chartsDir, "manifest.ts");
 
 const entries = await readdir(chartsDir);
 const idioms = [];
@@ -12,30 +12,32 @@ const idioms = [];
 for (const entry of entries) {
   const fullPath = join(chartsDir, entry);
   if (!(await stat(fullPath)).isDirectory()) continue;
-  try {
-    await stat(join(fullPath, "plugin.js"));
-    idioms.push(entry);
-  } catch {
-    // A chart folder becomes a runtime plugin only when it exposes plugin.js.
-  }
+  const hasPlugin = await stat(join(fullPath, "plugin.ts")).then(() => true).catch(() => false)
+    || await stat(join(fullPath, "plugin.js")).then(() => true).catch(() => false);
+  if (hasPlugin) idioms.push(entry);
 }
 
 idioms.sort();
 
-const importLines = idioms.map((name) => `import * as ${identifier(name)} from "./${name}/plugin.js";`);
-const moduleLines = idioms.map((name) => `  ${identifier(name)}`);
-const source = `${[
-  "// Generated from src/charts/*/plugin.js.",
-  "// Run scripts/sync-chart-manifest.mjs after adding or removing a chart idiom folder.",
-  ...importLines,
-  "",
-  "export const chartModules = [",
-  `${moduleLines.join(",\n")}`,
-  "];",
-  ""
-].join("\n")}`;
+await writeFile(manifestPath, manifestSource(idioms));
+console.log(`Wrote manifest for ${idioms.length} idioms.`);
 
-await writeFile(manifestPath, source);
+function manifestSource(names) {
+  const importLines = names.map((name) => `import * as ${identifier(name)} from "./${name}/plugin.js";`);
+  const moduleLines = names.map((name) => `  ${identifier(name)}`);
+  return `${[
+    "import type { ChartPlugin } from '../types/index.js';",
+    "// Generated from src/charts/*/plugin.ts.",
+    "// Run scripts/sync-chart-manifest.mjs after adding or removing a chart idiom folder.",
+    ...importLines,
+    "",
+    "// eslint-disable-next-line @typescript-eslint/no-explicit-any",
+    "export const chartModules: Array<{ plugin: ChartPlugin<any> }> = [",
+    `${moduleLines.join(",\n")}`,
+    "];",
+    ""
+  ].join("\n")}`;
+}
 
 function identifier(name) {
   return name.replace(/[^a-zA-Z0-9_$]/g, "_").replace(/^[^a-zA-Z_$]/, "_$&");

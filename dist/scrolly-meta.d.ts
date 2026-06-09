@@ -1,36 +1,13 @@
-export function getNarrative(spec?: {}): any;
-export function withNarrative(spec?: {}, extension?: {}): {
-    narrative: any;
-};
-export function externalizeScrollyViewSpec(spec?: {}): any;
-export function normalizeScrollyViewSpec(spec?: {}): {
-    transform?: any[];
-    key: any;
-    semanticKey: {
-        measure?: any;
-        entity?: any;
-    };
-    transition: any;
-    scroll: any;
-    unit: any;
-    focus: any;
-    guide: any;
-    granularity: any;
-    sceneState: any;
-};
-export function narrativeObjectKey(spec?: {}): any;
-export function narrativeSemanticKey(spec?: {}): {
-    measure?: any;
-    entity?: any;
-};
-export function narrativeTransition(spec?: {}): any;
-export function narrativeScroll(spec?: {}): any;
-export function narrativeUnit(spec?: {}): any;
-export function narrativeState(spec?: {}): {
-    focus: any;
-    guide: any;
-    granularity: any;
-    sceneState: any;
-};
-export function dataName(dataSpec: any): any;
-export const NARRATIVE_KEY: "narrative";
+import type { NarrativeSpec, ResolvedNarrativeState, ScrollSpec, SemanticKey, TransitionSpec, ViewSpec } from './types/index.js';
+export declare const NARRATIVE_KEY = "narrative";
+export declare function getNarrative(spec: ViewSpec | Record<string, unknown>): NarrativeSpec;
+export declare function withNarrative<T extends ViewSpec>(spec: T, extension: Partial<NarrativeSpec>): T;
+export declare function externalizeScrollyViewSpec(spec: ViewSpec): ViewSpec;
+export declare function normalizeScrollyViewSpec(spec: ViewSpec): ViewSpec & Record<string, unknown>;
+export declare function narrativeObjectKey(spec: ViewSpec): string | string[] | null;
+export declare function narrativeSemanticKey(spec: ViewSpec): SemanticKey | null;
+export declare function narrativeTransition(spec: ViewSpec): TransitionSpec;
+export declare function narrativeScroll(spec: ViewSpec): ScrollSpec | null;
+export declare function narrativeUnit(spec: ViewSpec): Record<string, unknown> | null;
+export declare function narrativeState(spec: ViewSpec): ResolvedNarrativeState;
+export declare function dataName(dataSpec: unknown): string | null;

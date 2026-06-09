@@ -1,3 +1,3 @@
 export function unitKey(datum) {
-    return datum.__unitKey;
+    return datum['__unitKey'];
 }

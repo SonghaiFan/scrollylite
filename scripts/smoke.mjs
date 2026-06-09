@@ -1,19 +1,17 @@
-import { chartModules } from "../src/charts/manifest.js";
+import { chartModules } from "../dist/charts/manifest.js";
 import {
   createChartIdiomRegistry,
   createSpecCompilerRegistry,
   registerChartModules
-} from "../src/charts/index.js";
+} from "../dist/charts/index.js";
 import { createDemoSpec, availableStories } from "../examples/weather/specs/demo.js";
-import { compileSpec } from "../src/runtime/spec.js";
+import { compileSpec } from "../dist/runtime/spec.js";
 import * as sourceApi from "../dist/index.js";
 import * as distApi from "../dist/scrollylite.esm.js";
 
 const publicApi = [
   "availableChartIdioms",
   "bar",
-  "createChart",
-  "createPage",
   "createStory",
   "defineChartIdiom",
   "line",

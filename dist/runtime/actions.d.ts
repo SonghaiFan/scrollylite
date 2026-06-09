@@ -1,16 +1,10 @@
-type AnyRecord = Record<string, any>;
-export declare function hasScrollAction(stepOrAction?: string[] | AnyRecord): any;
-export declare function normalizeActionTokens(action?: string | string[]): any[];
-export declare function normalizeActionEvent(event: any, options?: AnyRecord, context?: AnyRecord): {
-    type: any;
-    index: number;
-    value: number;
-    direction: any;
-    action: any[];
-    force: any;
-    progress: boolean;
-};
-export declare function defaultScrollProgress(direction: any): 0 | 1;
-export declare function normalizeScrollAction(scrollSpec?: true | AnyRecord): {};
-export declare function easeProgress(progress: any, name: string, d3: any): number;
-export {};
+import type { ActionToken, Direction, NormalizedActionEvent, RawActionEvent } from '../types/index.js';
+export declare function hasScrollAction(stepOrAction?: string[] | Element | Record<string, unknown>): boolean;
+export declare function normalizeActionTokens(action?: string | string[]): ActionToken[];
+export declare function normalizeActionEvent(event: RawActionEvent, options?: Record<string, unknown>, context?: {
+    activeIndex?: number;
+    stepCount?: number;
+}): NormalizedActionEvent;
+export declare function defaultScrollProgress(direction: Direction): number;
+export declare function normalizeScrollAction(scrollSpec?: true | Record<string, unknown>): Record<string, unknown>;
+export declare function easeProgress(progress: number, name: string | undefined, d3: Record<string, unknown>): number;

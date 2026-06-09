@@ -1,7 +1,7 @@
 export const DEFAULT_TIMING = {
     transition: {
         duration: 900,
-        ease: "cubicInOut",
+        ease: 'cubicInOut',
         stagger: { step: 10, max: 120 }
     },
     scene: {
@@ -18,11 +18,11 @@ export const DEFAULT_TIMING = {
     }
 };
 export function defaultTransition(overrides = {}) {
-    const stagger = overrides.stagger == null || typeof overrides.stagger === "object"
-        ? {
-            ...DEFAULT_TIMING.transition.stagger,
-            ...(overrides.stagger || {})
-        }
+    const staggerPatch = typeof overrides.stagger === 'object'
+        ? overrides.stagger
+        : {};
+    const stagger = overrides.stagger == null || typeof overrides.stagger === 'object'
+        ? { ...DEFAULT_TIMING.transition.stagger, ...staggerPatch }
         : overrides.stagger;
     return {
         ...DEFAULT_TIMING.transition,
@@ -31,5 +31,5 @@ export function defaultTransition(overrides = {}) {
     };
 }
 export function stagedDuration(totalDuration, stageCount) {
-    return Math.max(DEFAULT_TIMING.stage.minDuration, Math.round((totalDuration || DEFAULT_TIMING.transition.duration) / Math.max(stageCount, 1)));
+    return Math.max(DEFAULT_TIMING.stage.minDuration, Math.round((totalDuration ?? DEFAULT_TIMING.transition.duration) / Math.max(stageCount, 1)));
 }

@@ -1,5 +1,5 @@
-import { externalizeScrollyViewSpec } from "../scrolly-meta.js";
-import { compileViewSpec, resolveSceneTransition, withSceneTransitionDefaults } from "../transitions/index.js";
+import { externalizeScrollyViewSpec } from '../scrolly-meta.js';
+import { compileViewSpec, resolveSceneTransition, withSceneTransitionDefaults } from '../transitions/index.js';
 export function compileEffectiveView(viewSpec, stepTransition = {}) {
     const authoredViewSpec = externalizeScrollyViewSpec(viewSpec);
     const sceneTransition = resolveSceneTransition(authoredViewSpec, stepTransition);
@@ -7,11 +7,8 @@ export function compileEffectiveView(viewSpec, stepTransition = {}) {
     return { sceneTransition, effectiveViewSpec: externalizeScrollyViewSpec(effectiveViewSpec) };
 }
 export function compileTransitionSource(viewSpec, stepTransition = {}) {
-    if (!viewSpec || !viewSpec.mark || viewSpec.mark === "text") {
-        return {
-            effectiveViewSpec: null,
-            sceneTransition: {}
-        };
+    if (!viewSpec || !viewSpec['mark'] || viewSpec['mark'] === 'text') {
+        return { effectiveViewSpec: null, sceneTransition: { scene: [], focus: null, guide: null, granularity: null } };
     }
     return compileEffectiveView(viewSpec, stepTransition);
 }

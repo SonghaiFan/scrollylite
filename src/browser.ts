@@ -1,10 +1,10 @@
 import * as core from "./index.js";
+import { createStory as coreCreateStory } from "./scrollylite.js";
 
 type AnyRecord = Record<string, any>;
 
 export const availableChartIdioms = core.availableChartIdioms;
 export const bar = core.bar;
-export const createPage = core.createPage;
 export const defineChartIdiom = core.defineChartIdiom;
 export const line = core.line;
 export const point = core.point;
@@ -13,27 +13,17 @@ export const registerChartModule = core.registerChartModule;
 export const story = core.story;
 export const unit = core.unit;
 
-export function createChart(spec: AnyRecord, options: AnyRecord = {}) {
-  return core.createChart(spec, {
-    ...options,
-    d3: options.d3 || globalThis.d3,
-    aq: options.aq || globalThis.aq
-  });
-}
-
 export function createStory(spec: AnyRecord, options: AnyRecord = {}) {
-  return core.createStory(spec, {
+  return coreCreateStory(spec, {
     ...options,
-    d3: options.d3 || globalThis.d3,
-    aq: options.aq || globalThis.aq
+    d3: options.d3 || (globalThis as AnyRecord)['d3'],
+    aq: options.aq || (globalThis as AnyRecord)['aq']
   });
 }
 
 const browserApi = {
   availableChartIdioms,
   bar,
-  createChart,
-  createPage,
   createStory,
   defineChartIdiom,
   line,
@@ -44,4 +34,4 @@ const browserApi = {
   unit
 };
 
-globalThis.ScrollyLite = browserApi;
+(globalThis as AnyRecord)['ScrollyLite'] = browserApi;

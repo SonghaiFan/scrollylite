@@ -1,7 +1,5 @@
 export {
   availableChartIdioms,
-  createChart,
-  createPage,
   createStory,
   registerChartIdiom,
   registerChartModule

@@ -1,8 +1,9 @@
-import { compileViewSpec } from "../transitions/index.js";
-import { externalizeScrollyViewSpec } from "../scrolly-meta.js";
-import { ViewState, cloneState } from "../grammar/view-state.js";
-import { titleize } from "../labels.js";
+import { compileViewSpec } from '../transitions/index.js';
+import { externalizeScrollyViewSpec } from '../scrolly-meta.js';
+import { ViewState, cloneState } from '../grammar/view-state.js';
+import { titleize } from '../labels.js';
 export { titleize };
+// ─── IdiomState ───────────────────────────────────────────────────────────────
 export class IdiomState extends ViewState {
     toSpec() {
         const spec = super.toSpec();
@@ -12,39 +13,38 @@ export class IdiomState extends ViewState {
         return this.with({ data });
     }
     x(field, options = {}) {
-        return this.channel("x", field, { type: "quantitative", ...options });
+        return this.channel('x', field, { type: 'quantitative', ...options });
     }
     y(field, options = {}) {
-        return this.channel("y", field, { type: "quantitative", ...options });
+        return this.channel('y', field, { type: 'quantitative', ...options });
     }
     channel(name, field, options = {}) {
         return this.with({
-            encoding: {
-                [name]: channelFrom(field, options)
-            }
+            encoding: { [name]: channelFrom(field, options) }
         });
     }
     color(valueOrField, options = {}) {
         return this.with({ encoding: { color: colorFrom(valueOrField, options) } });
     }
     size(field, options = {}) {
-        return this.channel("size", field, { type: "quantitative", ...options });
+        return this.channel('size', field, { type: 'quantitative', ...options });
     }
     key(fields) {
-        return this.with({ key: Array.isArray(fields) && fields.length === 1 ? fields[0] : fields });
+        const value = Array.isArray(fields) && fields.length === 1 ? fields[0] : fields;
+        return this.with({ key: value });
     }
     tooltip(items) {
-        const tooltip = Array.isArray(items) ? items : [items];
+        const list = Array.isArray(items) ? items : [items];
         return this.with({
             encoding: {
-                tooltip: cloneState(tooltip.map((item) => (typeof item === "string" ? { field: item, title: titleize(item) } : item)))
+                tooltip: cloneState(list.map((item) => typeof item === 'string' ? { field: item, title: titleize(item) } : item))
             }
         });
     }
-    sort(field, order = "ascending") {
+    sort(field, order = 'ascending') {
         return this.with({
             transform: [
-                ...(this.state.transform || []),
+                ...(this.state.transform ?? []),
                 { sort: { field, order } }
             ]
         });
@@ -53,7 +53,7 @@ export class IdiomState extends ViewState {
         return this.with({ transition: timing });
     }
     filter(selector) {
-        return this.with({ focus: selectorFrom(selector) }, "focus");
+        return this.with({ focus: selectorFrom(selector) }, 'focus');
     }
     where(selector) {
         return this.filter(selector);
@@ -61,18 +61,19 @@ export class IdiomState extends ViewState {
     highlight(selector, options = {}) {
         return this.with({
             focus: {
-                mode: "highlight",
+                mode: 'highlight',
                 filter: selectorFrom(selector),
                 ...(options.opacity != null ? { opacity: options.opacity } : {})
             }
-        }, "focus");
+        }, 'focus');
     }
     guide(config = {}) {
-        return this.with({ guide: cloneState(config) }, "guide");
+        return this.with({ guide: cloneState(config) }, 'guide');
     }
 }
+// ─── Channel factories ────────────────────────────────────────────────────────
 export function channelFrom(field, options = {}) {
-    if (field && typeof field === "object") {
+    if (field && typeof field === 'object') {
         const channel = { ...field, ...options };
         return {
             ...channel,
@@ -80,30 +81,32 @@ export function channelFrom(field, options = {}) {
         };
     }
     return {
-        field,
+        field: field,
         title: titleize(field),
         ...options
     };
 }
 export function colorFrom(valueOrField, options = {}) {
-    if (valueOrField && typeof valueOrField === "object")
+    if (valueOrField && typeof valueOrField === 'object')
         return cloneState(valueOrField);
-    if (typeof valueOrField === "string" && valueOrField.startsWith("#"))
+    if (typeof valueOrField === 'string' && valueOrField.startsWith('#'))
         return { value: valueOrField };
     return options.value
         ? { value: options.value }
-        : { field: valueOrField, type: "nominal", ...options };
+        : { field: valueOrField, type: 'nominal', ...options };
 }
 export function selectorFrom(selector = {}) {
-    if (selector?.field)
-        return cloneState(selector);
-    const entries = Object.entries(selector || {});
+    const sel = selector;
+    if (sel.field)
+        return cloneState(sel);
+    const entries = Object.entries(sel);
     if (entries.length === 1) {
         const [field, equal] = entries[0];
         return { field, equal };
     }
-    return cloneState(selector);
+    return cloneState(sel);
 }
+// ─── Spec pruning ─────────────────────────────────────────────────────────────
 function pruneAuthoringSpec(spec) {
     const next = pruneEmpty(cloneState(spec));
     if (Array.isArray(next.transform) && !next.transform.length)
@@ -111,7 +114,7 @@ function pruneAuthoringSpec(spec) {
     const state = next.narrative?.state;
     if (!state)
         return next;
-    const sceneState = state.sceneState || {};
+    const sceneState = (state.sceneState ?? {});
     if (!sceneState.guide && shouldPreserveGuideState(state.guide)) {
         sceneState.guide = state.guide;
     }
@@ -129,45 +132,43 @@ function pruneAuthoringSpec(spec) {
         delete next.narrative;
     return pruneEmpty(next);
 }
-function pruneSceneStateDefaults(sceneState = {}) {
+function pruneSceneStateDefaults(sceneState) {
     const guide = sceneState.guide;
     if (guide) {
-        if (guide.xScale === "linear")
+        if (guide.xScale === 'linear')
             delete guide.xScale;
-        if (guide.yScale === "linear")
+        if (guide.yScale === 'linear')
             delete guide.yScale;
         if (isDefaultStaging(guide.staging))
             delete guide.staging;
     }
 }
-function shouldPreserveGuideState(guide = null) {
-    if (!guide || !isPlainObject(guide))
+function shouldPreserveGuideState(guide) {
+    if (!guide || typeof guide !== 'object' || Array.isArray(guide))
         return false;
-    const semanticKeys = ["layout", "x", "y", "group", "value"];
-    return semanticKeys.some((key) => guide[key] != null);
+    const semanticKeys = ['layout', 'x', 'y', 'group', 'value'];
+    return semanticKeys.some((k) => guide[k] != null);
 }
-function isDefaultStaging(staging = null) {
+function isDefaultStaging(staging) {
     if (!staging || !Array.isArray(staging.order))
         return false;
-    const hasCustomTiming = staging.duration != null || staging.stagger != null;
-    if (hasCustomTiming)
+    const s = staging;
+    if (s.duration != null || s.stagger != null)
         return false;
-    return staging.order.join("|") === "x|y";
+    return s.order.join('|') === 'x|y';
 }
 function pruneEmpty(value) {
     if (Array.isArray(value)) {
-        return value
-            .map(pruneEmpty)
-            .filter((item) => item !== undefined);
+        return value.map(pruneEmpty).filter((item) => item !== undefined);
     }
     if (!isPlainObject(value))
         return value == null ? undefined : value;
     const entries = Object.entries(value)
-        .map(([key, child]) => [key, pruneEmpty(child)])
-        .filter(([, child]) => child !== undefined)
-        .filter(([, child]) => !isPlainObject(child) || Object.keys(child).length);
+        .map(([k, v]) => [k, pruneEmpty(v)])
+        .filter(([, v]) => v !== undefined)
+        .filter(([, v]) => !isPlainObject(v) || Object.keys(v).length > 0);
     return Object.fromEntries(entries);
 }
 function isPlainObject(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }

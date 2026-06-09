@@ -1,51 +1,36 @@
-import { IdiomState, colorFrom } from "../authoring.js";
+import { IdiomState, colorFrom } from '../authoring.js';
 export function unit(data) {
-    return new UnitState({
-        data,
-        mark: "unit",
-        encoding: {},
-        unit: {}
-    });
+    return new UnitState({ data, mark: 'unit', encoding: {}, unit: {} });
 }
 export class UnitState extends IdiomState {
     value(field, options = {}) {
-        const { maxUnits } = options;
         return this.with({
             unit: {
-                ...(this.state.unit || {}),
+                ...(this.state['unit'] || {}),
                 value: field,
-                ...(maxUnits ? { maxUnits } : {})
+                ...(options.maxUnits ? { maxUnits: options.maxUnits } : {})
             }
         });
     }
     label(field) {
         return this.with({
-            unit: {
-                ...(this.state.unit || {}),
-                label: field
-            }
+            unit: { ...(this.state['unit'] || {}), label: field }
         });
     }
     columns(value) {
         return this.with({
-            unit: {
-                ...(this.state.unit || {}),
-                columns: value
-            }
+            unit: { ...(this.state['unit'] || {}), columns: value }
         });
     }
     radius(value) {
         return this.with({
-            unit: {
-                ...(this.state.unit || {}),
-                radius: value
-            }
+            unit: { ...(this.state['unit'] || {}), radius: value }
         });
     }
     group(field, options = {}) {
         const { color, ...layoutOptions } = options;
         return unitGuide(this, {
-            layout: "groupedGrid",
+            layout: 'groupedGrid',
             group: field,
             ...layoutOptions,
             ...(color ? { color: colorFrom(color) } : {})
@@ -53,14 +38,14 @@ export class UnitState extends IdiomState {
     }
     timeline(field, options = {}) {
         return unitGuide(this, {
-            layout: "timeline",
-            ...unitAxis(this, "x", field, options)
+            layout: 'timeline',
+            ...unitAxis(this, 'x', field, options)
         });
     }
     dodge(field, options = {}) {
         return unitGuide(this, {
-            layout: "dodge",
-            ...unitAxis(this, "x", field, options)
+            layout: 'dodge',
+            ...unitAxis(this, 'x', field, options)
         });
     }
 }
@@ -69,14 +54,14 @@ function unitGuide(state, guide) {
 }
 function unitAxis(state, channel, field, options = {}) {
     const { title, type, ...rest } = options;
-    const current = state.state.encoding?.[channel];
+    const current = state.state['encoding']?.[channel];
     if ((field == null || field === current?.field) && title == null && type == null) {
         return rest;
     }
     return {
         [channel]: {
             field,
-            type: type || "quantitative",
+            type: type || 'quantitative',
             ...(title ? { title } : {})
         },
         ...rest

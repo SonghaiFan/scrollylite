@@ -1,22 +1,26 @@
-export function channelFrom(field: any, options?: {}): any;
-export function colorFrom(valueOrField: any, options?: {}): any;
-export function selectorFrom(selector?: {}): any;
+import { ViewState } from '../grammar/view-state.js';
+import { titleize } from '../labels.js';
+import type { ChannelSpec, FilterSpec, FocusSpec, GuideSpec, SortOrder, TransitionSpec, ViewSpec } from '../types/index.js';
 export { titleize };
-export class IdiomState extends ViewState {
-    data(data: any): any;
-    x(field: any, options?: {}): any;
-    y(field: any, options?: {}): any;
-    channel(name: any, field: any, options?: {}): any;
-    color(valueOrField: any, options?: {}): any;
-    size(field: any, options?: {}): any;
-    key(fields: any): any;
-    tooltip(items: any): any;
-    sort(field: any, order?: string): any;
-    transition(timing: any): any;
-    filter(selector: any): any;
-    where(selector: any): any;
-    highlight(selector: any, options?: {}): any;
-    guide(config?: {}): any;
+export declare class IdiomState<S extends ViewSpec = ViewSpec> extends ViewState<S> {
+    toSpec(): Omit<S, '__grammar'>;
+    data(data: unknown): this;
+    x(field: string | ChannelSpec, options?: Partial<ChannelSpec>): this;
+    y(field: string | ChannelSpec, options?: Partial<ChannelSpec>): this;
+    channel(name: string, field: string | ChannelSpec, options?: Partial<ChannelSpec>): this;
+    color(valueOrField: string | ChannelSpec, options?: Partial<ChannelSpec>): this;
+    size(field: string | ChannelSpec, options?: Partial<ChannelSpec>): this;
+    key(fields: string | string[]): this;
+    tooltip(items: string | ChannelSpec | Array<string | ChannelSpec>): this;
+    sort(field: string, order?: SortOrder): this;
+    transition(timing: TransitionSpec): this;
+    filter(selector: string | Record<string, unknown> | FilterSpec): this;
+    where(selector: string | Record<string, unknown> | FilterSpec): this;
+    highlight(selector: string | Record<string, unknown> | FilterSpec, options?: {
+        opacity?: number;
+    }): this;
+    guide(config?: Partial<GuideSpec>): this;
 }
-import { titleize } from "../labels.js";
-import { ViewState } from "../grammar/view-state.js";
+export declare function channelFrom(field: string | ChannelSpec, options?: Partial<ChannelSpec>): ChannelSpec;
+export declare function colorFrom(valueOrField: string | ChannelSpec, options?: Partial<ChannelSpec>): ChannelSpec;
+export declare function selectorFrom(selector?: string | Record<string, unknown> | FilterSpec): FocusSpec;

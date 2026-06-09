@@ -1,21 +1,4 @@
-export function createBarSpecCompiler(context?: {}): {
-    base: typeof compileBarBase;
-    operations: {
-        filter: typeof compileFilter;
-        highlight: typeof compileHighlight;
-        coordinate: typeof compileBarCoordinate;
-        scale: typeof compileBarScale;
-        aggregate: typeof compileBarAggregate;
-        layout: typeof compileBarLayout;
-    };
-};
-declare function compileBarBase(spec: any, context?: {}): any;
-import { compileFilter } from "../compiler-utils.js";
-import { compileHighlight } from "../compiler-utils.js";
-declare function compileBarCoordinate(spec: any, guideSpec?: {}, context?: {}): any;
-declare function compileBarScale(spec: any, operationSpec?: {}, context?: {}): any;
-declare function compileBarAggregate(spec: any, granularitySpec?: {}, context?: {}): {
-    narrative: any;
-};
-declare function compileBarLayout(spec: any, operationSpec?: {}, context?: {}): any;
+import type { SpecCompiler } from '../../types/index.js';
+type AnyRecord = Record<string, unknown>;
+export declare function createBarSpecCompiler(_context?: AnyRecord): SpecCompiler;
 export {};

@@ -1,18 +1,18 @@
-export function resolveBarTransitionPlan(previousSpec: any, nextSpec: any): {};
-export function barCollapseIntermediateSpec(previousSpec: any, nextSpec: any): any;
-export function barSplitIntermediateSpec(previousSpec: any, nextSpec: any): any;
-export function barIntermediateSpecs(previousSpec: any, nextSpec: any): {
-    spec: any;
-    scene: string;
-}[];
-export function barState(spec: any): {
-    orientation: string;
-    barLayout: any;
-    categoryField: any;
-    measureField: any;
+import type { BarLayout, BarOrientation, IntermediateSpec, TransitionPlan, ViewSpec } from '../../types/index.js';
+export declare function resolveBarTransitionPlan(previousSpec: ViewSpec | null, nextSpec: ViewSpec | null): TransitionPlan;
+interface BarInternalState {
+    orientation: BarOrientation;
+    barLayout: BarLayout;
+    categoryField: string | null;
+    measureField: string | null;
     hasGuide: boolean;
     hasGranularity: boolean;
     hasAggregate: boolean;
-    segmentField: any;
-    guideStaging: any;
-};
+    segmentField: string | null;
+    guideStaging: Record<string, unknown> | null;
+}
+export declare function barState(spec: ViewSpec | null | undefined): BarInternalState | null;
+export declare function barCollapseIntermediateSpec(previousSpec: ViewSpec | null, nextSpec: ViewSpec | null): ViewSpec | null;
+export declare function barSplitIntermediateSpec(previousSpec: ViewSpec | null, nextSpec: ViewSpec | null): ViewSpec | null;
+export declare function barIntermediateSpecs(previousSpec: ViewSpec, nextSpec: ViewSpec): IntermediateSpec[];
+export {};

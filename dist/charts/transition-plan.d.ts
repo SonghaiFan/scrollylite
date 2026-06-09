@@ -1,31 +1,6 @@
-export function createDefaultTransitionPlan(previousSpec: any, nextSpec: any, options?: {}): {
-    diff?: undefined;
-    update?: undefined;
-    enter?: undefined;
-    exit?: undefined;
-} | {
-    diff: {
-        type: any;
-        action: any;
-        previous: any;
-        next: any;
-    }[];
-    update: {
-        mode: string;
-        reason: any;
-        timing: {
-            stagger: any;
-            duration: number;
-            ease: string;
-        };
-        totalDuration: number;
-    };
-    enter: {
-        mode: string;
-        reason: any;
-    };
-    exit: {
-        mode: string;
-        reason: any;
-    };
-};
+import type { TransitionPlan, ViewSpec } from '../types/index.js';
+interface TransitionPlanOptions {
+    reason?: string;
+}
+export declare function createDefaultTransitionPlan(previousSpec: ViewSpec | null | undefined, nextSpec: ViewSpec | null | undefined, options?: TransitionPlanOptions): TransitionPlan;
+export {};

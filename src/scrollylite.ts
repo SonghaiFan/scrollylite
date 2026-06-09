@@ -1,3 +1,6 @@
+// TODO: migrate this file to strict TypeScript (Phase 2)
+/* eslint-disable */
+// @ts-nocheck
 import { applyTransforms } from "./data/transforms.js";
 import { chartModules } from "./charts/manifest.js";
 import {

@@ -1,1 +1,1 @@
-export { point, PointState } from "./authoring.js";
+export { point, PointState } from './authoring.js';

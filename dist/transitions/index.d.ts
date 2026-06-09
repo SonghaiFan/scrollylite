@@ -1,12 +1,17 @@
-export function resolveSceneTransition(viewSpec?: {}, stepTransition?: {}): {
-    scene: any[];
-    focus: any;
-    guide: any;
-    granularity: any;
-};
-export function withSceneTransitionDefaults(viewSpec: any, sceneTransition: any): {
-    narrative: any;
-};
-export function compileViewSpec(viewSpec: any, sceneTransition: any): any;
-export function hasScene(sceneTransition: any, type: any): any;
-export const SCENE_TRANSITIONS: string[];
+import type { FocusSpec, GranularitySpec, GuideSpec, ViewSpec } from '../types/index.js';
+export declare const SCENE_TRANSITIONS: readonly ["focus", "guide", "granularity", "observation"];
+export type SceneTransitionType = typeof SCENE_TRANSITIONS[number];
+interface SceneTransition {
+    scene: string[];
+    focus?: FocusSpec | null;
+    guide?: GuideSpec | null;
+    granularity?: GranularitySpec | null;
+}
+interface StepTransition {
+    scene?: string[];
+}
+export declare function resolveSceneTransition(viewSpec?: ViewSpec, stepTransition?: StepTransition): SceneTransition;
+export declare function withSceneTransitionDefaults(viewSpec: ViewSpec, sceneTransition: SceneTransition): ViewSpec;
+export declare function compileViewSpec(viewSpec: ViewSpec, sceneTransition: SceneTransition): ViewSpec;
+export declare function hasScene(sceneTransition: SceneTransition | null | undefined, type: string): boolean;
+export {};

@@ -1,11 +1,13 @@
-import { narrativeState } from "../../scrolly-meta.js";
-import { colorField } from "./encoding.js";
+import { narrativeState } from '../../scrolly-meta.js';
+import { colorField } from './encoding.js';
 export function pointState(spec = {}, enc = {}) {
     const state = narrativeState(spec);
-    const granularity = state.sceneState?.granularity || state.granularity || {};
+    const granularity = state.sceneState?.['granularity']
+        || state.granularity
+        || {};
     return {
-        parentField: parentFromGroupby(granularity.groupby) || granularity.parentField || colorField(enc),
-        granularityMode: granularity.mode || null
+        parentField: parentFromGroupby(granularity['groupby']) || granularity['parentField'] || colorField(enc),
+        granularityMode: granularity['mode'] || null
     };
 }
 export function parentAnchors(rows, parentField, positionForRow) {
@@ -22,28 +24,24 @@ export function parentAnchors(rows, parentField, positionForRow) {
     });
     return new Map(Array.from(grouped, ([key, anchor]) => [
         key,
-        {
-            x: anchor.x / anchor.count,
-            y: anchor.y / anchor.count
-        }
+        { x: anchor.x / anchor.count, y: anchor.y / anchor.count }
     ]));
 }
 export function parentKey(row, parentField) {
     if (!row || !parentField)
-        return "__all";
+        return '__all';
     if (Array.isArray(parentField))
-        return parentField.map((field) => row[field]).join("|");
-    return String(row[parentField] ?? "__all");
+        return parentField.map((field) => row[field]).join('|');
+    return String(row[parentField] ?? '__all');
 }
 export function radiusScale(rows, channel, fallback, d3, quantitativeDomain) {
     if (!channel?.field)
         return () => fallback;
-    const range = channel.range || defaultRadiusRange(rows.length);
-    const scale = d3
-        .scaleSqrt()
-        .domain(quantitativeDomain(rows, channel, 0))
-        .range(range);
-    return (row) => scale(Number(row[channel.field]) || 0);
+    const range = channel['range'] || defaultRadiusRange(rows.length);
+    const d3Obj = d3;
+    const scale = d3Obj['scaleSqrt']();
+    const scaleWithDomain = scale.domain(quantitativeDomain(rows, channel, 0)).range(range);
+    return (row) => scaleWithDomain(Number(row[channel.field]) || 0);
 }
 export function defaultPointRadius(count) {
     if (count <= 4)
@@ -56,12 +54,9 @@ export function defaultPointRadius(count) {
 }
 function defaultRadiusRange(count) {
     const radius = defaultPointRadius(count);
-    return [
-        Math.max(3, radius * 0.75),
-        Math.max(7, radius * 2.4)
-    ];
+    return [Math.max(3, radius * 0.75), Math.max(7, radius * 2.4)];
 }
-function parentFromGroupby(groupby = null) {
+function parentFromGroupby(groupby) {
     if (!groupby)
         return null;
     if (Array.isArray(groupby))

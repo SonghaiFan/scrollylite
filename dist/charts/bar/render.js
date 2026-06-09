@@ -1,10 +1,11 @@
-import { BaseChart } from "../base.js";
-import { barCategoryChannel } from "./layout/index.js";
-import { createBarRenderKit } from "./render-pattern.js";
-import { createGroupedBarRenderer } from "./layout/grouped.js";
-import { createSimpleBarRenderer } from "./layout/simple.js";
-import { createStackedBarRenderer } from "./layout/stacked.js";
-import { semanticBarState } from "./semantic.js";
+// @ts-nocheck — D3 rendering code; typed via deps injection
+import { BaseChart } from '../base.js';
+import { barCategoryChannel } from './layout/index.js';
+import { createBarRenderKit } from './render-pattern.js';
+import { createGroupedBarRenderer } from './layout/grouped.js';
+import { createSimpleBarRenderer } from './layout/simple.js';
+import { createStackedBarRenderer } from './layout/stacked.js';
+import { semanticBarState } from './semantic.js';
 export function createBarRenderer(deps) {
     return new BarChart(deps, createBarDraw(deps)).renderer();
 }
@@ -27,7 +28,7 @@ function createBarDraw(deps) {
     };
     return function drawBar(chart, rows, spec, tooltip, d3) {
         const bar = semanticBarState(spec);
-        const renderer = renderers[isSegmentedLayout(bar.layout, bar.segmentField) ? bar.layout : "simple"];
+        const renderer = renderers[isSegmentedLayout(bar.layout, bar.segmentField) ? bar.layout : 'simple'];
         fadeNonBarShapes(chart);
         if (renderer === renderers.simple) {
             const duplicate = duplicateCategory(rows, barCategoryChannel(spec.encoding || {}));
@@ -41,7 +42,7 @@ function createBarDraw(deps) {
     };
 }
 function isSegmentedLayout(layout, segmentField) {
-    return Boolean(segmentField) && (layout === "grouped" || layout === "stacked");
+    return Boolean(segmentField) && (layout === 'grouped' || layout === 'stacked');
 }
 function duplicateCategory(rows, channel = {}) {
     if (!channel.field)
@@ -57,14 +58,12 @@ function duplicateCategory(rows, channel = {}) {
     return null;
 }
 function drawBarDataError(chart, message) {
-    chart.scene.empty
-        .style("display", "grid")
-        .text(message);
-    chart.g.selectAll("rect.sl-bar").transition(chart.transition.base).style("opacity", 0).remove();
-    chart.scene.grid.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.xAxis.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.yAxis.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.xLabel.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.yLabel.transition(chart.transition.base).style("opacity", 0);
-    chart.scene.legend.transition(chart.transition.base).style("opacity", 0);
+    chart.scene.empty.style('display', 'grid').text(message);
+    chart.g.selectAll('rect.sl-bar').transition(chart.transition.base).style('opacity', 0).remove();
+    chart.scene.grid.transition(chart.transition.base).style('opacity', 0);
+    chart.scene.xAxis.transition(chart.transition.base).style('opacity', 0);
+    chart.scene.yAxis.transition(chart.transition.base).style('opacity', 0);
+    chart.scene.xLabel.transition(chart.transition.base).style('opacity', 0);
+    chart.scene.yLabel.transition(chart.transition.base).style('opacity', 0);
+    chart.scene.legend.transition(chart.transition.base).style('opacity', 0);
 }

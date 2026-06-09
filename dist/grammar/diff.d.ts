@@ -1,76 +1,10 @@
-export function diffViewStates(previous: any, next: any): {
-    changed: string[];
-    has: (key: any) => boolean;
-    deltas: any[];
-    delta: (type: any) => any;
-    hasDelta: (type: any, action?: any) => boolean;
-    semantic: {
-        previous: {
-            mark: any;
-            key: any;
-            semanticKey: {
-                measure?: any;
-                entity?: any;
-            };
-            encoding: any;
-            filters: any[];
-            nonFilterTransforms: any;
-            focus: any;
-            guide: any;
-            granularity: any;
-        };
-        next: {
-            mark: any;
-            key: any;
-            semanticKey: {
-                measure?: any;
-                entity?: any;
-            };
-            encoding: any;
-            filters: any[];
-            nonFilterTransforms: any;
-            focus: any;
-            guide: any;
-            granularity: any;
-        };
-        deltas: any[];
-        has: (type: any, action?: any) => boolean;
-        get: (type: any) => any;
-    };
-    previous: any;
-    next: any;
-};
-export function sameValue(a: any, b: any): boolean;
-export function diffSemanticViewStates(previous?: {}, next?: {}): {
-    previous: {
-        mark: any;
-        key: any;
-        semanticKey: {
-            measure?: any;
-            entity?: any;
-        };
-        encoding: any;
-        filters: any[];
-        nonFilterTransforms: any;
-        focus: any;
-        guide: any;
-        granularity: any;
-    };
-    next: {
-        mark: any;
-        key: any;
-        semanticKey: {
-            measure?: any;
-            entity?: any;
-        };
-        encoding: any;
-        filters: any[];
-        nonFilterTransforms: any;
-        focus: any;
-        guide: any;
-        granularity: any;
-    };
-    deltas: any[];
-    has: (type: any, action?: any) => boolean;
-    get: (type: any) => any;
-};
+import type { Delta, DiffResult, SemanticDiffResult, ViewSpec } from '../types/index.js';
+export declare function diffViewStates(previous: ViewSpec | {
+    toSpec(): ViewSpec;
+} | null | undefined, next: ViewSpec | {
+    toSpec(): ViewSpec;
+} | null | undefined): DiffResult;
+export declare function sameValue(a: unknown, b: unknown): boolean;
+export declare function diffSemanticViewStates(previous?: ViewSpec, next?: ViewSpec): SemanticDiffResult;
+export declare function pushStateDelta<T>(deltas: Delta[], type: string, previous: T | null | undefined, next: T | null | undefined): void;
+export declare function pushDelta<T>(deltas: Delta[], type: string, previous: T | null | undefined, next: T | null | undefined): void;

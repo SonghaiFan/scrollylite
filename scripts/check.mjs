@@ -91,7 +91,7 @@ async function collectText(path) {
 }
 
 async function assertDebugInspectorGate() {
-  const shell = await readFile(join(root, "src", "runtime", "shell.js"), "utf8");
+  const shell = await readFile(join(root, "src", "runtime", "shell.ts"), "utf8");
   const runtime = await readFile(join(root, "src", "scrollylite.ts"), "utf8");
   if (!shell.includes("options.debug ? renderStepInspector(step) : \"\"")) {
     throw new Error("Step inspector must be gated behind createStory({ debug: true }).");

@@ -17,40 +17,27 @@ export function createNativeScrollDriver({ steps = [], offset = 0.55, config = {
     const update = () => {
         if (destroyed || isLocked())
             return;
-        const direction = window.scrollY >= lastScrollY ? "down" : "up";
+        const direction = window.scrollY >= lastScrollY ? 'down' : 'up';
         lastScrollY = window.scrollY;
         const state = measureStepProgress(steps, offset, config);
         if (!state)
             return;
         if (state.index !== activeIndex) {
             if (activeIndex >= 0 && steps[activeIndex]) {
-                onExit({
-                    element: steps[activeIndex],
-                    index: activeIndex,
-                    direction
-                });
+                onExit({ element: steps[activeIndex], index: activeIndex, direction });
             }
             activeIndex = state.index;
-            onEnter({
-                element: steps[state.index],
-                index: state.index,
-                direction
-            });
+            onEnter({ element: steps[state.index], index: state.index, direction });
         }
-        onProgress({
-            element: steps[state.index],
-            index: state.index,
-            progress: state.progress,
-            direction
-        });
+        onProgress({ element: steps[state.index], index: state.index, progress: state.progress, direction });
     };
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
     watchScrollPosition();
     watchInterval = window.setInterval(watchScrollPosition, 80);
     schedule();
     return {
-        type: "native",
+        type: 'native',
         resize: schedule,
         refresh: schedule,
         scrollToStep(index, options = {}) {
@@ -61,7 +48,7 @@ export function createNativeScrollDriver({ steps = [], offset = 0.55, config = {
             return scrollToStepElement(step, {
                 offset,
                 progress,
-                behavior: options.behavior || config.navigation?.behavior || "instant"
+                behavior: options.behavior || config.navigation?.behavior || 'instant'
             });
         },
         destroy() {
@@ -72,8 +59,8 @@ export function createNativeScrollDriver({ steps = [], offset = 0.55, config = {
                 window.cancelAnimationFrame(watchFrame);
             if (watchInterval)
                 window.clearInterval(watchInterval);
-            window.removeEventListener("scroll", schedule);
-            window.removeEventListener("resize", schedule);
+            window.removeEventListener('scroll', schedule);
+            window.removeEventListener('resize', schedule);
         }
     };
     function watchScrollPosition() {
@@ -91,9 +78,9 @@ export function createNativeScrollDriver({ steps = [], offset = 0.55, config = {
         }
     }
 }
-export function scrollToStepElement(step, { offset = 0.55, progress = 0.98, behavior = "instant" } = {}) {
+export function scrollToStepElement(step, { offset = 0.55, progress = 0.98, behavior = 'instant' } = {}) {
     const top = stepScrollTop(step, offset, progress);
-    window.scrollTo({ top, behavior });
+    window.scrollTo({ top, behavior: behavior });
     return top;
 }
 export function measureStepProgress(steps, offset = 0.55, config = {}) {
@@ -102,29 +89,17 @@ export function measureStepProgress(steps, offset = 0.55, config = {}) {
     const offsetPx = resolveOffset(offset);
     let index = 0;
     steps.forEach((step, stepIndex) => {
-        const rect = step.getBoundingClientRect();
-        if (rect.top <= offsetPx)
+        if (step.getBoundingClientRect().top <= offsetPx)
             index = stepIndex;
     });
-    if (isAtDocumentBottom()) {
-        return {
-            index: steps.length - 1,
-            progress: 1
-        };
-    }
-    if (window.scrollY <= 0) {
-        return {
-            index: 0,
-            progress: 0
-        };
-    }
+    if (isAtDocumentBottom())
+        return { index: steps.length - 1, progress: 1 };
+    if (window.scrollY <= 0)
+        return { index: 0, progress: 0 };
     const rect = steps[index].getBoundingClientRect();
     const span = Math.max(1, rect.height);
     const raw = (offsetPx - rect.top) / span;
-    return {
-        index,
-        progress: config.clamp === false ? raw : clamp(raw, 0, 1)
-    };
+    return { index, progress: config.clamp === false ? raw : clamp(raw, 0, 1) };
 }
 function stepScrollTop(step, offset, progress) {
     const rect = step.getBoundingClientRect();
@@ -134,14 +109,14 @@ function stepScrollTop(step, offset, progress) {
     return clamp(top, 0, Math.max(0, maxScroll));
 }
 function resolveOffset(offset) {
-    if (typeof offset === "number") {
+    if (typeof offset === 'number') {
         return offset <= 1 ? window.innerHeight * offset : offset;
     }
-    if (typeof offset === "string") {
+    if (typeof offset === 'string') {
         const value = Number.parseFloat(offset);
-        if (offset.endsWith("px"))
+        if (offset.endsWith('px'))
             return Number.isFinite(value) ? value : window.innerHeight * 0.55;
-        if (offset.endsWith("%"))
+        if (offset.endsWith('%'))
             return Number.isFinite(value) ? window.innerHeight * (value / 100) : window.innerHeight * 0.55;
     }
     return window.innerHeight * 0.55;

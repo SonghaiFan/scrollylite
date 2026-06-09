@@ -1,7 +1,7 @@
-export function uniqueTokens(values?: any[]): any[];
-export function asArray(value: any): any[];
-export function cloneSpec(spec: any): any;
-export function dash(value: any): string;
-export function titleize(value: any): any;
-export function escapeHtml(value: any): any;
-export function clamp(value: any, min: any, max: any): number;
+export declare function uniqueTokens(values: unknown[]): string[];
+export declare function asArray<T>(value: T | T[] | null | undefined): T[];
+export declare function cloneSpec<T>(spec: T): T;
+export declare function dash(value: unknown): string;
+export declare function titleize(value: unknown): string;
+export declare function escapeHtml(value: unknown): string;
+export declare function clamp(value: number, min: number, max: number): number;

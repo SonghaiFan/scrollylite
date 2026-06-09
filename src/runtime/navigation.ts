@@ -1,89 +1,142 @@
-import { createScrollDriver } from "../scroll-drivers/index.js";
-import { hasScrollAction } from "./actions.js";
+import { createScrollDriver } from '../scroll-drivers/index.js';
+import type { ScrollConfig, ScrollEvent } from '../scroll-drivers/index.js';
+import { hasScrollAction } from './actions.js';
 
-export function setupScroll(spec, shell, renderer) {
+interface ShellStoryElement extends HTMLElement {
+  __scrollyLiteScrollDriver?: ScrollDriver;
+  __scrollyLiteNavTimers?: ReturnType<typeof setTimeout>[];
+  __scrollyLiteNavCleanups?: (() => void)[];
+}
+
+interface Shell {
+  story: ShellStoryElement;
+  steps: HTMLElement[];
+  navButtons: HTMLElement[];
+}
+
+interface Renderer {
+  action(event: Record<string, unknown>): void;
+  resize(): void;
+  cancelScrollProgress?(): void;
+}
+
+interface ScrollDriver {
+  resize?(): void;
+  scrollToStep?(index: number): number | null;
+  refresh?(): void;
+}
+
+export function setupScroll(
+  spec: { layout: { offset?: number; threshold?: number; scroll?: unknown } },
+  shell: Shell,
+  renderer: Renderer
+): ScrollDriver {
   const driver = createScrollDriver({
     steps: shell.steps,
     offset: spec.layout.offset,
     threshold: spec.layout.threshold || 4,
-    config: spec.layout.scroll,
+    config: spec.layout.scroll as ScrollConfig | boolean | string,
     isLocked: () => isNavigationLocked(shell),
-    onEnter: ({ index, direction }) => {
+    onEnter: ({ index, direction }: ScrollEvent) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.action({ type: "enter", step: index, direction });
+      renderer.action({ type: 'enter', step: index, direction });
     },
-    onExit: ({ index, direction }) => {
+    onExit: ({ index, direction }: ScrollEvent) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.action({ type: "exit", step: index, value: direction === "down" ? 1 : 0, direction });
+      renderer.action({ type: 'exit', step: index, value: direction === 'down' ? 1 : 0, direction });
     },
-    onProgress: ({ index, progress, direction }) => {
+    onProgress: ({ index, progress, direction }: ScrollEvent) => {
       if (!shouldAcceptScrollEvent(shell, index)) return;
-      renderer.action({ type: "progress", step: index, value: progress, direction });
+      renderer.action({ type: 'progress', step: index, value: progress, direction });
     }
-  });
+  }) as ScrollDriver;
 
-  shell.story.dataset.scrollDriver = "native";
+  shell.story.dataset.scrollDriver = 'native';
   shell.story.__scrollyLiteScrollDriver = driver;
   return driver;
 }
 
-export function setupNav(shell, renderer, scrollDriver) {
+export function setupNav(
+  shell: Shell,
+  renderer: Renderer,
+  scrollDriver: ScrollDriver
+): void {
   shell.navButtons.forEach((button, index) => {
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       lockRenderStep(shell, renderer, scrollDriver, index);
     });
   });
 }
 
-export function setupResize(renderer, scrollDriver) {
+export function setupResize(renderer: Renderer, scrollDriver: ScrollDriver): () => void {
   const resize = () => {
     renderer.resize();
     scrollDriver?.resize?.();
   };
-  window.addEventListener("resize", resize);
-  return () => window.removeEventListener("resize", resize);
+  window.addEventListener('resize', resize);
+  return () => window.removeEventListener('resize', resize);
 }
 
-export function restoreHashPosition(shell, renderer, scrollDriver) {
+export function restoreHashPosition(
+  shell: Shell,
+  renderer: Renderer,
+  scrollDriver: ScrollDriver
+): void {
   if (!window.location.hash) return;
   window.requestAnimationFrame(() => {
     const target = document.querySelector(window.location.hash);
     if (!target) return;
     const index = Number((target as HTMLElement).dataset.stepIndex);
-    if (Number.isFinite(index)) lockRenderStep(shell, renderer, scrollDriver, index, target);
+    if (Number.isFinite(index)) lockRenderStep(shell, renderer, scrollDriver, index, target as HTMLElement);
   });
 }
 
-function shouldAcceptScrollEvent(shell, index) {
+// ─── Internal ─────────────────────────────────────────────────────────────────
+
+function shouldAcceptScrollEvent(shell: Shell, index: number): boolean {
   const navTargetIndex = shell.story.dataset.navTargetIndex;
   return !navTargetIndex || Number(navTargetIndex) === index;
 }
 
-function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null) {
+function lockRenderStep(
+  shell: Shell,
+  renderer: Renderer,
+  scrollDriver: ScrollDriver,
+  index: number,
+  targetStep: HTMLElement | null = null
+): void {
   const step = targetStep || shell.steps[index];
   if (!step || !shell.story) return;
   const token = beginNavigationLock(shell, renderer, index);
-  let targetTop = null;
+  let targetTop: number | null = null;
   if (scrollDriver?.scrollToStep) {
     targetTop = scrollDriver.scrollToStep(index);
   } else {
-    step.scrollIntoView({ behavior: "instant", block: "center" });
+    step.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'center' });
   }
-  renderer.action({ type: "click", step: index, ...navigationRenderOptions(step) });
+  renderer.action({ type: 'click', step: index, ...navigationRenderOptions(step) });
   waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step);
 }
 
-function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step) {
+function waitForNavigationScroll(
+  shell: Shell,
+  renderer: Renderer,
+  scrollDriver: ScrollDriver,
+  index: number,
+  token: string,
+  targetTop: number | null,
+  step: HTMLElement
+): void {
   const maxWait = 1800;
   const tolerance = 2;
   const start = performance.now();
-  let frame = null;
+  let frame: number | null = null;
   let cancelled = false;
 
   const finish = () => {
     if (cancelled || !isCurrentNavigation(shell, token)) return;
     if (hasScrollAction(step)) {
-      renderer.action({ type: "click", step: index, ...navigationRenderOptions(step) });
+      renderer.action({ type: 'click', step: index, ...navigationRenderOptions(step) });
     }
     endNavigationLock(shell, token);
     scrollDriver?.refresh?.();
@@ -92,35 +145,27 @@ function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, ta
   const tick = () => {
     frame = null;
     if (cancelled || !isCurrentNavigation(shell, token)) return;
-
     const reached = Number.isFinite(targetTop)
-      ? Math.abs(window.scrollY - targetTop) <= tolerance
+      ? Math.abs(window.scrollY - (targetTop as number)) <= tolerance
       : true;
     const timedOut = performance.now() - start >= maxWait;
-
-    if (reached || timedOut) {
-      finish();
-      return;
-    }
-
+    if (reached || timedOut) { finish(); return; }
     frame = window.requestAnimationFrame(tick);
   };
 
   addNavigationCleanup(shell, () => {
     cancelled = true;
-    if (frame) window.cancelAnimationFrame(frame);
+    if (frame !== null) window.cancelAnimationFrame(frame);
   });
 
   frame = window.requestAnimationFrame(tick);
 }
 
-function navigationRenderOptions(step) {
-  return hasScrollAction(step)
-    ? { force: true, scrollProgress: 1 }
-    : { force: true };
+function navigationRenderOptions(step: HTMLElement): Record<string, unknown> {
+  return hasScrollAction(step) ? { force: true, scrollProgress: 1 } : { force: true };
 }
 
-function beginNavigationLock(shell, renderer, index) {
+function beginNavigationLock(shell: Shell, renderer: Renderer, index: number): string {
   clearNavigationTimers(shell);
   renderer.cancelScrollProgress?.();
   const token = String((Number(shell.story.dataset.navLockToken) || 0) + 1);
@@ -129,32 +174,32 @@ function beginNavigationLock(shell, renderer, index) {
   return token;
 }
 
-function endNavigationLock(shell, token) {
+function endNavigationLock(shell: Shell, token: string): void {
   if (!isCurrentNavigation(shell, token)) return;
   delete shell.story.dataset.navTargetIndex;
   delete shell.story.dataset.navLockToken;
   clearNavigationTimers(shell);
 }
 
-function isNavigationLocked(shell) {
+function isNavigationLocked(shell: Shell): boolean {
   return Boolean(shell.story?.dataset.navLockToken);
 }
 
-function isCurrentNavigation(shell, token) {
+function isCurrentNavigation(shell: Shell, token: string): boolean {
   return shell.story?.dataset.navLockToken === token;
 }
 
-function clearNavigationTimers(shell) {
-  const timers = shell.story.__scrollyLiteNavTimers || [];
-  timers.forEach((timer) => window.clearTimeout(timer));
+function clearNavigationTimers(shell: Shell): void {
+  const timers = shell.story.__scrollyLiteNavTimers ?? [];
+  timers.forEach((t) => window.clearTimeout(t));
   shell.story.__scrollyLiteNavTimers = [];
-  const cleanups = shell.story.__scrollyLiteNavCleanups || [];
-  cleanups.forEach((cleanup) => cleanup());
+  const cleanups = shell.story.__scrollyLiteNavCleanups ?? [];
+  cleanups.forEach((c) => c());
   shell.story.__scrollyLiteNavCleanups = [];
 }
 
-function addNavigationCleanup(shell, cleanup) {
-  const cleanups = shell.story.__scrollyLiteNavCleanups || [];
+function addNavigationCleanup(shell: Shell, cleanup: () => void): void {
+  const cleanups = shell.story.__scrollyLiteNavCleanups ?? [];
   cleanups.push(cleanup);
   shell.story.__scrollyLiteNavCleanups = cleanups;
 }

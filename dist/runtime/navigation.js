@@ -1,5 +1,5 @@
-import { createScrollDriver } from "../scroll-drivers/index.js";
-import { hasScrollAction } from "./actions.js";
+import { createScrollDriver } from '../scroll-drivers/index.js';
+import { hasScrollAction } from './actions.js';
 export function setupScroll(spec, shell, renderer) {
     const driver = createScrollDriver({
         steps: shell.steps,
@@ -10,26 +10,26 @@ export function setupScroll(spec, shell, renderer) {
         onEnter: ({ index, direction }) => {
             if (!shouldAcceptScrollEvent(shell, index))
                 return;
-            renderer.action({ type: "enter", step: index, direction });
+            renderer.action({ type: 'enter', step: index, direction });
         },
         onExit: ({ index, direction }) => {
             if (!shouldAcceptScrollEvent(shell, index))
                 return;
-            renderer.action({ type: "exit", step: index, value: direction === "down" ? 1 : 0, direction });
+            renderer.action({ type: 'exit', step: index, value: direction === 'down' ? 1 : 0, direction });
         },
         onProgress: ({ index, progress, direction }) => {
             if (!shouldAcceptScrollEvent(shell, index))
                 return;
-            renderer.action({ type: "progress", step: index, value: progress, direction });
+            renderer.action({ type: 'progress', step: index, value: progress, direction });
         }
     });
-    shell.story.dataset.scrollDriver = "native";
+    shell.story.dataset.scrollDriver = 'native';
     shell.story.__scrollyLiteScrollDriver = driver;
     return driver;
 }
 export function setupNav(shell, renderer, scrollDriver) {
     shell.navButtons.forEach((button, index) => {
-        button.addEventListener("click", () => {
+        button.addEventListener('click', () => {
             lockRenderStep(shell, renderer, scrollDriver, index);
         });
     });
@@ -39,8 +39,8 @@ export function setupResize(renderer, scrollDriver) {
         renderer.resize();
         scrollDriver?.resize?.();
     };
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
 }
 export function restoreHashPosition(shell, renderer, scrollDriver) {
     if (!window.location.hash)
@@ -54,6 +54,7 @@ export function restoreHashPosition(shell, renderer, scrollDriver) {
             lockRenderStep(shell, renderer, scrollDriver, index, target);
     });
 }
+// ─── Internal ─────────────────────────────────────────────────────────────────
 function shouldAcceptScrollEvent(shell, index) {
     const navTargetIndex = shell.story.dataset.navTargetIndex;
     return !navTargetIndex || Number(navTargetIndex) === index;
@@ -68,9 +69,9 @@ function lockRenderStep(shell, renderer, scrollDriver, index, targetStep = null)
         targetTop = scrollDriver.scrollToStep(index);
     }
     else {
-        step.scrollIntoView({ behavior: "instant", block: "center" });
+        step.scrollIntoView({ behavior: 'instant', block: 'center' });
     }
-    renderer.action({ type: "click", step: index, ...navigationRenderOptions(step) });
+    renderer.action({ type: 'click', step: index, ...navigationRenderOptions(step) });
     waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step);
 }
 function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, targetTop, step) {
@@ -83,7 +84,7 @@ function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, ta
         if (cancelled || !isCurrentNavigation(shell, token))
             return;
         if (hasScrollAction(step)) {
-            renderer.action({ type: "click", step: index, ...navigationRenderOptions(step) });
+            renderer.action({ type: 'click', step: index, ...navigationRenderOptions(step) });
         }
         endNavigationLock(shell, token);
         scrollDriver?.refresh?.();
@@ -104,15 +105,13 @@ function waitForNavigationScroll(shell, renderer, scrollDriver, index, token, ta
     };
     addNavigationCleanup(shell, () => {
         cancelled = true;
-        if (frame)
+        if (frame !== null)
             window.cancelAnimationFrame(frame);
     });
     frame = window.requestAnimationFrame(tick);
 }
 function navigationRenderOptions(step) {
-    return hasScrollAction(step)
-        ? { force: true, scrollProgress: 1 }
-        : { force: true };
+    return hasScrollAction(step) ? { force: true, scrollProgress: 1 } : { force: true };
 }
 function beginNavigationLock(shell, renderer, index) {
     clearNavigationTimers(shell);
@@ -136,15 +135,15 @@ function isCurrentNavigation(shell, token) {
     return shell.story?.dataset.navLockToken === token;
 }
 function clearNavigationTimers(shell) {
-    const timers = shell.story.__scrollyLiteNavTimers || [];
-    timers.forEach((timer) => window.clearTimeout(timer));
+    const timers = shell.story.__scrollyLiteNavTimers ?? [];
+    timers.forEach((t) => window.clearTimeout(t));
     shell.story.__scrollyLiteNavTimers = [];
-    const cleanups = shell.story.__scrollyLiteNavCleanups || [];
-    cleanups.forEach((cleanup) => cleanup());
+    const cleanups = shell.story.__scrollyLiteNavCleanups ?? [];
+    cleanups.forEach((c) => c());
     shell.story.__scrollyLiteNavCleanups = [];
 }
 function addNavigationCleanup(shell, cleanup) {
-    const cleanups = shell.story.__scrollyLiteNavCleanups || [];
+    const cleanups = shell.story.__scrollyLiteNavCleanups ?? [];
     cleanups.push(cleanup);
     shell.story.__scrollyLiteNavCleanups = cleanups;
 }

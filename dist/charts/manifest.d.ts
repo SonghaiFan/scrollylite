@@ -1,2 +1,4 @@
-export const chartModules: (typeof bar)[];
-import * as bar from "./bar/plugin.js";
+import type { ChartPlugin } from '../types/index.js';
+export declare const chartModules: Array<{
+    plugin: ChartPlugin<any>;
+}>;

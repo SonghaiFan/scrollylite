@@ -1,14 +1,15 @@
-import { narrativeState } from "../../scrolly-meta.js";
+// @ts-nocheck — D3 rendering pattern; typed via deps injection
+import { narrativeState } from '../../scrolly-meta.js';
 export function createBarRenderKit(deps) {
     const { easeFor, staggerDelay } = deps;
     function updateStage(chart, rendererOrientation, d3) {
         const update = chart.transitionPlan?.update;
-        if (update?.mode !== "staged")
+        if (update?.mode !== 'staged')
             return null;
         if (update.target?.renderer !== rendererOrientation)
             return null;
         const stages = Array.isArray(update.stages)
-            ? update.stages.filter((stage) => stage.axis === "x" || stage.axis === "y")
+            ? update.stages.filter((stage) => stage.axis === 'x' || stage.axis === 'y')
             : [];
         if (!stages.length)
             return null;
@@ -33,10 +34,7 @@ export function createBarRenderKit(deps) {
                     .duration(stage.duration)
                     .ease(stage.ease)
                     .delay((d, i) => staggerDelay(spec, d, i, stage.stagger))
-                : current
-                    .transition()
-                    .duration(stage.duration)
-                    .ease(stage.ease);
+                : current.transition().duration(stage.duration).ease(stage.ease);
             if (index === 0 && baseAttrs)
                 baseAttrs(current);
             applyDimension(current);
@@ -49,8 +47,7 @@ export function createBarRenderKit(deps) {
         const index = stage.stages.findIndex((step) => step.axis === axis);
         if (index < 0)
             return null;
-        return d3
-            .transition(stage.transitionName)
+        return d3.transition(stage.transitionName)
             .duration(stage.duration)
             .ease(stage.ease)
             .delay(index * stage.duration);
@@ -69,54 +66,42 @@ export function createBarRenderKit(deps) {
         updateStage
     };
     function renderBarJoin(options) {
-        const { chart, rows, spec, tooltip, d3, bindTooltip, key, category, className, orientation, rx = 3, fill, geometry, startGeometry = geometry?.start, targetGeometry = geometry?.target, updatePlan, dimensions = geometry
-            ? {
-                x: geometry.applyX,
-                y: geometry.applyY
-            }
-            : undefined, applyGeometry = geometry?.apply, exitGeometry = geometry?.exit } = options;
-        chart.g
-            .selectAll("rect.sl-bar")
+        const { chart, rows, spec, tooltip, d3, bindTooltip, key, category, className, orientation, rx = 3, fill, geometry, startGeometry = geometry?.start, targetGeometry = geometry?.target, updatePlan, dimensions = geometry ? { x: geometry.applyX, y: geometry.applyY } : undefined, applyGeometry = geometry?.apply, exitGeometry = geometry?.exit } = options;
+        chart.g.selectAll('rect.sl-bar')
             .data(rows, key)
             .join((enter) => enter
-            .append("rect")
-            .attr("class", className)
-            .attr("data-orientation", orientation)
+            .append('rect')
+            .attr('class', className)
+            .attr('data-orientation', orientation)
             .call(options.applyIdentity, spec, key, category)
-            .attr("rx", rx)
-            .attr("fill", fill)
-            .style("opacity", 0)
+            .attr('rx', rx)
+            .attr('fill', fill)
+            .style('opacity', 0)
             .call(bindTooltip, spec, tooltip)
-            .each(function (d) {
-            setRectGeometry(d3.select(this), startGeometry(d));
-        })
+            .each(function (d) { setRectGeometry(d3.select(this), startGeometry(d)); })
             .transition(chart.transition.base)
             .delay((d, i) => staggerDelay(spec, d, i))
-            .style("opacity", (d) => barFocusOpacity(d, spec))
-            .attr("x", targetGeometry.x)
-            .attr("y", targetGeometry.y)
-            .attr("width", targetGeometry.width)
-            .attr("height", targetGeometry.height), (update) => {
+            .style('opacity', (d) => barFocusOpacity(d, spec))
+            .attr('x', targetGeometry.x)
+            .attr('y', targetGeometry.y)
+            .attr('width', targetGeometry.width)
+            .attr('height', targetGeometry.height), (update) => {
             const prepared = update
-                .attr("class", className)
-                .attr("data-orientation", orientation)
+                .attr('class', className)
+                .attr('data-orientation', orientation)
                 .call(options.applyIdentity, spec, key, category)
                 .call(bindTooltip, spec, tooltip);
             if (updatePlan) {
-                return stagedUpdate(prepared, updatePlan, spec, dimensions, (selection) => selection
-                    .style("opacity", (d) => barFocusOpacity(d, spec))
-                    .attr("fill", fill));
+                return stagedUpdate(prepared, updatePlan, spec, dimensions, (selection) => selection.style('opacity', (d) => barFocusOpacity(d, spec)).attr('fill', fill));
             }
             return prepared
                 .transition(chart.transition.base)
                 .delay((d, i) => staggerDelay(spec, d, i))
-                .style("opacity", (d) => barFocusOpacity(d, spec))
+                .style('opacity', (d) => barFocusOpacity(d, spec))
                 .call(applyGeometry)
-                .attr("fill", fill);
+                .attr('fill', fill);
         }, (exit) => {
-            const leaving = exit
-                .transition(chart.transition.base)
-                .style("opacity", 0);
+            const leaving = exit.transition(chart.transition.base).style('opacity', 0);
             if (exitGeometry)
                 exitGeometry(leaving);
             return leaving.remove();
@@ -126,18 +111,17 @@ export function createBarRenderKit(deps) {
 export function setRectGeometry(selection, geometry) {
     const rect = geometry || {};
     selection
-        .attr("x", rect.x)
-        .attr("y", rect.y)
-        .attr("width", Math.max(0, rect.width))
-        .attr("height", Math.max(0, rect.height));
+        .attr('x', rect.x)
+        .attr('y', rect.y)
+        .attr('width', Math.max(0, rect.width))
+        .attr('height', Math.max(0, rect.height));
 }
 export function collapseLineage(chart, parentField) {
     const enterPlan = chart.transitionPlan?.enter;
-    if (enterPlan?.mode !== "parent-child-lineage" || enterPlan.from !== "child-bounds" || !parentField) {
+    if (enterPlan?.mode !== 'parent-child-lineage' || enterPlan.from !== 'child-bounds' || !parentField)
         return null;
-    }
     const bounds = new Map();
-    chart.g.selectAll("rect.sl-bar").each(function () {
+    chart.g.selectAll('rect.sl-bar').each(function () {
         const node = this;
         const parent = node.dataset.category || parentFromChildKey(node.dataset.key);
         const box = rectGeometry(node);
@@ -148,19 +132,14 @@ export function collapseLineage(chart, parentField) {
     });
     if (!bounds.size)
         return null;
-    return {
-        start(d) {
-            return bounds.get(String(d[parentField])) || null;
-        }
-    };
+    return { start(d) { return bounds.get(String(d[parentField])) || null; } };
 }
 export function splitLineage(chart, parentField) {
     const enterPlan = chart.transitionPlan?.enter;
-    if (enterPlan?.mode !== "parent-child-lineage" || enterPlan.from !== "parent-bounds" || !parentField) {
+    if (enterPlan?.mode !== 'parent-child-lineage' || enterPlan.from !== 'parent-bounds' || !parentField)
         return null;
-    }
     const bounds = new Map();
-    chart.g.selectAll("rect.sl-bar:not(.sl-bar-segment)").each(function () {
+    chart.g.selectAll('rect.sl-bar:not(.sl-bar-segment)').each(function () {
         const node = this;
         const parent = node.dataset.category || node.dataset.key;
         const box = rectGeometry(node);
@@ -170,78 +149,66 @@ export function splitLineage(chart, parentField) {
     });
     if (!bounds.size)
         return null;
-    return {
-        start(d) {
-            return bounds.get(String(d[parentField])) || null;
-        }
-    };
+    return { start(d) { return bounds.get(String(d[parentField])) || null; } };
 }
 export function baselineEnterPlan(chart, from) {
     const enterPlan = chart.transitionPlan?.enter;
-    return enterPlan?.mode === "baseline" && enterPlan.from === from ? enterPlan : null;
+    return enterPlan?.mode === 'baseline' && enterPlan.from === from ? enterPlan : null;
 }
 export function baselineExitPlan(chart, to) {
     const exitPlan = chart.transitionPlan?.exit;
-    return exitPlan?.mode === "baseline" && exitPlan.to === to ? exitPlan : null;
+    return exitPlan?.mode === 'baseline' && exitPlan.to === to ? exitPlan : null;
 }
 export function sourceBaselineExit(selection, { horizontal = false, plan = null, value = null } = {}) {
     return selection
-        .attr("x", function (d) {
+        .attr('x', function (d) {
         const rect = currentRect(this);
         const sourceHorizontal = sourceRectIsHorizontal(this, plan, horizontal);
         if (!sourceHorizontal)
             return rect.x;
         return sourceValue(d, value) < 0 ? rect.x + rect.width : rect.x;
     })
-        .attr("width", function () {
-        return sourceRectIsHorizontal(this, plan, horizontal) ? 0 : currentRect(this).width;
-    })
-        .attr("y", function (d) {
+        .attr('width', function () { return sourceRectIsHorizontal(this, plan, horizontal) ? 0 : currentRect(this).width; })
+        .attr('y', function (d) {
         const rect = currentRect(this);
         const sourceHorizontal = sourceRectIsHorizontal(this, plan, horizontal);
         if (sourceHorizontal)
             return rect.y;
         return sourceValue(d, value) < 0 ? rect.y : rect.y + rect.height;
     })
-        .attr("height", function () {
-        return sourceRectIsHorizontal(this, plan, horizontal) ? currentRect(this).height : 0;
-    });
+        .attr('height', function () { return sourceRectIsHorizontal(this, plan, horizontal) ? currentRect(this).height : 0; });
 }
 function currentRect(node) {
     return {
-        x: Number(node.getAttribute("x")) || 0,
-        y: Number(node.getAttribute("y")) || 0,
-        width: Number(node.getAttribute("width")) || 0,
-        height: Number(node.getAttribute("height")) || 0
+        x: Number(node.getAttribute('x')) || 0,
+        y: Number(node.getAttribute('y')) || 0,
+        width: Number(node.getAttribute('width')) || 0,
+        height: Number(node.getAttribute('height')) || 0
     };
 }
 function sourceRectIsHorizontal(node, plan, fallbackHorizontal) {
-    const orientation = String(node.getAttribute("data-orientation") || plan?.sourceOrientation || "");
-    if (orientation.includes("horizontal"))
+    const orientation = String(node.getAttribute('data-orientation') || plan?.sourceOrientation || '');
+    if (orientation.includes('horizontal'))
         return true;
-    if (orientation.includes("vertical"))
+    if (orientation.includes('vertical'))
         return false;
     return fallbackHorizontal;
 }
 function sourceValue(d, value) {
-    if (typeof value !== "function")
+    if (typeof value !== 'function')
         return 1;
     const resolved = Number(value(d));
     return Number.isFinite(resolved) ? resolved : 1;
 }
 export function barFocusOpacity(row, spec = {}) {
     const focus = narrativeState(spec).sceneState?.focus || narrativeState(spec).focus || null;
-    if (focus?.mode !== "highlight" || !focus.filter)
+    if (focus?.mode !== 'highlight' || !focus.filter)
         return 1;
-    return rowMatchesFilter(row?.__row || row, focus.filter)
-        ? 1
-        : Number(focus.opacity ?? 0.22);
+    return rowMatchesFilter(row?.__row || row, focus.filter) ? 1 : Number(focus.opacity ?? 0.22);
 }
 function rectGeometry(node) {
-    const x = rectNumber(node, "x");
-    const y = rectNumber(node, "y");
-    const width = rectNumber(node, "width");
-    const height = rectNumber(node, "height");
+    const x = rectNumber(node, 'x'), y = rectNumber(node, 'y');
+    const width = rectNumber(node, 'width'), height = rectNumber(node, 'height');
     if (![x, y, width, height].every(Number.isFinite))
         return null;
     return { x, y, width, height };
@@ -251,37 +218,31 @@ function rectNumber(node, attr) {
     return Number.isFinite(value) ? value : NaN;
 }
 function unionRect(a, b) {
-    const x0 = Math.min(a.x, b.x);
-    const y0 = Math.min(a.y, b.y);
+    const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
     const x1 = Math.max(a.x + a.width, b.x + b.width);
     const y1 = Math.max(a.y + a.height, b.y + b.height);
-    return {
-        x: x0,
-        y: y0,
-        width: x1 - x0,
-        height: y1 - y0
-    };
+    return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
 }
-function parentFromChildKey(key = "") {
-    return String(key).includes("|") ? String(key).split("|")[0] : null;
+function parentFromChildKey(key = '') {
+    return String(key).includes('|') ? String(key).split('|')[0] : null;
 }
 function rowMatchesFilter(row = {}, filter = {}) {
     if (!filter?.field)
         return true;
     const value = row[filter.field];
-    if ("equal" in filter)
+    if ('equal' in filter)
         return value === filter.equal;
-    if ("notEqual" in filter)
+    if ('notEqual' in filter)
         return value !== filter.notEqual;
-    if ("oneOf" in filter)
+    if ('oneOf' in filter)
         return filter.oneOf.includes(value);
-    if ("gte" in filter && value < filter.gte)
+    if ('gte' in filter && value < filter.gte)
         return false;
-    if ("gt" in filter && value <= filter.gt)
+    if ('gt' in filter && value <= filter.gt)
         return false;
-    if ("lte" in filter && value > filter.lte)
+    if ('lte' in filter && value > filter.lte)
         return false;
-    if ("lt" in filter && value >= filter.lt)
+    if ('lt' in filter && value >= filter.lt)
         return false;
     return true;
 }

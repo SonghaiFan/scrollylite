@@ -2,7 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDemoSpec, availableStories } from "../examples/weather/specs/demo.js";
-import { compileSpec } from "../src/runtime/spec.js";
+import { compileSpec } from "../dist/runtime/spec.js";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const exampleDir = join(root, "examples", "weather");

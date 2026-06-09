@@ -1,25 +1,17 @@
-import { narrativeState } from "../../scrolly-meta.js";
-import { barCategoryChannel, barMeasureChannel, barOrientationFromEncoding, isSegmentLayout } from "./layout/index.js";
-export function semanticBarState(spec = {}, semanticState = null) {
-    const enc = spec.encoding || {};
-    const state = semanticState || semanticStateFromSpec(spec);
+import { narrativeState } from '../../scrolly-meta.js';
+import { barCategoryChannel, barMeasureChannel, barOrientationFromEncoding, isSegmentLayout } from './layout/index.js';
+export function semanticBarState(spec, semanticStateArg = null) {
+    const enc = (spec.encoding ?? {});
+    const state = semanticStateArg ?? semanticStateFromSpec(spec);
     const aggregate = barAggregateState(spec);
     const layout = barLayoutState(spec, state, aggregate);
     const orientation = barOrientationFromEncoding(enc);
-    const categoryField = barCategoryChannel(enc)?.field;
-    const measureField = barMeasureChannel(enc)?.field;
+    const categoryField = barCategoryChannel(enc).field ?? null;
+    const measureField = barMeasureChannel(enc).field ?? null;
     const segmentField = barSegmentField(spec, state);
     const guide = barGuideState({ orientation, layout, state });
     const granularity = barGranularityState({ layout, categoryField, measureField, segmentField, state });
-    const geometry = barGeometryState({
-        enc,
-        filters: state.filters,
-        layout,
-        orientation,
-        categoryField,
-        measureField,
-        segmentField
-    });
+    const geometry = barGeometryState({ enc, filters: resolveFilters(spec, state), layout, orientation, categoryField, measureField, segmentField });
     return {
         orientation,
         layout,
@@ -33,107 +25,105 @@ export function semanticBarState(spec = {}, semanticState = null) {
         yGeometry: geometry.y
     };
 }
-export function barLayoutState(spec = {}, state = semanticStateFromSpec(spec), aggregate = barAggregateState(spec)) {
-    const enc = spec.encoding || {};
-    const stateLayout = state.sceneState?.guide?.layout ||
-        state.sceneState?.granularity?.layout ||
-        state.guide?.layout ||
+export function barLayoutState(spec, state = semanticStateFromSpec(spec), aggregate = barAggregateState(spec)) {
+    const enc = (spec.encoding ?? {});
+    const sceneState = state.sceneState ?? {};
+    const stateLayout = sceneState.guide?.layout ??
+        sceneState.granularity?.layout ??
+        state.guide?.layout ??
         state.granularity?.layout;
     if (stateLayout)
         return stateLayout;
     if (enc.xOffset?.field || enc.yOffset?.field)
-        return "grouped";
+        return 'grouped';
     if (enc.color?.field && aggregate)
-        return "stacked";
-    return "simple";
+        return 'stacked';
+    return 'simple';
 }
 export function barGuideState({ orientation, layout, state = {} }) {
-    const explicit = state.sceneState?.guide || state.guide;
+    const sceneState = state.sceneState ?? {};
+    const explicit = sceneState.guide ?? state.guide;
     if (explicit)
         return explicit;
-    if (orientation === "horizontal") {
-        return {
-            orientation,
-            staging: { order: ["y", "x"] }
-        };
+    if (orientation === 'horizontal') {
+        return { orientation, staging: { order: ['y', 'x'] } };
     }
-    if (layout === "grouped") {
-        return {
-            layout,
-            staging: { order: ["x", "y"] }
-        };
+    if (layout === 'grouped') {
+        return { layout, staging: { order: ['x', 'y'] } };
     }
     return null;
 }
 export function barGranularityState({ layout, categoryField, measureField, segmentField, state = {} }) {
-    const explicit = state.sceneState?.granularity || state.granularity;
+    const sceneState = state.sceneState ?? {};
+    const explicit = sceneState.granularity ?? state.granularity;
     if (explicit)
         return explicit;
     if (!isSegmentLayout(layout) || !segmentField)
         return null;
     return {
         layout,
-        categoryField: categoryField || null,
+        categoryField: categoryField ?? null,
         segmentField,
-        valueField: measureField || null
+        valueField: measureField ?? null
     };
 }
-export function barAggregateState(spec = {}) {
-    const aggregateTransforms = (spec.transform || [])
-        .filter((transform) => transform?.aggregate)
-        .map((transform) => transform.aggregate);
-    if (!aggregateTransforms.length)
+export function barAggregateState(spec) {
+    const transforms = (spec.transform ?? []);
+    const aggregates = transforms
+        .filter((t) => t.aggregate)
+        .map((t) => t.aggregate);
+    if (!aggregates.length)
         return null;
-    return aggregateTransforms.length === 1 ? aggregateTransforms[0] : aggregateTransforms;
+    return aggregates.length === 1 ? aggregates[0] : aggregates;
 }
-export function barSegmentField(spec = {}, state = semanticStateFromSpec(spec)) {
-    return (state.sceneState?.granularity?.segmentField ||
-        state.granularity?.segmentField ||
-        spec.encoding?.xOffset?.field ||
-        spec.encoding?.yOffset?.field ||
-        spec.encoding?.color?.field ||
+export function barSegmentField(spec, state = semanticStateFromSpec(spec)) {
+    const sceneState = state.sceneState ?? {};
+    return (sceneState.granularity?.segmentField ??
+        state.granularity?.segmentField ??
+        spec.encoding?.xOffset?.field ??
+        spec.encoding?.yOffset?.field ??
+        spec.encoding?.color?.field ??
         null);
 }
-function semanticStateFromSpec(spec = {}) {
+// ─── Internal ─────────────────────────────────────────────────────────────────
+function semanticStateFromSpec(spec) {
     const state = narrativeState(spec);
+    const transforms = (spec.transform ?? []);
     return {
         ...state,
         filters: [
             ...(spec.filter ? [spec.filter] : []),
-            ...(spec.transform || []).filter((transform) => transform?.filter).map((transform) => transform.filter)
+            ...transforms.filter((t) => t.filter).map((t) => t.filter)
         ]
     };
 }
+function resolveFilters(spec, state) {
+    const transforms = (spec.transform ?? []);
+    return [
+        ...(spec.filter ? [spec.filter] : []),
+        ...transforms.filter((t) => t.filter).map((t) => t.filter)
+    ];
+}
 function barGeometryState({ enc, filters, layout, orientation, categoryField, measureField, segmentField }) {
-    const category = {
-        role: "category",
-        field: categoryField || null,
-        filters
-    };
-    const measure = {
-        role: "measure",
-        field: measureField || null
-    };
+    const category = { role: 'category', field: categoryField, filters };
+    const measure = { role: 'measure', field: measureField };
     const segment = segmentField
-        ? {
-            field: segmentField,
-            color: channelSignature(enc.color)
-        }
+        ? { field: segmentField, color: channelSignature(enc.color) }
         : null;
-    if (orientation === "horizontal") {
+    if (orientation === 'horizontal') {
         return {
             x: {
                 orientation,
                 layout,
                 measure,
-                segment: layout === "stacked" ? segment : null,
+                segment: layout === 'stacked' ? segment : null,
                 channel: channelSignature(enc.x)
             },
             y: {
                 orientation,
                 layout,
                 category,
-                segment: layout === "grouped" ? segment : null,
+                segment: layout === 'grouped' ? segment : null,
                 channel: channelSignature(enc.y)
             }
         };
@@ -143,27 +133,27 @@ function barGeometryState({ enc, filters, layout, orientation, categoryField, me
             orientation,
             layout,
             category,
-            segment: layout === "grouped" ? segment : null,
+            segment: layout === 'grouped' ? segment : null,
             channel: channelSignature(enc.x)
         },
         y: {
             orientation,
             layout,
             measure,
-            segment: layout === "stacked" ? segment : null,
+            segment: layout === 'stacked' ? segment : null,
             channel: channelSignature(enc.y)
         }
     };
 }
 function channelSignature(channel = {}) {
     return {
-        field: channel.field || null,
-        title: channel.title || null,
-        type: channel.type || null,
-        aggregate: channel.aggregate || null,
-        domain: channel.domain || null,
-        scale: channel.scale || null,
-        sort: channel.sort || null,
-        bin: channel.bin || null
+        field: channel.field ?? null,
+        title: channel.title ?? null,
+        type: channel.type ?? null,
+        aggregate: typeof channel.aggregate === 'string' ? channel.aggregate : null,
+        domain: channel.domain ?? null,
+        scale: channel.scale ?? null,
+        sort: channel.sort ?? null,
+        bin: channel.bin ?? null
     };
 }
