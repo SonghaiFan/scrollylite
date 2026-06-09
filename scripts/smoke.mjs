@@ -30,12 +30,23 @@ const storySteps = Object.fromEntries(
     compileSpec(createDemoSpec({ storyId: id })).steps.length
   ])
 );
+const themeSpec = sourceApi.story()
+  .theme("./theme.css", { accent: "#b05d3b" })
+  .theme({ variables: { muted: "#777" } })
+  .data("rows", { values: [{ category: "A", value: 1 }] })
+  .step("Theme", sourceApi.bar("rows").x("category").y("value"))
+  .toSpec();
 
 const expected = ["bar", "line", "point", "unit"];
 assertSame(Object.keys(sourceApi).sort(), publicApi, "source public API");
 assertSame(Object.keys(distApi).sort(), publicApi, "dist public API");
 assertSame(registry.types(), expected, "chart idiom registry");
 assertSame(compilerKeys, expected, "spec compiler registry");
+assertSame(themeSpec.theme, {
+  href: "./theme.css",
+  accent: "#b05d3b",
+  variables: { muted: "#777" }
+}, "story theme builder");
 await assertRejects(
   () => sourceApi.createStory({ steps: [{ views: { main: { mark: "bar" } } }] }),
   "Pass { d3 } to createStory()",

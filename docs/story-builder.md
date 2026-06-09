@@ -81,6 +81,44 @@ you can call `.layout()` more than once to layer options. See
 [Layouts, Themes & Scrolling](./layouts-themes-and-scrolling.md) for every
 field `layout` accepts (presets, `offset`, `nav`, `progress`, `scroll`, …).
 
+## `.theme(themeOrHref, options?)`
+
+Configures the story's visual theme. Use a string when you want ScrollyLite to
+load a CSS file for this story:
+
+```js
+story()
+  .theme("./my-theme.css")
+```
+
+Use an object when you want a stylesheet plus CSS variable overrides:
+
+```js
+story()
+  .theme({
+    href: "./my-theme.css",
+    background: "#fafafa",
+    foreground: "#222",
+    accent: "#6b7280",
+    fontFamily: "Inter, sans-serif",
+    series: ["#4f5d68", "#747c84", "#8b8580"],
+    variables: {
+      surface: "#fff",
+      "--sl-step-gap": "42px"
+    }
+  })
+```
+
+The string shorthand also accepts overrides as the second argument:
+
+```js
+story().theme("./my-theme.css", { accent: "#6b7280" })
+```
+
+Each call merges into `spec.theme`, so you can layer defaults and local
+overrides. See [Layouts, Themes & Scrolling](./layouts-themes-and-scrolling.md#theming)
+for the full theme shape and loading behavior.
+
 ## `.view(idOrConfig, config?)`
 
 Registers named view(s):

@@ -1,18 +1,28 @@
 :root {
   color-scheme: light;
-  --sl-bg: #f7f7f5;
+  --sl-bg: #f8f8f7;
   --sl-surface: #ffffff;
-  --sl-fg: #202020;
-  --sl-muted: #6f6f6f;
-  --sl-border: #dddddd;
-  --sl-accent: #217a8a;
-  --sl-accent-2: #b05d3b;
-  --sl-grid: #ececec;
-  --sl-axis: #bdbdbd;
-  --sl-shadow: 0 10px 28px rgba(32, 32, 32, 0.08);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  --sl-fg: #1f2328;
+  --sl-muted: #66707a;
+  --sl-border: #dde1e6;
+  --sl-accent: #4f5d68;
+  --sl-accent-2: #767d84;
+  --sl-series-1: #4f5d68;
+  --sl-series-2: #747c84;
+  --sl-series-3: #8b8580;
+  --sl-series-4: #65737e;
+  --sl-series-5: #93979b;
+  --sl-series-6: #5f6972;
+  --sl-series-7: #a0a4a8;
+  --sl-series-8: #3f4852;
+  --sl-semantic-hot: #8a635b;
+  --sl-semantic-cold: #596d83;
+  --sl-grid: #eceff2;
+  --sl-axis: #aeb4bb;
+  --sl-shadow: 0 1px 2px rgba(31, 35, 40, 0.05);
+  --sl-font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--sl-font-family);
 }
 
 * {
@@ -38,10 +48,10 @@ body {
   justify-content: space-between;
   gap: 18px;
   padding: 10px 12px 10px 18px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--sl-border);
   border-radius: 8px;
-  box-shadow: 0 8px 22px rgba(32, 32, 32, 0.08);
+  box-shadow: var(--sl-shadow);
   transform: translateX(-50%);
   backdrop-filter: blur(14px);
 }
@@ -284,8 +294,8 @@ body {
   padding: 10px 12px;
   overflow: auto;
   overflow-wrap: anywhere;
-  color: #202020;
-  background: #f0f2f2;
+  color: var(--sl-fg);
+  background: #f3f4f5;
   border: 1px solid var(--sl-border);
   border-radius: 4px;
   font-size: 0.72rem;
@@ -329,10 +339,10 @@ body {
 
 .sl-figure-title {
   margin: 0;
-  color: #111111;
+  color: var(--sl-fg);
   font-size: clamp(1.12rem, 1.8vw, 1.42rem);
   line-height: 1.12;
-  font-weight: 800;
+  font-weight: 740;
   letter-spacing: 0;
 }
 
@@ -385,7 +395,7 @@ body {
 }
 
 .sl-bar-segment {
-  stroke: rgba(255, 255, 255, 0.9);
+  stroke: var(--sl-surface);
   stroke-width: 1px;
 }
 
@@ -409,7 +419,7 @@ body {
 
 .sl-guide-dot {
   fill: var(--sl-accent);
-  stroke: white;
+  stroke: var(--sl-surface);
   stroke-width: 2px;
 }
 
@@ -420,7 +430,7 @@ body {
   opacity: 0;
   max-width: 260px;
   padding: 10px 12px;
-  background: rgba(31, 41, 51, 0.94);
+  background: rgba(31, 35, 40, 0.94);
   color: white;
   border-radius: 6px;
   font-size: 0.82rem;
@@ -430,7 +440,7 @@ body {
 
 .sl-legend {
   font-size: 11.5px;
-  fill: #333333;
+  fill: var(--sl-muted);
   font-weight: 500;
 }
 
@@ -441,7 +451,7 @@ body {
   right: 0;
   height: 4px;
   z-index: 30;
-  background: rgba(31, 41, 51, 0.08);
+  background: rgba(31, 35, 40, 0.08);
 }
 
 .sl-progress-fill {
@@ -538,7 +548,7 @@ body {
   margin: auto;
   background: rgba(255, 255, 255, 0.96);
   border-color: var(--sl-border);
-  box-shadow: 0 12px 32px rgba(32, 32, 32, 0.08);
+  box-shadow: var(--sl-shadow);
   backdrop-filter: none;
 }
 
@@ -581,7 +591,7 @@ body {
   border: 1px solid var(--sl-border);
   border-left: 3px solid transparent;
   border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(32, 32, 32, 0.08);
+  box-shadow: var(--sl-shadow);
   backdrop-filter: none;
   pointer-events: auto;
 }
@@ -592,7 +602,7 @@ body {
   border: 1px solid var(--sl-border);
   border-right: 3px solid var(--sl-accent);
   border-radius: 4px;
-  box-shadow: 0 6px 18px rgba(32, 32, 32, 0.06);
+  box-shadow: var(--sl-shadow);
   pointer-events: auto;
 }
 
@@ -632,7 +642,7 @@ body {
   width: 100%;
   height: 1px;
   margin-bottom: 14px;
-  background: #d8e8ea;
+  background: var(--sl-border);
 }
 
 @media (max-width: 880px) {

@@ -154,19 +154,18 @@ fine-tune exactly how a given change will animate.
 
 ## 5. Changing colors (theming)
 
-Three CSS custom properties control the overall palette — pass a `theme`
-object when you create the story (there's no chainable method for it; hand it
-to `story({ … })` directly), or override the properties in your own `<style>`
-block:
+Use `.theme()` to set the overall palette, chart font, and default D3 color
+scheme:
 
 ```js
-story({
-  theme: {
+story()
+  .theme({
     background: "#fafafa",   // page/figure background
     foreground: "#222",      // text and axis color
-    accent: "#b05d3b"        // highlight / emphasis color
-  }
-})
+    accent: "#6b7280",       // highlight / emphasis color
+    fontFamily: "Inter, sans-serif",
+    series: ["#4f5d68", "#747c84", "#8b8580"]
+  })
   .data(/* … */)
   // …
 ```
@@ -176,7 +175,10 @@ story({
 :root {
   --sl-bg: #fafafa;
   --sl-fg: #222;
-  --sl-accent: #b05d3b;
+  --sl-accent: #6b7280;
+  --sl-series-1: #4f5d68;
+  --sl-series-2: #747c84;
+  --sl-font-family: Inter, sans-serif;
 }
 ```
 

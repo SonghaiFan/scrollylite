@@ -70,7 +70,11 @@ function compileLineSeries(spec, granularitySpec = {}, context = {}) {
       granularitySpec.color || {
         field: seriesField,
         type: "nominal",
-        range: granularitySpec.range || ["#2f7d7e", "#8d6e3f", "#b05d3b"]
+        range: granularitySpec.range || [
+          "var(--sl-series-1)",
+          "var(--sl-series-2)",
+          "var(--sl-series-3)"
+        ]
       };
   }
 

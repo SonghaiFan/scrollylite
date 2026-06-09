@@ -101,7 +101,7 @@ export async function createStory(spec, options = {}) {
   const target = resolveTarget(options.target || "#app");
   const compiled = compileSpec(spec);
 
-  applyTheme(compiled.theme);
+  const disposeTheme = await applyTheme(compiled.theme);
   target.innerHTML = "";
 
   const data = await loadData(compiled.data, d3);
@@ -128,6 +128,7 @@ export async function createStory(spec, options = {}) {
       disposeResize();
       scrollDriver?.destroy?.();
       renderer.destroy();
+      disposeTheme();
     }
   };
 }
@@ -653,11 +654,129 @@ function applyScrollAction(node, viewSpec, progress, d3) {
 
 
 
-function applyTheme(theme) {
+async function applyTheme(theme = {}) {
   const root = document.documentElement;
-  if (theme.background) root.style.setProperty("--sl-bg", theme.background);
-  if (theme.foreground) root.style.setProperty("--sl-fg", theme.foreground);
-  if (theme.accent) root.style.setProperty("--sl-accent", theme.accent);
+  const previous = new Map();
+  const insertedLinks = await installThemeStylesheets(theme);
+  const variables = themeVariables(theme);
+
+  Object.entries(variables).forEach(([name, value]) => {
+    previous.set(name, root.style.getPropertyValue(name));
+    root.style.setProperty(name, value);
+  });
+
+  return () => {
+    insertedLinks.forEach((link) => link.remove());
+    previous.forEach((value, name) => {
+      if (value) {
+        root.style.setProperty(name, value);
+      } else {
+        root.style.removeProperty(name);
+      }
+    });
+  };
+}
+
+async function installThemeStylesheets(theme = {}) {
+  const hrefs = themeStylesheetHrefs(theme);
+  const inserted = [];
+  await Promise.all(hrefs.map((href) => new Promise((resolve, reject) => {
+    const absoluteHref = new URL(href, document.baseURI).href;
+    const existing = Array.from(document.querySelectorAll('link[rel~="stylesheet"]'))
+      .find((link) => link.href === absoluteHref);
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.dataset.scrollyliteTheme = "true";
+    link.addEventListener("load", () => resolve(link), { once: true });
+    link.addEventListener("error", () => reject(new Error(`ScrollyLite theme stylesheet failed to load: ${href}`)), { once: true });
+    document.head.append(link);
+    inserted.push(link);
+  })));
+  return inserted;
+}
+
+function themeStylesheetHrefs(theme = {}) {
+  const candidates = [
+    theme.href,
+    theme.url,
+    theme.css,
+    theme.stylesheet,
+    ...(Array.isArray(theme.stylesheets) ? theme.stylesheets : [])
+  ];
+  return Array.from(new Set(candidates.filter((href) => typeof href === "string" && href.trim())));
+}
+
+function themeVariables(theme = {}) {
+  return {
+    ...themeVariableAliases(theme),
+    ...themeSeriesVariables(theme),
+    ...themeSemanticVariables(theme),
+    ...normalizeThemeVariables(theme.variables || theme.customProperties || {})
+  };
+}
+
+function themeVariableAliases(theme = {}) {
+  const aliases = {
+    background: "--sl-bg",
+    foreground: "--sl-fg",
+    surface: "--sl-surface",
+    muted: "--sl-muted",
+    border: "--sl-border",
+    accent: "--sl-accent",
+    accent2: "--sl-accent-2",
+    grid: "--sl-grid",
+    axis: "--sl-axis",
+    shadow: "--sl-shadow",
+    fontFamily: "--sl-font-family"
+  };
+  return Object.fromEntries(
+    Object.entries(aliases)
+      .filter(([key]) => theme[key] != null)
+      .map(([key, variable]) => [variable, theme[key]])
+  );
+}
+
+function themeSeriesVariables(theme = {}) {
+  const series = theme.series || theme.palette || theme.colorScheme;
+  if (!Array.isArray(series)) return {};
+  return Object.fromEntries(
+    series
+      .filter((value) => value != null)
+      .map((value, index) => [`--sl-series-${index + 1}`, value])
+  );
+}
+
+function themeSemanticVariables(theme = {}) {
+  const semantic = theme.semantic || {};
+  return Object.fromEntries(
+    Object.entries({
+      hot: "--sl-semantic-hot",
+      cold: "--sl-semantic-cold"
+    })
+      .filter(([key]) => semantic[key] != null)
+      .map(([key, variable]) => [variable, semantic[key]])
+  );
+}
+
+function normalizeThemeVariables(variables = {}) {
+  return Object.fromEntries(
+    Object.entries(variables)
+      .filter(([, value]) => value != null)
+      .map(([name, value]) => [
+        name.startsWith("--") ? name : `--sl-${dash(name)}`,
+        value
+      ])
+  );
+}
+
+function dash(value) {
+  return String(value).replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
 }
 
 function resolveTarget(target) {

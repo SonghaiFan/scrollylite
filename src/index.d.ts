@@ -2,6 +2,7 @@ type AnyRecord = Record<string, any>;
 type Selector = AnyRecord;
 type DataSource = string | AnyRecord | any[];
 type Target = string | Element;
+type ThemeSpec = string | AnyRecord;
 
 interface CreateStoryOptions {
   target?: Target;
@@ -28,6 +29,7 @@ interface StoryBuilder {
   data(datasets: Record<string, DataSource>): this;
   layout(preset: string, options?: AnyRecord): this;
   layout(config: AnyRecord): this;
+  theme(theme: ThemeSpec, options?: AnyRecord): this;
   action(actions: string | string[]): this;
   view(config: AnyRecord): this;
   view(id: string, config: AnyRecord): this;

@@ -145,11 +145,20 @@ public_api:
   - createStory
 ```
 
-`theme` is **not** a chainable method — pass it in the initial spec object:
+Use `.theme()` for story-scoped theme intent:
 ```js
-story({ theme: { background: "#fafafa", foreground: "#222", accent: "#b05d3b" } })
+story().theme({
+  href: "./my-theme.css",
+  background: "#fafafa",
+  foreground: "#222",
+  accent: "#b05d3b",
+  fontFamily: "Inter, sans-serif",
+  series: ["#4f5d68", "#747c84", "#8b8580"]
+})
 ```
-→ sets CSS custom properties `--sl-bg` / `--sl-fg` / `--sl-accent` on `<html>`.
+→ loads optional CSS and sets `--sl-*` custom properties. `series` maps to
+`--sl-series-1`, `--sl-series-2`, … and controls default D3 categorical mark
+colors. `fontFamily` maps to `--sl-font-family` for shell and SVG text.
 
 Doc: `docs/story-builder.md`
 
@@ -328,10 +337,13 @@ story().layout("floatToText", { runtime: { offset: 0.58, nav: true, progress: tr
   Tune easing via `narrative.action.scroll.ease`: `"linear"` (default),
   `"cubic"`, `"cubicInOut"`, `"cubicOut"`.
 
-Theming = 3 CSS custom properties set from `spec.theme` (`background` →
-`--sl-bg`, `foreground` → `--sl-fg`, `accent` → `--sl-accent`). Always load
-`scrollylite.css` (structure); `themes/default.css` supplies the default
-palette — replace/extend by targeting `--sl-*` and `.sl-*` classes.
+Theming = optional stylesheet loading plus CSS custom properties set from
+`spec.theme`. Important tokens: `background` → `--sl-bg`, `foreground` →
+`--sl-fg`, `accent` → `--sl-accent`, `fontFamily` → `--sl-font-family`,
+`series`/`palette` → `--sl-series-*`, `semantic.hot/cold` →
+`--sl-semantic-hot` / `--sl-semantic-cold`. Default D3 categorical colors read
+from `--sl-series-*`. Always load `scrollylite.css` (structure);
+`themes/default.css` supplies a neutral, minimal baseline palette.
 
 Doc: `docs/layouts-themes-and-scrolling.md`
 
@@ -402,8 +414,8 @@ Doc: `docs/extending-with-plugins.md`
    on the ESM entry — only the global/CDN build auto-falls-back to globals.
 6. **`"ScrollyLite target not found: …"`** → the target element must exist in
    the DOM *before* `createStory` runs.
-7. **Theming via `.theme()`** → doesn't exist; pass `theme` in the initial
-   `story({ theme: {...} })` spec object.
+7. **Theming via `.theme()`** → supported. Use `.theme("./theme.css")` or
+   `.theme({ href, accent, fontFamily, series, variables })`.
 8. **`unit` idiom ignores `.breakdown()`/`.rollup()`/`.x()`-field changes for
    scene purposes** → by design; it only models `focus`/`guide`.
 

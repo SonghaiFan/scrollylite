@@ -1,40 +1,57 @@
 :root {
-  --sl-bg: #f7f7f5;
+  --sl-bg: #f8f8f7;
   --sl-surface: #ffffff;
-  --sl-fg: #202020;
-  --sl-muted: #6f6f6f;
-  --sl-border: #dddddd;
-  --sl-accent: #217a8a;
-  --sl-accent-2: #b05d3b;
-  --sl-grid: #ececec;
-  --sl-axis: #bdbdbd;
-  --sl-shadow: 0 10px 28px rgba(32, 32, 32, 0.08);
+  --sl-fg: #1f2328;
+  --sl-muted: #66707a;
+  --sl-border: #dde1e6;
+  --sl-accent: #4f5d68;
+  --sl-accent-2: #767d84;
+  --sl-series-1: #4f5d68;
+  --sl-series-2: #747c84;
+  --sl-series-3: #8b8580;
+  --sl-series-4: #65737e;
+  --sl-series-5: #93979b;
+  --sl-series-6: #5f6972;
+  --sl-series-7: #a0a4a8;
+  --sl-series-8: #3f4852;
+  --sl-semantic-hot: #8a635b;
+  --sl-semantic-cold: #596d83;
+  --sl-grid: #eceff2;
+  --sl-axis: #aeb4bb;
+  --sl-shadow: 0 1px 2px rgba(31, 35, 40, 0.05);
+  --sl-font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .sl-intro {
   background: var(--sl-bg);
 }
 
+.sl-root,
+.sl-view svg {
+  font-family: var(--sl-font-family);
+}
+
 .sl-figure,
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-figure {
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--sl-surface);
   border-color: var(--sl-border);
   border-radius: 4px;
-  box-shadow: 0 12px 32px rgba(32, 32, 32, 0.08);
+  box-shadow: var(--sl-shadow);
   backdrop-filter: none;
 }
 
 .sl-figure-title {
-  color: #111111;
+  color: var(--sl-fg);
   font-size: clamp(1.12rem, 1.8vw, 1.42rem);
   line-height: 1.12;
-  font-weight: 800;
+  font-weight: 740;
 }
 
 .sl-axis text,
 .sl-axis-label,
 .sl-legend {
-  fill: #6f6f6f;
+  fill: var(--sl-muted);
 }
 
 .sl-grid line {
@@ -42,9 +59,9 @@
 }
 
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card {
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--sl-surface);
   border-color: var(--sl-border);
   border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(32, 32, 32, 0.08);
+  box-shadow: var(--sl-shadow);
   backdrop-filter: none;
 }

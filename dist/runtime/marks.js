@@ -4,21 +4,21 @@ import { SCROLL_TRANSITION_NAME } from "../transition-progress.js";
 import { clamp, escapeHtml, titleize } from "./utils.js";
 
 const DEFAULT_PALETTE = [
-  "#2f7d7e",
-  "#b05d3b",
-  "#536a9e",
-  "#8d6e3f",
-  "#557f4d",
-  "#9b4f6d",
-  "#c18f2f",
-  "#4f7f99"
+  ["--sl-series-1", "#4f5d68"],
+  ["--sl-series-2", "#747c84"],
+  ["--sl-series-3", "#8b8580"],
+  ["--sl-series-4", "#65737e"],
+  ["--sl-series-5", "#93979b"],
+  ["--sl-series-6", "#5f6972"],
+  ["--sl-series-7", "#a0a4a8"],
+  ["--sl-series-8", "#3f4852"]
 ];
-const DEFAULT_LUMINANCE_BASE = "#2f7d7e";
+const DEFAULT_LUMINANCE_BASE = ["--sl-accent", "#4f5d68"];
 const SEMANTIC_CATEGORY_COLORS = {
-  "hot": "#b05d3b",
-  "hot days": "#b05d3b",
-  "cold": "#536a9e",
-  "cold days": "#536a9e"
+  "hot": ["--sl-semantic-hot", "#8a635b"],
+  "hot days": ["--sl-semantic-hot", "#8a635b"],
+  "cold": ["--sl-semantic-cold", "#596d83"],
+  "cold days": ["--sl-semantic-cold", "#596d83"]
 };
 
 export function transitionSpec(spec, previousSpec, { scrollDriven = false, d3 } = {}) {
@@ -585,17 +585,18 @@ function inferFieldType(rows, field) {
 
 function categoricalRange(domain) {
   return domain.map((value, index) => (
-    semanticCategoryColor(value) || DEFAULT_PALETTE[index % DEFAULT_PALETTE.length]
+    semanticCategoryColor(value) || themeColor(DEFAULT_PALETTE[index % DEFAULT_PALETTE.length])
   ));
 }
 
 function semanticCategoryColor(value) {
-  return SEMANTIC_CATEGORY_COLORS[String(value ?? "").trim().toLowerCase()];
+  const color = SEMANTIC_CATEGORY_COLORS[String(value ?? "").trim().toLowerCase()];
+  return color ? themeColor(color) : null;
 }
 
 function luminanceColorScale(rows, channel, d3) {
   const domain = quantitativeDomain(rows, channel);
-  const base = channel.base || channel.value || DEFAULT_LUMINANCE_BASE;
+  const base = channel.base || channel.value || themeColor(DEFAULT_LUMINANCE_BASE);
   const lightness = channel.lightness || [22, -18];
   const scale = d3
     .scaleLinear()
@@ -604,6 +605,12 @@ function luminanceColorScale(rows, channel, d3) {
     .clamp(true);
 
   return (row = {}) => adjustLightness(base, scale(Number(row[channel.field])), d3);
+}
+
+function themeColor([name, fallback] = []) {
+  if (!name) return fallback;
+  if (typeof document === "undefined") return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
 function compositeColorScale(channel, d3) {

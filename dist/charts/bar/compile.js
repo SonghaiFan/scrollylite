@@ -175,7 +175,7 @@ function compileBarAggregate(spec, granularitySpec = {}, context = {}) {
         field: segmentField,
         type: "nominal",
         ...(segmentDomain.length ? { domain: segmentDomain } : {}),
-        range: granularitySpec.range || ["#b05d3b", "#536a9e"]
+        range: granularitySpec.range || ["var(--sl-series-1)", "var(--sl-series-2)"]
       }
   };
   if (layout === "grouped") {

@@ -82,6 +82,17 @@ export class StoryBuilder {
     return this;
   }
 
+  theme(themeOrHref, options = {}) {
+    const theme = typeof themeOrHref === "string"
+      ? { href: themeOrHref, ...cloneState(options || {}) }
+      : cloneState(themeOrHref || {});
+    this._spec.theme = {
+      ...(this._spec.theme || {}),
+      ...theme
+    };
+    return this;
+  }
+
   action(actions) {
     this._stepAction = Array.isArray(actions) ? [...actions] : [actions];
     this.#compileSteps();

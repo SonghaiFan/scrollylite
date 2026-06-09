@@ -35,8 +35,9 @@ async function createStory(spec: object, options: CreateStoryOptions): Promise<S
 2. **Compiles the spec** via `compileSpec(spec)` — normalizes structure and
    prepares everything the renderer needs. Builder-authored specs already carry
    transitions inferred by `.step()` / `.steps()`.
-3. **Applies the theme** — sets `--sl-bg`/`--sl-fg`/`--sl-accent` custom
-   properties on `document.documentElement` from `spec.theme`.
+3. **Applies the theme** — loads any theme stylesheet declared in
+   `spec.theme`, then sets `--sl-*` custom properties such as palette, font,
+   accent, axis, and grid tokens.
 4. **Loads every dataset** declared in `spec.data` in parallel (CSV/JSON via
    D3, or used directly for inline arrays/`values`).
 5. **Clears `target`** and renders the **story shell**: header, narrated

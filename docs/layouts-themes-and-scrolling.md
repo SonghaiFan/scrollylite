@@ -135,26 +135,72 @@ set it on every step; steps without transitions simply render fully.
 
 ## Theming
 
-`spec.theme` sets three CSS custom properties on `<html>` at story start:
+Use `.theme()` to load a custom stylesheet and set CSS variables as part of
+the story spec:
 
 ```js
-{
-  theme: {
+story()
+  .theme("./my-theme.css")
+```
+
+```js
+story()
+  .theme({
+    href: "./my-theme.css",
     background: "#fafafa",   // → --sl-bg
     foreground: "#222",      // → --sl-fg
-    accent: "#b05d3b"        // → --sl-accent
-  }
-}
+    accent: "#b05d3b",       // → --sl-accent
+    fontFamily: "Inter, sans-serif",
+    series: ["#4f5d68", "#747c84", "#8b8580"],
+    variables: {
+      surface: "#fff",       // → --sl-surface
+      "--sl-step-gap": "42px"
+    }
+  })
 ```
+
+At `createStory()` time, ScrollyLite loads `theme.href` (or `theme.url`,
+`theme.css`, `theme.stylesheet`, and each item in `theme.stylesheets`) before
+rendering the story. If the stylesheet is already present on the page, it is
+reused; if ScrollyLite inserted it, `runtime.destroy()` removes it.
+
+The variable aliases map directly onto the CSS custom properties consumed by
+the packaged stylesheets:
+
+| Theme key | CSS variable |
+|---|---|
+| `background` | `--sl-bg` |
+| `foreground` | `--sl-fg` |
+| `surface` | `--sl-surface` |
+| `muted` | `--sl-muted` |
+| `border` | `--sl-border` |
+| `accent` | `--sl-accent` |
+| `accent2` | `--sl-accent-2` |
+| `grid` | `--sl-grid` |
+| `axis` | `--sl-axis` |
+| `shadow` | `--sl-shadow` |
+| `fontFamily` | `--sl-font-family` |
+
+Use `theme.variables` for any other `--sl-*` custom property. Keys without a
+leading `--` are normalized to `--sl-*`, so `{ stepGap: "42px" }` becomes
+`--sl-step-gap`.
+
+The default D3 categorical palette reads from `--sl-series-1`,
+`--sl-series-2`, and so on. Set `theme.series` (or `theme.palette`) to replace
+that default color scheme without touching each chart idiom:
 
 ```js
-story().toSpec()   // spec.theme = { background, foreground, accent }
+story().theme({
+  series: ["#2f4f4f", "#6b7280", "#9ca3af"],
+  semantic: {
+    hot: "#8a4f44",
+    cold: "#4f678a"
+  }
+})
 ```
 
-These map directly onto the variables consumed by the packaged stylesheets
-(`scrollylite.css` for structural styles, `themes/default.css` for the
-default color theme). Any of the three keys may be omitted — only the
-provided ones are applied, leaving the rest at the loaded theme's defaults.
+Axes, legends, figure titles, and SVG text inherit `--sl-font-family`, so
+theme typography affects the D3-rendered chart as well as the story shell.
 
 ### Building a custom theme
 
@@ -165,12 +211,11 @@ that targets `--sl-*` custom properties and the `.sl-*` structural classes
 
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.css">
-<link rel="stylesheet" href="./my-theme.css">
 ```
 
 `scrollylite.css` provides the structural layout rules every preset depends
-on — always load it. `themes/default.css` (or your replacement) supplies the
-color palette on top.
+on — always load it. `themes/default.css` (or your `.theme("./my-theme.css")`
+replacement) supplies the color palette on top.
 
 ## Putting it together
 

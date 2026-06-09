@@ -143,8 +143,8 @@ The global build exposes `window.ScrollyLite` and falls back to
 
 1. Validates and **compiles** your spec (normalizes steps and navigation
    metadata; builder-authored specs already include inferred transitions).
-2. Applies the story's `theme` (sets `--sl-bg` / `--sl-fg` / `--sl-accent`
-   CSS custom properties on `<html>`).
+2. Applies the story's `theme` (optional theme stylesheet plus `--sl-*`
+   CSS custom properties for palette, font, axis/grid colors, and accents).
 3. Loads every dataset declared in `spec.data` (CSV or JSON via D3, or inline
    arrays).
 4. Clears `target` and renders the **story shell**: header, narrated steps,
