@@ -1,7 +1,8 @@
 import * as core from "./index.js";
-import { createStory as coreCreateStory } from "./scrollylite.js";
+import { createChart as coreCreateChart, createPage as coreCreatePage, createStory as coreCreateStory } from "./scrollylite.js";
 export const availableChartIdioms = core.availableChartIdioms;
 export const bar = core.bar;
+export const createPage = coreCreatePage;
 export const defineChartIdiom = core.defineChartIdiom;
 export const line = core.line;
 export const point = core.point;
@@ -16,9 +17,18 @@ export function createStory(spec, options = {}) {
         aq: options.aq || globalThis['aq']
     });
 }
+export function createChart(spec, options = {}) {
+    return coreCreateChart(spec, {
+        ...options,
+        d3: options.d3 || globalThis['d3'],
+        aq: options.aq || globalThis['aq']
+    });
+}
 const browserApi = {
     availableChartIdioms,
     bar,
+    createChart,
+    createPage,
     createStory,
     defineChartIdiom,
     line,
