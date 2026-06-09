@@ -22,66 +22,30 @@ field?), and animates the transition for you.
 
 📖 **[Read the full documentation →](docs/getting-started.md)**
 
-## CDN Usage
+## Install
 
-Load the runtime CSS, ScrollyLite, D3, and Arquero:
-
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-<script>
-  (async () => {
-    const { createStory, story, bar } = ScrollyLite;
-
-    const spec = story()
-      .title("Revenue")
-      .data("rows", {
-        values: [
-          { category: "A", value: 12 },
-          { category: "B", value: 18 },
-          { category: "C", value: 9 }
-        ]
-      })
-      .view("main", { height: 420 })
-      .step("Baseline", bar("rows")
-        .x("category")
-        .y("value")
-        .key("category"))
-      .step("Highlight B", bar("rows")
-        .x("category")
-        .y("value")
-        .key("category")
-        .highlight({ category: "B" }))
-      .toSpec();
-
-    await createStory(spec, { target: "#app" });
-  })();
-</script>
-```
-
-Pin exact versions in production. `latest` URLs are convenient for experiments
-but bad for durable stories.
-
-`rows` is a dataset name. `.data("rows", ...)` defines it; `bar("rows")`
-uses it.
-
-The global build reads `globalThis.d3` and `globalThis.aq` when
-`createStory()` runs. The core ESM entry, `scrollylite.esm.js`, still requires
-dependencies to be passed explicitly.
-
-## npm Usage
+Use your package manager, the same way you would install D3:
 
 ```sh
 npm install scrollylite d3 arquero
 ```
 
+```sh
+yarn add scrollylite d3 arquero
+```
+
+```sh
+pnpm add scrollylite d3 arquero
+```
+
+Then import ScrollyLite, D3, and Arquero explicitly:
+
 ```js
-import * as aq from "arquero";
 import * as d3 from "d3";
+import * as aq from "arquero";
 import { createStory, story, bar } from "scrollylite";
 import "scrollylite/style.css";
+// Optional: import "scrollylite/themes/default.css";
 
 const spec = story()
   .data("rows", {
@@ -92,18 +56,73 @@ const spec = story()
     ]
   })
   .view("main", { height: 520 })
-  .step("Baseline", bar("rows")
-    .x("category")
-    .y("value")
-    .key("category"))
+  .step("Baseline", bar("rows").x("category").y("value").key("category"))
+  .step(
+    "Highlight B",
+    bar("rows").x("category").y("value").key("category")
+      .highlight({ category: "B" })
+  )
   .toSpec();
 
-await createStory(spec, {
-  target: "#app",
-  d3,
-  aq
-});
+await createStory(spec, { target: "#app", d3, aq });
 ```
+
+## Browser ESM from a CDN
+
+For vanilla HTML, follow D3's modern CDN practice: use a module script and
+jsDelivr's `+esm` endpoint.
+
+```html
+<div id="app"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
+<script type="module">
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
+import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+
+const spec = story()
+  .title("Revenue")
+  .data("rows", {
+    values: [
+      { category: "A", value: 12 },
+      { category: "B", value: 18 },
+      { category: "C", value: 9 }
+    ]
+  })
+  .view("main", { height: 420 })
+  .step("Baseline", bar("rows").x("category").y("value").key("category"))
+  .step(
+    "Highlight B",
+    bar("rows").x("category").y("value").key("category")
+      .highlight({ category: "B" })
+  )
+  .toSpec();
+
+await createStory(spec, { target: "#app", d3, aq });
+</script>
+```
+
+Pin exact versions in production. `latest` URLs are convenient for experiments
+but bad for durable stories.
+
+`rows` is a dataset name. `.data("rows", ...)` defines it; `bar("rows")`
+uses it.
+
+The ESM entry follows D3's explicit dependency style: import the packages you
+need and pass `d3` and `aq` to `createStory()`.
+
+## Plain script fallback
+
+If you cannot use module scripts, load the global bundle instead:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+```
+
+The global build exposes `window.ScrollyLite` and falls back to
+`globalThis.d3` / `globalThis.aq` when `createStory()` runs.
 
 ## Public API
 
@@ -232,14 +251,14 @@ run the build step for you.
 
 Pick the guide that matches how you're using ScrollyLite:
 
-- [`docs/for-cdn-users.md`](docs/for-cdn-users.md): **no build tools** — paste `<script>` tags into any page and go. Start here if you're not running npm/bundlers.
+- [`docs/for-cdn-users.md`](docs/for-cdn-users.md): **browser ESM, no build tools** — paste a module script into any page and go. Start here if you're not running npm/bundlers.
 - [`docs/for-developers.md`](docs/for-developers.md): **npm/bundler projects & contributors** — install, architecture, scripts, release flow, extending the library.
 - [`llms.txt`](llms.txt): **AI agents / LLMs** — a dense, single-file reference covering the entire grammar and API, written for machine consumption.
 
 Or start at [`docs/getting-started.md`](docs/getting-started.md), which links
 to everything below in reading order:
 
-- [`docs/getting-started.md`](docs/getting-started.md): install (CDN or npm), a full working example, and what `createStory` does.
+- [`docs/getting-started.md`](docs/getting-started.md): package-manager install, browser ESM CDN usage, a full working example, and what `createStory` does.
 - [`docs/concepts.md`](docs/concepts.md): the mental model — Story, Step, View, Idiom, Scene, semantic identity (`key`).
 - [`docs/story-builder.md`](docs/story-builder.md): the chainable `story()` API — `.data()`, `.layout()`, `.view()`, `.step()`, `.toSpec()`, and reusable/branching narrative patterns.
 - [`docs/chart-idioms.md`](docs/chart-idioms.md): every chart idiom (`bar`, `line`, `point`, `unit`) and every chainable method/option, with examples.

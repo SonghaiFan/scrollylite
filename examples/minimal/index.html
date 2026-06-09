@@ -10,36 +10,33 @@
   <body>
     <main id="app"></main>
 
-    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-    <script>
-      (async () => {
-        const { createStory, story, bar } = ScrollyLite;
+    <script type="module">
+      import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+      import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
+      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
 
-        const spec = story()
-          .title("Revenue")
-          .data("rows", {
-            values: [
-              { category: "A", value: 12 },
-              { category: "B", value: 18 },
-              { category: "C", value: 9 }
-            ]
-          })
-          .view("main", { height: 420 })
-          .step("Baseline", bar("rows")
-            .x("category")
-            .y("value")
-            .key("category"))
-          .step("Highlight B", bar("rows")
-            .x("category")
-            .y("value")
-            .key("category")
-            .highlight({ category: "B" }))
-          .toSpec();
+      const spec = story()
+        .title("Revenue")
+        .data("rows", {
+          values: [
+            { category: "A", value: 12 },
+            { category: "B", value: 18 },
+            { category: "C", value: 9 }
+          ]
+        })
+        .view("main", { height: 420 })
+        .step("Baseline", bar("rows")
+          .x("category")
+          .y("value")
+          .key("category"))
+        .step("Highlight B", bar("rows")
+          .x("category")
+          .y("value")
+          .key("category")
+          .highlight({ category: "B" }))
+        .toSpec();
 
-        await createStory(spec, { target: "#app" });
-      })();
+      await createStory(spec, { target: "#app", d3, aq });
     </script>
   </body>
 </html>

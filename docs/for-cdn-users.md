@@ -1,4 +1,4 @@
-# For CDN Users (No Build Tools Required)
+# For CDN Users (Browser ESM, No Build Tools Required)
 
 This guide is for anyone who wants to drop a scrolling chart into a web page —
 a blog post, a static site, a CMS "custom HTML" block — **without** npm,
@@ -11,9 +11,9 @@ ground with that workflow in mind.
 
 ## 1. The complete copy-paste template
 
-Paste this into an HTML file (or your CMS's HTML block) and open it in a
-browser. It renders a three-step bar chart story — no installation, no
-terminal, nothing to compile:
+Paste this into an HTML file and open it in a browser. It follows D3's modern
+CDN practice: use a `<script type="module">` block and import browser-native
+ES modules from jsDelivr's `+esm` endpoint.
 
 ```html
 <!doctype html>
@@ -26,33 +26,30 @@ terminal, nothing to compile:
   <body>
     <main id="app"></main>
 
-    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-    <script>
-      (async () => {
-        const { createStory, story, bar } = ScrollyLite;
+    <script type="module">
+      import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+      import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
+      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
 
-        const spec = story()
-          .title("Revenue")
-          .data("rows", {
-            values: [
-              { category: "A", value: 12 },
-              { category: "B", value: 18 },
-              { category: "C", value: 9 }
-            ]
-          })
-          .view("main", { height: 420 })
-          .step("Baseline", bar("rows").x("category").y("value").key("category"))
-          .step(
-            "Highlight B",
-            bar("rows").x("category").y("value").key("category")
-              .highlight({ category: "B" })
-          )
-          .toSpec();
+      const spec = story()
+        .title("Revenue")
+        .data("rows", {
+          values: [
+            { category: "A", value: 12 },
+            { category: "B", value: 18 },
+            { category: "C", value: 9 }
+          ]
+        })
+        .view("main", { height: 420 })
+        .step("Baseline", bar("rows").x("category").y("value").key("category"))
+        .step(
+          "Highlight B",
+          bar("rows").x("category").y("value").key("category")
+            .highlight({ category: "B" })
+        )
+        .toSpec();
 
-        await createStory(spec, { target: "#app" });
-      })();
+      await createStory(spec, { target: "#app", d3, aq });
     </script>
   </body>
 </html>
@@ -68,17 +65,29 @@ looks like, ScrollyLite figures out the animation between them.**
 |---|---|
 | `scrollylite.css` | Required structural styles — layout, sticky positioning, nav rail, progress bar. Always load this. |
 | `themes/default.css` | The default color palette (backgrounds, text, accent color). Swap or override for your own look — see [Theming](#5-changing-colors-theming). |
-| `scrollylite.global.js` `<script>` | The library itself. Exposes a global `ScrollyLite` object. |
-| `d3@7` | Charting/animation engine ScrollyLite is built on. **Required.** |
-| `arquero@8/.../arquero.min.js` | Data-shaping engine (filtering, grouping, aggregating). **Required.** |
+| `scrollylite@0.1.0/+esm` | The library itself, imported as browser-native ESM. |
+| `d3@7/+esm` | Charting/animation engine ScrollyLite is built on. **Required.** |
+| `arquero@8/+esm` | Data-shaping engine (filtering, grouping, aggregating). **Required.** |
 
-All three libraries must finish loading before your script runs — that's why
-the inline `<script>` block comes *after* them in the HTML.
+The module script loads all three libraries before executing the story code.
+Pass `d3` and `aq` to `createStory()` explicitly; that is the clearest and
+most D3-like path.
 
 > **Pin the version.** `@0.1.0` always points at exactly that release — your
 > page won't break if a new version ships. `@latest` is tempting but can
 > silently change the chart's behavior underneath you later. Always pin in
 > anything you intend to keep online.
+
+If you cannot use module scripts, ScrollyLite also ships a global fallback:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+```
+
+That build exposes `window.ScrollyLite` and reads `globalThis.d3` /
+`globalThis.aq` when `createStory()` runs.
 
 ## 3. Swapping in your own data
 

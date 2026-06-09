@@ -39,11 +39,11 @@ const runtime = await createStory(spec, { target: "#app", d3, aq });
 runtime.destroy();
 ```
 
-With the ESM entry (`import { createStory } from "scrollylite"`), `d3` is
-**always required** and `aq` is required as soon as your spec uses any data
-transform (filter, fold, bin, aggregate, …). Pass both up front — it's the
-simplest, safest default. (The CDN/global build behaves differently: it falls
-back to `globalThis.d3`/`globalThis.aq`. See
+With the ESM entry (`import { createStory } from "scrollylite"`), pass both
+`d3` and `aq` explicitly. This mirrors D3's module-first practice and keeps
+framework, bundler, CDN, and agent-generated code using the same dependency
+shape. (The global fallback behaves differently: it falls back to
+`globalThis.d3`/`globalThis.aq`. See
 [Runtime API](./runtime-api.md#createstoryspec-options) for the full
 ESM-vs-browser distinction.)
 
@@ -56,7 +56,7 @@ for `<script>`-tag globals if you need that shape inside a bundled project.
 |---|---|
 | `dist/scrollylite.esm.js` | Main ESM entry — `import { createStory, story, … } from "scrollylite"` |
 | `dist/scrollylite.browser.js` | ESM entry pre-wired for browser-global D3/Arquero — `scrollylite/browser` |
-| `dist/scrollylite.global.js` | IIFE/UMD bundle exposing `window.ScrollyLite` — what the CDN serves |
+| `dist/scrollylite.global.js` | IIFE/UMD bundle exposing `window.ScrollyLite` — fallback for plain script pages |
 | `dist/index.d.ts` / `dist/browser.d.ts` | TypeScript definitions (`types` field — automatic with most tooling) |
 | `dist/scrollylite.css` | Required structural styles — `scrollylite/style.css` |
 | `dist/themes/default.css` | Default color theme — `scrollylite/themes/default.css` |
@@ -173,9 +173,11 @@ Update `CHANGELOG.md` before tagging. `npm publish` re-runs
 `release:check` via `prepublishOnly` regardless — the manual run above is for
 catching problems *before* you bump the version.
 
-jsDelivr serves the published npm package directly:
+jsDelivr serves the published npm package directly. Prefer the package ESM
+endpoint for browser-native CDN usage:
 
 ```text
+https://cdn.jsdelivr.net/npm/scrollylite@<version>/+esm
 https://cdn.jsdelivr.net/npm/scrollylite@<version>/dist/scrollylite.global.js
 https://cdn.jsdelivr.net/npm/scrollylite@<version>/dist/scrollylite.esm.js
 ```

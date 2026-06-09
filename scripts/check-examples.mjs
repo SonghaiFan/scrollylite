@@ -14,7 +14,7 @@ const minimalHtml = await readFile(join(minimalDir, "index.html"), "utf8");
 await assertHtmlLocalAssets(html, exampleDir);
 await assertHtmlLocalAssets(minimalHtml, minimalDir);
 assertPublicApiImports(html);
-assertMinimalGlobalExample(minimalHtml);
+assertMinimalEsmExample(minimalHtml);
 await assertCompiledStoryDataUrls();
 
 console.log("Example invariants ok.");
@@ -49,18 +49,28 @@ function assertPublicApiImports(source) {
   }
 }
 
-function assertMinimalGlobalExample(source) {
-  if (!source.includes("dist/scrollylite.global.js")) {
-    throw new Error("Minimal example must use the global script build.");
+function assertMinimalEsmExample(source) {
+  if (!source.includes('type="module"')) {
+    throw new Error("Minimal example must use a module script.");
   }
-  if (!source.includes("const { createStory, story, bar } = ScrollyLite")) {
-    throw new Error("Minimal example must use the ScrollyLite global.");
+  if (!source.includes('from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm"')) {
+    throw new Error("Minimal example must follow the D3-style jsDelivr +esm import.");
   }
-  if (source.includes('type="module"') || source.includes(" from ")) {
-    throw new Error("Minimal example must not use module imports.");
+  if (!source.includes('from "https://cdn.jsdelivr.net/npm/d3@7/+esm"')) {
+    throw new Error("Minimal example must import D3 from jsDelivr +esm.");
   }
-  if (source.includes("d3:") || source.includes("aq:")) {
-    throw new Error("Minimal example must not pass d3 or aq explicitly.");
+  if (!source.includes('from "https://cdn.jsdelivr.net/npm/arquero@8/+esm"')) {
+    throw new Error("Minimal example must import Arquero from jsDelivr +esm.");
+  }
+  if (!source.includes("d3, aq")) {
+    throw new Error("Minimal example must pass d3 and aq explicitly to createStory.");
+  }
+  if (
+    source.includes("dist/scrollylite.global.js") ||
+    source.includes("window.ScrollyLite") ||
+    source.includes("= ScrollyLite")
+  ) {
+    throw new Error("Minimal example must not use the global script build.");
   }
   if (source.includes("stroy")) {
     throw new Error("Minimal example contains a misspelled story variable.");

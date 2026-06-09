@@ -5,8 +5,9 @@ visualization. You describe **what the data is**, **what charts to show**, and
 **what changes from step to step** — ScrollyLite figures out how to animate
 between steps and wires up scroll and click navigation for you.
 
-This guide gets a story on screen in two ways: straight from a CDN (no build
-tools), and via npm for bundler-based projects.
+This guide follows the same shape as D3's getting-started flow: install with a
+package manager for app projects, or use a browser-native ES module from a CDN
+for plain HTML.
 
 ## 1. The three things you need
 
@@ -18,84 +19,29 @@ Every ScrollyLite story needs:
    builder](./story-builder.md) and chart idiom helpers (`bar`, `line`,
    `point`, `unit`)
 
-D3 and Arquero are **peer dependencies** — ScrollyLite does not bundle them.
-This keeps the library small and lets you share one copy of D3/Arquero across
-your whole page.
+D3 and Arquero are **peer dependencies**. ScrollyLite does not bundle them:
+you import the exact copies your page or app uses, then pass them to
+`createStory()`.
 
-## 2. CDN usage (no build step)
-
-Load the runtime CSS, ScrollyLite, D3, and Arquero from jsDelivr, then call
-`ScrollyLite.createStory()`:
-
-```html
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
-  </head>
-  <body>
-    <main id="app"></main>
-
-    <script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-    <script>
-      (async () => {
-        const { createStory, story, bar } = ScrollyLite;
-
-        const spec = story()
-          .title("Revenue")
-          .data("rows", {
-            values: [
-              { category: "A", value: 12 },
-              { category: "B", value: 18 },
-              { category: "C", value: 9 }
-            ]
-          })
-          .view("main", { height: 420 })
-          .step("Baseline", bar("rows").x("category").y("value").key("category"))
-          .step(
-            "Highlight B",
-            bar("rows").x("category").y("value").key("category")
-              .highlight({ category: "B" })
-          )
-          .toSpec();
-
-        await createStory(spec, { target: "#app" });
-      })();
-    </script>
-  </body>
-</html>
-```
-
-A few important details:
-
-- **Script order matters.** ScrollyLite's global build (`scrollylite.global.js`)
-  reads `globalThis.d3` and `globalThis.aq` lazily inside `createStory()`, but
-  D3/Arquero must be present on the page (loaded in any order, as long as
-  they've executed) before you call `createStory`.
-- **The global build injects D3/Arquero for you.** When you load
-  `scrollylite.global.js`, `ScrollyLite.createStory(spec, options)` falls back
-  to `globalThis.d3` / `globalThis.aq` if you don't pass `d3`/`aq` explicitly.
-  If you use the ESM entry (`scrollylite.esm.js`) instead, you must pass them
-  explicitly (see below).
-- **Pin exact versions in production.** `@0.1.0` URLs are stable forever;
-  `@latest` is convenient for experiments but will silently change underneath
-  a published story.
-- `target` defaults to `"#app"` — a CSS selector or DOM element where the
-  story shell is rendered. ScrollyLite clears and owns everything inside it.
-
-## 3. npm usage (bundlers, frameworks)
+## 2. Install with a package manager
 
 ```sh
 npm install scrollylite d3 arquero
 ```
 
+```sh
+yarn add scrollylite d3 arquero
+```
+
+```sh
+pnpm add scrollylite d3 arquero
+```
+
+Then import the libraries and create a story:
+
 ```js
-import * as aq from "arquero";
 import * as d3 from "d3";
+import * as aq from "arquero";
 import { createStory, story, bar } from "scrollylite";
 import "scrollylite/style.css";
 // Optional: a packaged theme
@@ -111,16 +57,87 @@ const spec = story()
   })
   .view("main", { height: 520 })
   .step("Baseline", bar("rows").x("category").y("value").key("category"))
+  .step(
+    "Highlight B",
+    bar("rows").x("category").y("value").key("category")
+      .highlight({ category: "B" })
+  )
   .toSpec();
 
 await createStory(spec, { target: "#app", d3, aq });
 ```
 
-With the ESM entry, both `d3` and `aq` are currently **required**. D3 powers
-rendering/loading; Arquero powers the transform pipeline used by filters,
-aggregates, breakdowns, rollups, and other data shaping.
+## 3. Browser ESM from a CDN
 
-## 4. What `createStory` does
+For vanilla HTML, use a module script and jsDelivr's `+esm` endpoint, matching
+D3's recommended CDN pattern:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
+  </head>
+  <body>
+    <main id="app"></main>
+
+    <script type="module">
+      import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+      import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
+      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+
+      const spec = story()
+        .title("Revenue")
+        .data("rows", {
+          values: [
+            { category: "A", value: 12 },
+            { category: "B", value: 18 },
+            { category: "C", value: 9 }
+          ]
+        })
+        .view("main", { height: 420 })
+        .step("Baseline", bar("rows").x("category").y("value").key("category"))
+        .step(
+          "Highlight B",
+          bar("rows").x("category").y("value").key("category")
+            .highlight({ category: "B" })
+        )
+        .toSpec();
+
+      await createStory(spec, { target: "#app", d3, aq });
+    </script>
+  </body>
+</html>
+```
+
+A few important details:
+
+- **The ESM entry is explicit.** Import `d3` and `aq`, then pass both to
+  `createStory()`. This mirrors D3's own module-first examples and keeps
+  agent-generated code easy to inspect.
+- **Pin exact versions in production.** `@0.1.0` URLs are stable forever;
+  `@latest` is convenient for experiments but will silently change underneath
+  a published story.
+- `target` defaults to `"#app"` — a CSS selector or DOM element where the
+  story shell is rendered. ScrollyLite clears and owns everything inside it.
+
+## 4. Plain script fallback
+
+If a page cannot use module scripts, use the global build:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+```
+
+The global build exposes `window.ScrollyLite` and falls back to
+`globalThis.d3` / `globalThis.aq` if you omit `d3` and `aq` in
+`createStory()`.
+
+## 5. What `createStory` does
 
 `createStory(spec, options)`:
 
@@ -139,7 +156,7 @@ aggregates, breakdowns, rollups, and other data shaping.
 
 See [Runtime API](./runtime-api.md) for the full `StoryRuntime` shape.
 
-## 5. Where to go next
+## 6. Where to go next
 
 - [Core Concepts](./concepts.md) — the mental model: stories, steps, views,
   scenes, semantic identity, idioms.
@@ -158,7 +175,7 @@ See [Runtime API](./runtime-api.md) for the full `StoryRuntime` shape.
 - [Extending with Plugins](./extending-with-plugins.md) — register your own
   chart idiom.
 
-## 6. Run the bundled examples locally
+## 7. Run the bundled examples locally
 
 ```sh
 git clone https://github.com/SonghaiFan/scrollylite.git

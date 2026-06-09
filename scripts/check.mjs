@@ -12,6 +12,7 @@ const targets = [
 const staleTextTargets = [
   "CHANGELOG.md",
   "CONTRIBUTING.md",
+  "index.html",
   "package.json",
   "README.md",
   "docs",

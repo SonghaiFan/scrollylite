@@ -34,17 +34,28 @@ import { createStory, story, bar, line, point, unit } from "scrollylite";
 import "scrollylite/style.css";          // required structural CSS
 // import "scrollylite/themes/default.css";  // optional default palette
 ```
-ESM entry: pass `d3` (always) and `aq` (whenever a spec uses transforms) to
-`createStory` explicitly. CDN/global build (`scrollylite.global.js` →
-`window.ScrollyLite`) falls back to `globalThis.d3`/`globalThis.aq`.
+Primary practice: follow D3's ESM-first style. Import dependencies explicitly
+and pass both `d3` and `aq` to `createStory`.
 
-CDN (pin versions in production, `@latest` is unstable):
+Browser CDN ESM (pin versions in production, `@latest` is unstable):
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script type="module">
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
+import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+
+const spec = story().data("rows", { values }).step("Baseline", bar("rows").x("category").y("value").key("category")).toSpec();
+await createStory(spec, { target: "#app", d3, aq });
+</script>
+```
+
+Plain script fallback only when module scripts are unavailable:
+```html
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
 ```
 
 Docs: `docs/getting-started.md`, `docs/for-developers.md`, `docs/for-cdn-users.md`
@@ -103,11 +114,36 @@ story()
 view-spec object. The **first step always gets `"enter"` appended** to its
 action list automatically — you don't need to set this.
 
-Action values: `"step"` (discrete click/keyboard playback — default),
+Action values: `"step"` (discrete nav/programmatic playback — default),
 `"scroll"` (continuous scroll-scrubbed transition; only meaningful on steps
 with an inferred `transition.scene`), `"tooltip"` (hover tooltips), `"enter"`
 (auto-played entrance, reserved for step 0, added automatically). Default:
 `["step", "tooltip"]`.
+
+## Agent skill seed
+
+If converting this reference into an agent skill, start with this minimal
+contract:
+
+```yaml
+name: scrollylite
+description: Build declarative scrollytelling data stories with ScrollyLite.
+use_when:
+  - user asks for a scroll-driven narrated visualization
+  - user needs a ScrollyLite story spec, example, plugin, or docs explanation
+first_read:
+  - llms.txt
+  - docs/getting-started.md
+  - docs/chart-idioms.md
+core_rule: Describe chart end states; do not hand-write transition animation.
+public_api:
+  - story
+  - bar
+  - line
+  - point
+  - unit
+  - createStory
+```
 
 `theme` is **not** a chainable method — pass it in the initial spec object:
 ```js
