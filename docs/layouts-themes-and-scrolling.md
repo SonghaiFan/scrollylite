@@ -164,7 +164,7 @@ that targets `--sl-*` custom properties and the `.sl-*` structural classes
 …), and load it instead of (or alongside) `themes/default.css`:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.css">
 <link rel="stylesheet" href="./my-theme.css">
 ```
 

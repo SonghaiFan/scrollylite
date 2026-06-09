@@ -74,11 +74,11 @@ jsDelivr's `+esm` endpoint.
 
 ```html
 <div id="app"></div>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.css">
 <script type="module">
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
-import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm";
 
 const spec = story()
   .title("Revenue")
@@ -118,7 +118,7 @@ If you cannot use module scripts, load the global bundle instead:
 ```html
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.global.js"></script>
 ```
 
 The global build exposes `window.ScrollyLite` and falls back to
@@ -233,15 +233,15 @@ Update `CHANGELOG.md` before tagging a release. `npm publish` runs
 jsDelivr can serve npm packages with:
 
 ```text
-https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.esm.js
-https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.browser.js
-https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js
+https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.esm.js
+https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.browser.js
+https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.global.js
 ```
 
 It can also serve tagged GitHub releases:
 
 ```text
-https://cdn.jsdelivr.net/gh/SonghaiFan/scrollylite@0.1.0/dist/scrollylite.esm.js
+https://cdn.jsdelivr.net/gh/SonghaiFan/scrollylite@0.1.1/dist/scrollylite.esm.js
 ```
 
 For GitHub CDN links, commit `dist/` before tagging because GitHub CDN does not

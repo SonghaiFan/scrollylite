@@ -202,6 +202,10 @@
         padding: clamp(4rem, 8vw, 7rem) 0 clamp(3rem, 6vw, 5rem);
       }
 
+      .hero > * {
+        min-width: 0;
+      }
+
       .eyebrow {
         margin: 0 0 1rem;
         color: var(--site-accent);
@@ -241,6 +245,7 @@
       }
 
       .install {
+        width: 100%;
         max-width: 38rem;
         margin-top: 1.4rem;
         border: 1px solid var(--site-line);
@@ -262,6 +267,7 @@
       }
 
       .install pre {
+        max-width: 100%;
         margin: 0;
         overflow: auto;
       }
@@ -641,7 +647,7 @@
               <span>Browser CDN</span>
               <span>ESM</span>
             </div>
-            <pre><code>import { createStory } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";</code></pre>
+            <pre><code>import { createStory } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm";</code></pre>
           </div>
         </div>
 

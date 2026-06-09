@@ -39,12 +39,12 @@ and pass both `d3` and `aq` to `createStory`.
 
 Browser CDN ESM (pin versions in production, `@latest` is unstable):
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/themes/default.css">
 <script type="module">
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
-import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm";
 
 const spec = story().data("rows", { values }).step("Baseline", bar("rows").x("category").y("value").key("category")).toSpec();
 await createStory(spec, { target: "#app", d3, aq });
@@ -55,7 +55,7 @@ Plain script fallback only when module scripts are unavailable:
 ```html
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.global.js"></script>
 ```
 
 Docs: `docs/getting-started.md`, `docs/for-developers.md`, `docs/for-cdn-users.md`

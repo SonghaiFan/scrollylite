@@ -21,7 +21,7 @@ const staleTextTargets = [
 ];
 const forbiddenRepoText = [
   "scrolly-grammar-template",
-  'src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0"',
+  'src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1"',
   "src/data/weather",
   "src/specs/",
   "scatter-story"

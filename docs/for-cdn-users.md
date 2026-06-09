@@ -20,8 +20,8 @@ ES modules from jsDelivr's `+esm` endpoint.
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/themes/default.css">
   </head>
   <body>
     <main id="app"></main>
@@ -29,7 +29,7 @@ ES modules from jsDelivr's `+esm` endpoint.
     <script type="module">
       import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
       import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
-      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm";
 
       const spec = story()
         .title("Revenue")
@@ -65,7 +65,7 @@ looks like, ScrollyLite figures out the animation between them.**
 |---|---|
 | `scrollylite.css` | Required structural styles — layout, sticky positioning, nav rail, progress bar. Always load this. |
 | `themes/default.css` | The default color palette (backgrounds, text, accent color). Swap or override for your own look — see [Theming](#5-changing-colors-theming). |
-| `scrollylite@0.1.0/+esm` | The library itself, imported as browser-native ESM. |
+| `scrollylite@0.1.1/+esm` | The library itself, imported as browser-native ESM. |
 | `d3@7/+esm` | Charting/animation engine ScrollyLite is built on. **Required.** |
 | `arquero@8/+esm` | Data-shaping engine (filtering, grouping, aggregating). **Required.** |
 
@@ -73,7 +73,7 @@ The module script loads all three libraries before executing the story code.
 Pass `d3` and `aq` to `createStory()` explicitly; that is the clearest and
 most D3-like path.
 
-> **Pin the version.** `@0.1.0` always points at exactly that release — your
+> **Pin the version.** `@0.1.1` always points at exactly that release — your
 > page won't break if a new version ships. `@latest` is tempting but can
 > silently change the chart's behavior underneath you later. Always pin in
 > anything you intend to keep online.
@@ -83,7 +83,7 @@ If you cannot use module scripts, ScrollyLite also ships a global fallback:
 ```html
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.global.js"></script>
 ```
 
 That build exposes `window.ScrollyLite` and reads `globalThis.d3` /

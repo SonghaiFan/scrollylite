@@ -53,7 +53,7 @@ function assertMinimalEsmExample(source) {
   if (!source.includes('type="module"')) {
     throw new Error("Minimal example must use a module script.");
   }
-  if (!source.includes('from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm"')) {
+  if (!source.includes('from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm"')) {
     throw new Error("Minimal example must follow the D3-style jsDelivr +esm import.");
   }
   if (!source.includes('from "https://cdn.jsdelivr.net/npm/d3@7/+esm"')) {

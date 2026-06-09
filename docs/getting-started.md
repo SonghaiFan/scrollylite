@@ -77,8 +77,8 @@ D3's recommended CDN pattern:
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/themes/default.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/themes/default.css">
   </head>
   <body>
     <main id="app"></main>
@@ -86,7 +86,7 @@ D3's recommended CDN pattern:
     <script type="module">
       import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
       import * as aq from "https://cdn.jsdelivr.net/npm/arquero@8/+esm";
-      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/+esm";
+      import { createStory, story, bar } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm";
 
       const spec = story()
         .title("Revenue")
@@ -117,7 +117,7 @@ A few important details:
 - **The ESM entry is explicit.** Import `d3` and `aq`, then pass both to
   `createStory()`. This mirrors D3's own module-first examples and keeps
   agent-generated code easy to inspect.
-- **Pin exact versions in production.** `@0.1.0` URLs are stable forever;
+- **Pin exact versions in production.** `@0.1.1` URLs are stable forever;
   `@latest` is convenient for experiments but will silently change underneath
   a published story.
 - `target` defaults to `"#app"` — a CSS selector or DOM element where the
@@ -130,7 +130,7 @@ If a page cannot use module scripts, use the global build:
 ```html
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.0/dist/scrollylite.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/dist/scrollylite.global.js"></script>
 ```
 
 The global build exposes `window.ScrollyLite` and falls back to
