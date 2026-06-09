@@ -3,929 +3,1222 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ScrollyLite - Declarative Scrollytelling</title>
-    <meta
-      name="description"
-      content="ScrollyLite is a declarative scrollytelling visualization grammar for browser ESM."
-    />
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareSourceCode",
-        "name": "ScrollyLite",
-        "codeRepository": "https://github.com/SonghaiFan/scrollylite",
-        "programmingLanguage": "JavaScript",
-        "runtimePlatform": "Browser ESM",
-        "license": "https://opensource.org/license/mit",
-        "description": "Declarative scrollytelling visualization grammar for browser ESM. Authors describe chart states and story steps; ScrollyLite infers semantic transitions and renders them with D3."
-      }
-    </script>
-    <script type="application/json" id="scrollylite-agent-context">
-      {
-        "name": "ScrollyLite",
-        "summary": "Declarative scrollytelling visualization grammar for browser ESM.",
-        "useWhen": [
-          "Build a scrolling narrated data visualization",
-          "Generate a ScrollyLite story spec",
-          "Explain chart idiom methods and scene transitions",
-          "Extend ScrollyLite with a custom chart idiom"
-        ],
-        "avoidWhen": [
-          "The project needs a full dashboard framework",
-          "The chart should be a static non-scrolling figure"
-        ],
-        "coreApis": [
-          "story",
-          "bar",
-          "line",
-          "point",
-          "unit",
-          "createStory",
-          "defineChartIdiom",
-          "registerChartIdiom",
-          "registerChartModule",
-          "availableChartIdioms"
-        ],
-        "dependencies": {
-          "d3": "^7",
-          "arquero": "^8"
-        },
-        "agentReference": "./llms.txt",
-        "docs": {
-          "gettingStarted": "./docs/getting-started.md",
-          "runtimeApi": "./docs/runtime-api.md",
-          "chartIdioms": "./docs/chart-idioms.md",
-          "plugins": "./docs/extending-with-plugins.md"
-        }
-      }
-    </script>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='16' cy='32' r='9' fill='%23b1482f'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%23365f7d'/%3E%3Ccircle cx='48' cy='32' r='9' fill='%23c99a3e'/%3E%3C/svg%3E"
-    />
+    <title>ScrollyLite — Declarative chart transitions</title>
+    <meta name="description" content="ScrollyLite: declarative scrollytelling grammar. Author chart states; the runtime infers and animates semantic transitions." />
+
+    <!-- Default theme: Apple HIG glass + Vivid palette -->
     <link rel="stylesheet" href="./src/styles.css" />
-    <link rel="stylesheet" href="./src/themes/default.css" />
+    <link rel="stylesheet" href="./src/themes/default/index.css" />
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='20' width='14' height='34' rx='4' fill='%231c6ae4'/%3E%3Crect x='26' y='10' width='14' height='44' rx='4' fill='%23fa4d1d'/%3E%3Crect x='44' y='28' width='14' height='26' rx='4' fill='%2303b976'/%3E%3C/svg%3E" />
+
     <style>
-      :root {
-        --site-bg: #fbfaf7;
-        --site-fg: #182026;
-        --site-muted: #5d6872;
-        --site-soft: #eef2f0;
-        --site-line: rgba(24, 32, 38, 0.13);
-        --site-accent: #b1482f;
-        --site-blue: #365f7d;
-        --site-gold: #c99a3e;
-        --site-code: #1d252b;
-        --site-max: 1180px;
-      }
+      /* ── Page shell — inherits from :root tokens set by default theme ──────── */
+      *, *::before, *::after { box-sizing: border-box; }
 
-      * {
-        box-sizing: border-box;
-      }
-
-      html {
-        scroll-behavior: smooth;
-      }
+      html { scroll-behavior: smooth; }
 
       body {
         margin: 0;
-        background:
-          linear-gradient(180deg, rgba(238, 242, 240, 0.75), transparent 24rem),
-          var(--site-bg);
-        color: var(--site-fg);
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
+        background: var(--sl-color-bg);
+        color: var(--sl-color-on-surface);
+        font-family: var(--sl-type-family);
+        -webkit-font-smoothing: antialiased;
       }
 
-      a {
-        color: inherit;
-      }
+      a { color: inherit; }
 
-      .site-header {
-        position: sticky;
-        top: 0;
-        z-index: 30;
-        border-bottom: 1px solid var(--site-line);
-        background: rgba(251, 250, 247, 0.9);
-        backdrop-filter: blur(18px);
-      }
-
-      .nav-inner,
-      .section-inner,
-      .hero {
-        width: min(var(--site-max), calc(100% - 2rem));
+      /* ── Layout helpers ──────────────────────────────────────────────────────── */
+      .wrap {
+        width: min(1200px, calc(100% - 2.5rem));
         margin: 0 auto;
       }
 
-      .nav-inner {
+      /* ── Nav ─────────────────────────────────────────────────────────────────── */
+      .site-nav {
+        position: sticky;
+        top: 12px;
+        margin: 12px 12px 0;
+        z-index: 100;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        min-height: 4rem;
         gap: 1rem;
+        padding: 0.55rem 1.25rem;
+        border-radius: 14px;
+        background: rgba(245, 247, 255, 0.82);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        backdrop-filter: blur(20px) saturate(180%);
+        border: 0.5px solid rgba(28, 106, 228, 0.10);
       }
 
-      .brand {
+      .nav-brand {
         display: inline-flex;
         align-items: center;
-        gap: 0.7rem;
-        color: var(--site-fg);
-        font-weight: 800;
+        gap: 0.6rem;
+        font-weight: 750;
+        font-size: 0.95rem;
         text-decoration: none;
+        color: var(--sl-color-on-surface);
+        letter-spacing: -0.02em;
       }
 
-      .brand-mark {
-        display: grid;
-        grid-template-columns: repeat(3, 0.42rem);
-        gap: 0.22rem;
+      .nav-brand-icon {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 16px;
       }
 
-      .brand-mark span {
-        width: 0.42rem;
-        height: 0.42rem;
-        border-radius: 50%;
-        background: var(--site-accent);
+      .nav-brand-icon span {
+        display: block;
+        border-radius: 2px 2px 0 0;
       }
 
-      .brand-mark span:nth-child(2) {
-        background: var(--site-blue);
-      }
-
-      .brand-mark span:nth-child(3) {
-        background: var(--site-gold);
-      }
-
-      .site-nav {
+      .nav-links {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 0.25rem;
+        gap: 0.1rem;
       }
 
-      .site-nav a,
-      .button-link {
+      .nav-links a {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        min-height: 2.25rem;
-        padding: 0.48rem 0.75rem;
-        border-radius: 0.45rem;
-        color: var(--site-fg);
-        font-size: 0.92rem;
-        font-weight: 700;
+        padding: 0.28rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 500;
         text-decoration: none;
+        color: var(--sl-color-muted);
+        transition: background 0.12s, color 0.12s;
       }
 
-      .site-nav a:hover,
-      .button-link:hover {
-        background: rgba(24, 32, 38, 0.06);
+      .nav-links a:hover { background: rgba(28,106,228,0.07); color: var(--sl-color-on-surface); }
+
+      .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.32rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: var(--sl-color-primary);
+        color: #fff;
+        transition: opacity 0.12s;
       }
 
-      .button-link.primary {
-        background: var(--site-fg);
-        color: white;
-      }
+      .nav-btn:hover { opacity: 0.88; }
 
-      .button-link.secondary {
-        border: 1px solid var(--site-line);
-        background: rgba(255, 255, 255, 0.68);
-      }
-
+      /* ── Hero ────────────────────────────────────────────────────────────────── */
       .hero {
         display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(20rem, 0.95fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: clamp(2rem, 5vw, 5rem);
         align-items: center;
-        min-height: calc(100vh - 4rem);
-        padding: clamp(4rem, 8vw, 7rem) 0 clamp(3rem, 6vw, 5rem);
+        padding: clamp(5rem, 10vh, 8rem) 0 clamp(4rem, 8vh, 6rem);
       }
 
-      .hero > * {
-        min-width: 0;
-      }
-
-      .eyebrow {
-        margin: 0 0 1rem;
-        color: var(--site-accent);
-        font-size: 0.78rem;
-        font-weight: 850;
-        letter-spacing: 0.08em;
+      .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin: 0 0 1.1rem;
+        padding: 0.28rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(28,106,228,0.08);
+        color: var(--sl-color-primary);
+        font-size: 0.75rem;
+        font-weight: 650;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
       }
 
-      h1,
-      h2,
-      h3,
-      p {
-        letter-spacing: 0;
-      }
-
-      h1 {
-        margin: 0;
-        max-width: 13ch;
-        font-size: clamp(3.4rem, 8vw, 6.9rem);
-        line-height: 0.95;
+      .hero h1 {
+        margin: 0 0 1.1rem;
+        font-size: clamp(2.6rem, 6vw, 5rem);
+        font-weight: 800;
+        line-height: 1.0;
+        letter-spacing: -0.03em;
+        max-width: 16ch;
       }
 
       .hero-lede {
-        max-width: 43rem;
-        margin: 1.35rem 0 0;
-        color: var(--site-muted);
-        font-size: clamp(1.08rem, 1.9vw, 1.32rem);
-        line-height: 1.6;
+        max-width: 44ch;
+        margin: 0 0 1.8rem;
+        color: var(--sl-color-muted);
+        font-size: clamp(1rem, 1.5vw, 1.18rem);
+        line-height: 1.65;
       }
 
       .hero-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.65rem;
-        margin-top: 1.55rem;
+        gap: 0.6rem;
+        margin-bottom: 2rem;
       }
 
-      .install {
-        width: 100%;
-        max-width: 38rem;
-        margin-top: 1.4rem;
-        border: 1px solid var(--site-line);
-        border-radius: 0.5rem;
-        background: var(--site-code);
-        color: #f8f1df;
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.65rem 1.4rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 650;
+        text-decoration: none;
+        background: var(--sl-color-primary);
+        color: #fff;
+        box-shadow: 0 2px 12px rgba(28,106,228,0.28);
+        transition: opacity 0.12s, box-shadow 0.12s;
+      }
+
+      .btn-primary:hover { opacity: 0.88; box-shadow: 0 4px 20px rgba(28,106,228,0.36); }
+
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.65rem 1.2rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid rgba(28,106,228,0.18);
+        color: var(--sl-color-on-surface);
+        background: rgba(255,255,255,0.7);
+        transition: background 0.12s;
+      }
+
+      .btn-ghost:hover { background: rgba(255,255,255,0.95); }
+
+      /* ── Install snippets ───────────────────────────────────────────────────── */
+      .install-block {
+        border-radius: 12px;
         overflow: hidden;
+        border: 1px solid rgba(28,106,228,0.12);
+        background: #0f1a30;
+        margin-bottom: 0.6rem;
       }
 
       .install-header {
         display: flex;
         justify-content: space-between;
-        gap: 1rem;
-        padding: 0.68rem 0.9rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-        color: rgba(248, 241, 223, 0.75);
-        font-size: 0.78rem;
-        font-weight: 760;
+        padding: 0.55rem 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.45);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
-      .install pre {
-        max-width: 100%;
+      .install-block pre {
         margin: 0;
-        overflow: auto;
+        padding: 0.8rem 1rem;
+        overflow-x: auto;
       }
 
-      .install code,
-      .api-code code {
-        display: block;
-        padding: 0.9rem;
-        font: 0.9rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      .install-block code {
+        font: 0.84rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: #c9d8f5;
       }
 
+      .tok-k  { color: #7cb4f8; }
+      .tok-s  { color: #a5d6a7; }
+      .tok-c  { color: rgba(201,216,245,0.40); font-style: italic; }
+      .tok-fn { color: #ffcc80; }
+      .tok-p  { color: rgba(201,216,245,0.65); }
+
+      /* ── Hero chart panel ───────────────────────────────────────────────────── */
       .hero-panel {
-        border: 1px solid var(--site-line);
-        border-radius: 0.65rem;
-        background: rgba(255, 255, 255, 0.7);
-        box-shadow: 0 28px 70px rgba(24, 32, 38, 0.12);
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 0 0 1px rgba(28,106,228,0.06),
+                    0 4px 12px rgba(28,106,228,0.07),
+                    0 20px 60px rgba(28,106,228,0.12);
         overflow: hidden;
       }
 
-      .panel-top {
+      .hero-panel-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 1rem;
-        padding: 0.85rem 1rem;
-        border-bottom: 1px solid var(--site-line);
-        font-weight: 780;
+        padding: 0.75rem 1rem;
+        border-bottom: 0.5px solid rgba(28,106,228,0.10);
       }
 
-      .status-dots {
+      .panel-dots {
         display: flex;
-        gap: 0.35rem;
+        gap: 5px;
       }
 
-      .status-dots span {
-        width: 0.62rem;
-        height: 0.62rem;
+      .panel-dots span {
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        background: var(--site-accent);
       }
 
-      .status-dots span:nth-child(2) {
-        background: var(--site-gold);
+      .panel-dots span:nth-child(1) { background: #ff5f57; }
+      .panel-dots span:nth-child(2) { background: #febc2e; }
+      .panel-dots span:nth-child(3) { background: #28c840; }
+
+      .panel-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--sl-color-muted);
       }
 
-      .status-dots span:nth-child(3) {
-        background: var(--site-blue);
+      #hero-chart {
+        /* height comes from spec; no min-height needed */
       }
 
-      .mini-chart {
-        min-height: 24rem;
-        padding: 1rem;
-        background: linear-gradient(180deg, #ffffff, #f5f2ea);
+      /* ── Standalone chart: override story-level min-height ──────────────────── */
+      /* styles.css sets .sl-view { min-height: 420px } for story layouts.
+         For createChart() embeds we zero it so the chart sizes to spec height. */
+      #hero-chart .sl-view,
+      #showcase-chart-view .sl-view,
+      #stepper-demo-chart .sl-view {
+        min-height: 0 !important;
+      }
+      #hero-chart .sl-empty,
+      #showcase-chart-view .sl-empty,
+      #stepper-demo-chart .sl-empty {
+        min-height: 0 !important;
       }
 
-      .mini-bars {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        align-items: end;
-        gap: 0.7rem;
-        min-height: 15rem;
-        padding: 1.25rem 0.4rem 0;
-        border-bottom: 1px solid var(--site-line);
-      }
-
-      .mini-bars span {
-        display: block;
-        min-height: 2rem;
-        border-radius: 0.28rem 0.28rem 0 0;
-        background: var(--site-accent);
-      }
-
-      .mini-bars span:nth-child(2n) {
-        background: var(--site-blue);
-      }
-
-      .mini-bars span:nth-child(3n) {
-        background: var(--site-gold);
-      }
-
-      .mini-caption {
-        margin: 1rem 0 0;
-        color: var(--site-muted);
-        line-height: 1.55;
-      }
-
+      /* ── Section chrome ─────────────────────────────────────────────────────── */
       .section {
-        padding: clamp(3rem, 7vw, 5.5rem) 0;
-        border-top: 1px solid var(--site-line);
+        padding: clamp(4rem, 8vh, 6rem) 0;
       }
 
-      .section-heading {
-        display: grid;
-        grid-template-columns: minmax(0, 0.72fr) minmax(18rem, 1fr);
-        gap: 2rem;
-        align-items: end;
-        margin-bottom: 1.5rem;
+      .section-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin: 0 0 0.9rem;
+        color: var(--sl-color-primary);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
       }
 
-      .section-heading h2 {
-        margin: 0;
-        font-size: clamp(2rem, 4.5vw, 3.8rem);
-        line-height: 1;
+      .section-title {
+        margin: 0 0 0.65rem;
+        font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
       }
 
-      .section-heading p {
-        margin: 0;
-        color: var(--site-muted);
+      .section-lede {
+        max-width: 52ch;
+        margin: 0 0 2.5rem;
+        color: var(--sl-color-muted);
         font-size: 1.05rem;
-        line-height: 1.6;
+        line-height: 1.65;
       }
 
-      .feature-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1rem;
-      }
-
-      .feature-card,
-      .link-card {
-        min-height: 13rem;
-        padding: 1.1rem;
-        border: 1px solid var(--site-line);
-        border-radius: 0.55rem;
-        background: rgba(255, 255, 255, 0.58);
-      }
-
-      .feature-card h3,
-      .link-card h3 {
-        margin: 0;
-        font-size: 1.05rem;
-      }
-
-      .feature-card p,
-      .link-card p {
-        margin: 0.65rem 0 0;
-        color: var(--site-muted);
-        line-height: 1.55;
-      }
-
-      .api-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1.1fr);
-        gap: 1rem;
-        align-items: stretch;
-      }
-
-      .api-list {
-        display: grid;
-        gap: 0.7rem;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-
-      .api-list li {
-        padding: 0.8rem 0.9rem;
-        border: 1px solid var(--site-line);
-        border-radius: 0.45rem;
-        background: rgba(255, 255, 255, 0.58);
-      }
-
-      .api-list code {
-        font-weight: 760;
-      }
-
-      .api-code {
-        margin: 0;
-        overflow: auto;
-        border-radius: 0.55rem;
-        background: var(--site-code);
-        color: #f8f1df;
-      }
-
-      .agent-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 0.85fr) minmax(20rem, 1.15fr);
-        gap: 1rem;
-      }
-
-      .agent-card,
-      .agent-brief {
-        border: 1px solid var(--site-line);
-        border-radius: 0.55rem;
-        background: rgba(255, 255, 255, 0.58);
-      }
-
-      .agent-card {
-        padding: 1rem;
-      }
-
-      .agent-card h3,
-      .agent-brief h3 {
-        margin: 0;
-        font-size: 1.05rem;
-      }
-
-      .agent-card ul,
-      .agent-card ol {
-        margin: 0.75rem 0 0;
-        padding-left: 1.2rem;
-        color: var(--site-muted);
-        line-height: 1.55;
-      }
-
-      .agent-brief {
+      /* ── Interactive code showcase ──────────────────────────────────────────── */
+      .showcase {
+        background: rgba(255,255,255,0.45);
+        border-radius: 20px;
+        border: 1px solid rgba(28,106,228,0.10);
+        box-shadow: 0 0 0 1px rgba(28,106,228,0.04), 0 8px 40px rgba(28,106,228,0.08);
         overflow: hidden;
       }
 
-      .agent-brief h3 {
-        padding: 0.85rem 1rem;
-        border-bottom: 1px solid var(--site-line);
+      .showcase-inner {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        min-height: 600px;
       }
 
-      .agent-brief pre {
+      /* Left: scrollable code steps */
+      .showcase-code {
+        border-right: 1px solid rgba(28,106,228,0.10);
+        overflow-y: auto;
+        max-height: 600px;
+        background: #0f1a30;
+        border-radius: 20px 0 0 20px;
+      }
+
+      .code-preamble {
+        padding: 1.25rem 1.25rem 0.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+
+      .code-preamble pre {
         margin: 0;
-        overflow: auto;
-        background: #f3f1eb;
       }
 
-      .agent-brief code {
-        display: block;
-        min-width: 34rem;
-        padding: 1rem;
-        color: #263039;
-        font: 0.86rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      .code-preamble code {
+        font: 0.78rem/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: rgba(201,216,245,0.55);
       }
 
-      .demo-copy {
-        margin-bottom: 1.2rem;
+      /* Each "step" row in the code panel */
+      .code-step {
+        display: flex;
+        gap: 0;
+        cursor: pointer;
+        border-left: 3px solid transparent;
+        transition: border-color 0.15s;
       }
 
-      .demo-copy p {
-        max-width: 52rem;
-        margin: 0.75rem 0 0;
-        color: var(--site-muted);
+      .code-step:hover { background: rgba(255,255,255,0.03); }
+
+      .code-step.is-active {
+        background: rgba(28,106,228,0.08);
+        border-left-color: var(--sl-color-primary);
+      }
+
+      .code-step-num {
+        flex-shrink: 0;
+        width: 2.5rem;
+        padding: 1rem 0;
+        text-align: center;
+        font: 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: rgba(255,255,255,0.18);
+        user-select: none;
+      }
+
+      .code-step.is-active .code-step-num {
+        color: var(--sl-color-primary);
+        font-weight: 700;
+      }
+
+      .code-step-body {
+        flex: 1;
+        min-width: 0;
+        padding: 0.9rem 1.25rem 0.9rem 0;
+      }
+
+      .code-step-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.45rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: rgba(255,255,255,0.30);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .code-step.is-active .code-step-label {
+        color: var(--sl-color-primary);
+      }
+
+      .code-step-label-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+      }
+
+      .code-step-snippet {
+        margin: 0;
+      }
+
+      .code-step-snippet code {
+        font: 0.82rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: rgba(201,216,245,0.55);
+        white-space: pre;
+      }
+
+      .code-step.is-active .code-step-snippet code { color: #c9d8f5; }
+
+      .code-step-desc {
+        margin: 0.5rem 0 0;
+        font-size: 0.78rem;
+        line-height: 1.55;
+        color: rgba(255,255,255,0.28);
+      }
+
+      .code-step.is-active .code-step-desc { color: rgba(201,216,245,0.55); }
+
+      /* Right: sticky chart panel */
+      .showcase-chart {
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+      }
+
+      .showcase-chart-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.85rem 1.1rem;
+        border-bottom: 0.5px solid rgba(28,106,228,0.10);
+      }
+
+      .showcase-step-indicator {
+        display: flex;
+        gap: 5px;
+      }
+
+      .showcase-step-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: rgba(28,106,228,0.15);
+        transition: background 0.2s;
+      }
+
+      .showcase-step-dot.is-active {
+        background: var(--sl-color-primary);
+      }
+
+      .showcase-chart-desc {
+        flex: 0 0 auto;         /* fixed height — doesn't steal from chart */
+        padding: 0.55rem 1.1rem;
+        border-bottom: 0.5px solid rgba(28,106,228,0.06);
+      }
+
+      .showcase-chart-desc p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--sl-color-muted);
+        line-height: 1.45;
+        font-style: italic;
+        /* clamp to two lines so it never pushes the chart out */
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      #showcase-chart-view {
+        flex: 1;
+        min-height: 0;          /* let chart height come from spec */
+        overflow: hidden;       /* clip any rounding overflows */
+      }
+
+      /* ── Two modes section ──────────────────────────────────────────────────── */
+      .modes-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1.25rem;
+      }
+
+      .mode-card {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(28,106,228,0.10);
+        background: #fff;
+        box-shadow: 0 0 0 1px rgba(28,106,228,0.04), 0 4px 20px rgba(28,106,228,0.07);
+      }
+
+      .mode-card-header {
+        padding: 1.25rem 1.25rem 0.75rem;
+        border-bottom: 0.5px solid rgba(28,106,228,0.08);
+      }
+
+      .mode-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.22rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+      }
+
+      .mode-badge.stepper { background: rgba(28,106,228,0.10); color: var(--sl-color-primary); }
+      .mode-badge.scroller { background: rgba(250,77,29,0.10); color: rgb(200,50,10); }
+
+      .mode-card h3 {
+        margin: 0 0 0.4rem;
+        font-size: 1.15rem;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+      }
+
+      .mode-card p {
+        margin: 0;
+        font-size: 0.88rem;
+        color: var(--sl-color-muted);
         line-height: 1.6;
       }
 
-      #app {
-        border-top: 1px solid var(--site-line);
-      }
-
-      #app .sl-intro {
-        display: none;
-      }
-
-      .demo-fallback {
-        width: min(var(--site-max), calc(100% - 2rem));
-        margin: 0 auto;
-        padding: 2rem 0 3rem;
-      }
-
-      .demo-fallback-inner {
-        padding: 1.1rem;
-        border: 1px solid var(--site-line);
-        border-radius: 0.55rem;
-        background: rgba(255, 255, 255, 0.64);
-      }
-
-      .demo-fallback h3 {
+      .mode-code {
+        background: #0f1a30;
         margin: 0;
+        padding: 1.1rem 1.25rem;
+        overflow-x: auto;
       }
 
-      .demo-fallback p {
-        margin: 0.6rem 0 0;
-        color: var(--site-muted);
-        line-height: 1.55;
+      .mode-code code {
+        font: 0.82rem/1.75 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: #c9d8f5;
+        white-space: pre;
       }
 
-      .link-grid {
+      /* stepper demo controls */
+      .mode-demo {
+        padding: 1rem 1.25rem;
+        border-top: 0.5px solid rgba(28,106,228,0.08);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .mode-demo-chart {
+        flex: 1;
+        min-height: 0;          /* let chart height come from spec */
+        overflow: hidden;
+      }
+
+      .mode-stepper-btns {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .step-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.5rem 1rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 650;
+        border: 1px solid rgba(28,106,228,0.20);
+        background: rgba(245,247,255,0.8);
+        color: var(--sl-color-on-surface);
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s;
+      }
+
+      .step-btn:hover { background: rgba(28,106,228,0.08); border-color: var(--sl-color-primary); }
+      .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      .mode-scroller-preview {
+        position: relative;
+        padding: 1rem 1.25rem;
+        border-top: 0.5px solid rgba(28,106,228,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 80px;
+      }
+
+      .scroller-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.3rem;
+        border-radius: 999px;
+        font-size: 0.88rem;
+        font-weight: 650;
+        text-decoration: none;
+        background: var(--sl-color-primary);
+        color: #fff;
+        box-shadow: 0 2px 10px rgba(28,106,228,0.25);
+        transition: opacity 0.12s;
+      }
+
+      .scroller-link:hover { opacity: 0.88; }
+
+      /* ── Feature grid ───────────────────────────────────────────────────────── */
+      .features-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1rem;
       }
 
-      .link-card {
-        color: inherit;
-        text-decoration: none;
+      .feature-card {
+        padding: 1.35rem 1.25rem;
+        border-radius: 14px;
+        border: 1px solid rgba(28,106,228,0.10);
+        background: rgba(255,255,255,0.7);
+        transition: box-shadow 0.15s;
       }
 
-      .link-card span {
-        display: inline-block;
-        margin-top: 1rem;
-        color: var(--site-accent);
-        font-weight: 800;
+      .feature-card:hover {
+        box-shadow: 0 4px 20px rgba(28,106,228,0.10);
       }
 
+      .feature-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(28,106,228,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.9rem;
+        font-size: 1.1rem;
+      }
+
+      .feature-card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .feature-card p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--sl-color-muted);
+        line-height: 1.6;
+      }
+
+      /* ── Footer ─────────────────────────────────────────────────────────────── */
       .site-footer {
-        border-top: 1px solid var(--site-line);
+        border-top: 0.5px solid rgba(28,106,228,0.10);
         padding: 2rem 0;
-        color: var(--site-muted);
+        color: var(--sl-color-muted);
+        font-size: 0.85rem;
       }
 
       .footer-inner {
         display: flex;
-        flex-wrap: wrap;
+        align-items: center;
         justify-content: space-between;
-        gap: 1rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
       }
 
-      @media (max-width: 920px) {
-        .nav-inner {
-          align-items: flex-start;
-          flex-direction: column;
-          padding: 0.8rem 0;
-        }
+      .footer-links {
+        display: flex;
+        gap: 1.25rem;
+      }
 
-        .site-nav {
-          justify-content: flex-start;
-        }
+      .footer-links a {
+        color: var(--sl-color-muted);
+        text-decoration: none;
+        transition: color 0.12s;
+      }
 
-        .hero,
-        .section-heading,
-        .api-layout,
-        .agent-grid {
+      .footer-links a:hover { color: var(--sl-color-primary); }
+
+      /* ── Responsive ─────────────────────────────────────────────────────────── */
+      @media (max-width: 860px) {
+        .hero, .modes-grid, .showcase-inner {
           grid-template-columns: 1fr;
         }
 
-        .hero {
-          min-height: auto;
+        .features-grid {
+          grid-template-columns: repeat(2, 1fr);
         }
 
-        .feature-grid,
-        .link-grid {
-          grid-template-columns: 1fr;
+        .showcase-code {
+          max-height: 320px;
+          border-radius: 20px 20px 0 0;
         }
+
+        .showcase-chart {
+          border-radius: 0 0 20px 20px;
+        }
+
+        .hero-panel { display: none; }
+      }
+
+      @media (max-width: 560px) {
+        .features-grid { grid-template-columns: 1fr; }
+        .nav-links { display: none; }
       }
     </style>
   </head>
+
   <body>
-    <header class="site-header">
-      <div class="nav-inner">
-        <a class="brand" href="./" aria-label="ScrollyLite home">
-          <span class="brand-mark" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </span>
-          <span>ScrollyLite</span>
-        </a>
-        <nav class="site-nav" aria-label="Project links">
-          <a href="#features">Features</a>
-          <a href="#api">API</a>
-          <a href="#agent">Agent brief</a>
-          <a href="#demo">Demo</a>
-          <a href="./docs/getting-started.md">Docs</a>
-          <a href="./llms.txt">llms.txt</a>
-          <a href="https://github.com/SonghaiFan/scrollylite">GitHub</a>
-        </nav>
+    <!-- ── Nav ────────────────────────────────────────────────────────────────── -->
+    <nav class="site-nav" aria-label="Site navigation">
+      <a class="nav-brand" href="./">
+        <span class="nav-brand-icon" aria-hidden="true">
+          <span style="width:5px;height:10px;background:rgb(28,106,228)"></span>
+          <span style="width:5px;height:14px;background:rgb(250,77,29)"></span>
+          <span style="width:5px;height:7px;background:rgb(3,185,118)"></span>
+        </span>
+        ScrollyLite
+      </a>
+      <div class="nav-links">
+        <a href="#showcase">Showcase</a>
+        <a href="#modes">Modes</a>
+        <a href="#features">Features</a>
+        <a href="./examples/weather/">Demo</a>
+        <a href="./docs/getting-started.md">Docs</a>
+        <a href="https://github.com/SonghaiFan/scrollylite">GitHub</a>
       </div>
-    </header>
+      <a class="nav-btn" href="./examples/weather/">Try demo →</a>
+    </nav>
 
     <main>
-      <section class="hero" aria-labelledby="hero-title">
-        <div>
-          <p class="eyebrow">D3-style ESM · Browser native · Agent readable</p>
-          <h1 id="hero-title">Declarative scrollytelling for data stories.</h1>
-          <p class="hero-lede">
-            ScrollyLite is a lightweight JavaScript library for building
-            scrolling, narrated visualizations. Author chart states and story
-            steps; the runtime infers focus, guide, granularity, and observation
-            transitions.
+      <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+      <section class="wrap">
+        <div class="hero">
+          <div>
+            <p class="hero-eyebrow">ESM · Browser native · Agent readable</p>
+            <h1>Declarative chart transitions.</h1>
+            <p class="hero-lede">
+              Write chart states, not animation code. ScrollyLite infers
+              focus, guide, and granularity transitions and renders them with D3.
+            </p>
+            <div class="hero-actions">
+              <a class="btn-primary" href="#showcase">See it in action</a>
+              <a class="btn-ghost" href="./docs/getting-started.md">Read the docs</a>
+              <a class="btn-ghost" href="https://github.com/SonghaiFan/scrollylite">GitHub ↗</a>
+            </div>
+
+            <div class="install-block">
+              <div class="install-header"><span>npm</span><span>install</span></div>
+              <pre><code><span class="tok-k">npm</span> install scrollylite d3 arquero</code></pre>
+            </div>
+            <div class="install-block">
+              <div class="install-header"><span>CDN / browser ESM</span></div>
+              <pre><code><span class="tok-k">import</span> <span class="tok-p">{</span> createStory <span class="tok-p">}</span> <span class="tok-k">from</span>
+  <span class="tok-s">"https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm"</span>;</code></pre>
+            </div>
+          </div>
+
+          <!-- Animated chart panel in hero -->
+          <aside class="hero-panel" aria-label="Live chart preview">
+            <div class="hero-panel-bar">
+              <span class="panel-dots" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+              <span class="panel-title">Live transition preview</span>
+              <span style="width:56px"></span>
+            </div>
+            <div id="hero-chart"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ── Interactive code showcase ─────────────────────────────────────────── -->
+      <section class="section" id="showcase">
+        <div class="wrap">
+          <p class="section-label">Interactive showcase</p>
+          <h2 class="section-title">Write states. Get transitions.</h2>
+          <p class="section-lede">
+            Click any step on the left — or scroll through them — to see the
+            chart animate in real time. Each step is a declarative spec, not
+            imperative animation code.
           </p>
-          <div class="hero-actions">
-            <a class="button-link primary" href="#demo">Try the live demo</a>
-            <a class="button-link secondary" href="./docs/getting-started.md">Read docs</a>
-            <a class="button-link secondary" href="./examples/weather/">Open example</a>
-          </div>
-          <div class="install" aria-label="Install command">
-            <div class="install-header">
-              <span>Install</span>
-              <span>npm</span>
+
+          <div class="showcase">
+            <div class="showcase-inner">
+
+              <!-- Left: scrollable code steps -->
+              <div class="showcase-code" id="showcase-code-panel">
+
+                <div class="code-preamble">
+                  <pre><code><span class="tok-c">// Build the base chart once</span>
+<span class="tok-k">const</span> base <span class="tok-p">=</span> <span class="tok-fn">bar</span><span class="tok-p">(</span><span class="tok-s">"weather"</span><span class="tok-p">)</span>
+  <span class="tok-p">.</span><span class="tok-fn">x</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">).</span><span class="tok-fn">y</span><span class="tok-p">(</span><span class="tok-s">"count"</span><span class="tok-p">)</span>
+  <span class="tok-p">.</span><span class="tok-fn">sort</span><span class="tok-p">(</span><span class="tok-s">"year"</span><span class="tok-p">).</span><span class="tok-fn">key</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">);</span></code></pre>
+                </div>
+
+                <!-- Steps injected by JS -->
+                <div id="showcase-steps"></div>
+              </div>
+
+              <!-- Right: sticky chart -->
+              <div class="showcase-chart">
+                <div class="showcase-chart-header">
+                  <div class="showcase-step-indicator" id="showcase-dots"></div>
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--sl-color-muted)">Melbourne weather</span>
+                </div>
+                <div class="showcase-chart-desc">
+                  <p id="showcase-desc">Click a step on the left to see the transition.</p>
+                </div>
+                <div id="showcase-chart-view"></div>
+              </div>
+
             </div>
-            <pre><code>npm install scrollylite d3 arquero</code></pre>
-          </div>
-          <div class="install" aria-label="Browser ESM CDN import">
-            <div class="install-header">
-              <span>Browser CDN</span>
-              <span>ESM</span>
-            </div>
-            <pre><code>import { createStory } from "https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm";</code></pre>
           </div>
         </div>
-
-        <aside class="hero-panel" aria-label="ScrollyLite preview">
-          <div class="panel-top">
-            <span>Step transition preview</span>
-            <span class="status-dots" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </span>
-          </div>
-          <div class="mini-chart">
-            <div class="mini-bars" aria-hidden="true">
-              <span style="height: 42%"></span>
-              <span style="height: 66%"></span>
-              <span style="height: 38%"></span>
-              <span style="height: 74%"></span>
-              <span style="height: 52%"></span>
-              <span style="height: 88%"></span>
-              <span style="height: 61%"></span>
-            </div>
-            <p class="mini-caption">
-              The same grammar powers the embedded demo below: bar charts,
-              grouped layouts, filters, highlights, and rollups.
-            </p>
-          </div>
-        </aside>
       </section>
 
+      <!-- ── Two control modes ──────────────────────────────────────────────────── -->
+      <section class="section" id="modes">
+        <div class="wrap">
+          <p class="section-label">Control modes</p>
+          <h2 class="section-title">Two ways to drive transitions.</h2>
+          <p class="section-lede">
+            The same chart spec works with both modes. Stepper for
+            button/keyboard navigation; Scroller for scroll-driven storytelling.
+          </p>
+
+          <div class="modes-grid">
+
+            <!-- Stepper mode -->
+            <div class="mode-card">
+              <div class="mode-card-header">
+                <span class="mode-badge stepper">Stepper</span>
+                <h3>Programmatic control</h3>
+                <p>
+                  Use <code>createChart()</code> to embed a standalone chart.
+                  Call <code>chart.step(n)</code> from any trigger — button,
+                  keyboard, slider, or route change.
+                </p>
+              </div>
+              <pre class="mode-code"><code><span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createChart</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
+  target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
+<span class="tok-p">});</span>
+
+<span class="tok-c">// Jump to any step instantly</span>
+chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">0</span><span class="tok-p">);</span>   <span class="tok-c">// baseline</span>
+chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">1</span><span class="tok-p">);</span>   <span class="tok-c">// filter focus</span>
+chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">2</span><span class="tok-p">);</span>   <span class="tok-c">// guide: flip</span>
+
+<span class="tok-c">// Respond to any user trigger</span>
+btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span>
+  chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span>next<span class="tok-p">++);</span></code></pre>
+              <div class="mode-demo">
+                <div class="mode-demo-chart" id="stepper-demo-chart"></div>
+                <div class="mode-stepper-btns">
+                  <button class="step-btn" id="stepper-prev" disabled>← Prev</button>
+                  <button class="step-btn" id="stepper-next">Next →</button>
+                  <div style="text-align:center;font-size:0.72rem;color:var(--sl-color-muted);margin-top:0.2rem">
+                    Step <span id="stepper-idx">1</span> / <span id="stepper-total">?</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scroller mode -->
+            <div class="mode-card">
+              <div class="mode-card-header">
+                <span class="mode-badge scroller">Scroller</span>
+                <h3>Scroll-driven narrative</h3>
+                <p>
+                  Use <code>createStory()</code> for full scrollytelling.
+                  The built-in scroll driver maps page position to chart
+                  state — no manual wiring needed.
+                </p>
+              </div>
+              <pre class="mode-code"><code><span class="tok-k">const</span> story <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createStory</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
+  target<span class="tok-p">:</span> <span class="tok-s">"#app"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
+<span class="tok-p">});</span>
+
+<span class="tok-c">// The scroll driver wires itself.</span>
+<span class="tok-c">// Chart state tracks scroll position</span>
+<span class="tok-c">// — no onscroll handlers needed.</span>
+
+<span class="tok-c">// Layout presets:</span>
+<span class="tok-p">.</span><span class="tok-fn">layout</span><span class="tok-p">(</span><span class="tok-s">"floatToText"</span><span class="tok-p">)</span>
+  <span class="tok-c">// chart sidebar, text scrolls beside</span>
+<span class="tok-p">.</span><span class="tok-fn">layout</span><span class="tok-p">(</span><span class="tok-s">"textOverVis"</span><span class="tok-p">)</span>
+  <span class="tok-c">// chart fills bg, text overlays</span></code></pre>
+              <div class="mode-scroller-preview">
+                <a class="scroller-link" href="./examples/weather/">
+                  Open scroll demo →
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Features ───────────────────────────────────────────────────────────── -->
       <section class="section" id="features">
-        <div class="section-inner">
-          <div class="section-heading">
-            <h2>Why ScrollyLite</h2>
-            <p>
-              Designed for small, inspectable stories that can live in static
-              pages, notebooks, docs sites, and browser-native projects.
-            </p>
-          </div>
-          <div class="feature-grid">
-            <article class="feature-card">
+        <div class="wrap">
+          <p class="section-label">Why ScrollyLite</p>
+          <h2 class="section-title">Built for concise, inspectable stories.</h2>
+          <p class="section-lede">
+            No framework. No build step required for static pages. Just D3,
+            Arquero, and a declarative spec.
+          </p>
+
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">🎯</div>
               <h3>State-first authoring</h3>
-              <p>
-                Write each narrative step as a chart state. ScrollyLite handles
-                the transition choreography between steps.
-              </p>
-            </article>
-            <article class="feature-card">
-              <h3>Built-in chart idioms</h3>
-              <p>
-                Start with bar, line, point, and unit charts, all sharing the
-                same encoding, filtering, keying, and tooltip vocabulary.
-              </p>
-            </article>
-            <article class="feature-card">
+              <p>Describe each step as a chart state. ScrollyLite classifies and animates the transitions automatically.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📊</div>
+              <h3>Four built-in idioms</h3>
+              <p>Bar, line, point, and unit charts share the same encoding, filtering, keying, and tooltip vocabulary.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔍</div>
               <h3>Semantic scene inference</h3>
-              <p>
-                Changes are classified as focus, guide, granularity, or
-                observation scenes so transitions stay meaningful.
-              </p>
-            </article>
-            <article class="feature-card">
-              <h3>Static-site friendly</h3>
-              <p>
-                Follow D3's browser-native pattern: npm for apps, jsDelivr
-                `+esm` for static pages, and no framework required.
-              </p>
-            </article>
-            <article class="feature-card">
+              <p>Changes are classified as focus, guide, granularity, or observation so transitions stay meaningful.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🎨</div>
+              <h3>Themeable</h3>
+              <p>CSS token system with three themes (Default, Arch, Paper). Swap the stylesheet; every chart updates.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔌</div>
               <h3>Extensible idioms</h3>
-              <p>
-                Register custom chart idioms with the same plugin system used by
-                the built-ins.
-              </p>
-            </article>
-            <article class="feature-card">
-              <h3>Runtime controls</h3>
-              <p>
-                Drive stories programmatically with the unified
-                `action(event)` interface and the native scroll driver.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="api">
-        <div class="section-inner">
-          <div class="section-heading">
-            <h2>A small public API</h2>
-            <p>
-              The package surface is intentionally compact: build specs, create
-              stories, and register idioms when you need to extend the grammar.
-            </p>
-          </div>
-          <div class="api-layout">
-            <ul class="api-list">
-              <li><code>story()</code> builds a serializable story spec.</li>
-              <li><code>bar()</code>, <code>line()</code>, <code>point()</code>, and <code>unit()</code> create chart states.</li>
-              <li><code>createStory()</code> renders the runtime into a target element.</li>
-              <li><code>defineChartIdiom()</code> and registration helpers add custom idioms.</li>
-            </ul>
-            <pre class="api-code"><code>import * as d3 from "d3";
-import * as aq from "arquero";
-import { createStory, story, bar } from "scrollylite";
-import "scrollylite/style.css";
-
-const base = bar("rows").x("category").y("value").key("category");
-const spec = story()
-  .data("rows", { values })
-  .layout("floatToText")
-  .step("Baseline", base)
-  .step("Highlight", base.highlight({ category: "B" }))
-  .toSpec();
-
-await createStory(spec, { target: "#app", d3, aq });</code></pre>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="agent">
-        <div class="section-inner">
-          <div class="section-heading">
-            <h2>Agent-readable by design</h2>
-            <p>
-              This page includes a compact brief for AI agents, plus a dense
-              <a href="./llms.txt">llms.txt</a> reference that can become the
-              seed for a future ScrollyLite skill.
-            </p>
-          </div>
-          <div class="agent-grid">
-            <div class="agent-card">
-              <h3>Task map</h3>
-              <ol>
-                <li>Use ScrollyLite when the user wants a narrated scrolling data story.</li>
-                <li>Generate a `story()` spec first; avoid hand-writing animation code.</li>
-                <li>Choose one built-in idiom: `bar`, `line`, `point`, or `unit`.</li>
-                <li>Pass `d3` and `aq` to `createStory()` for ESM usage.</li>
-                <li>Use `.key()` for stable semantic identity across transitions.</li>
-              </ol>
+              <p>Register custom chart idioms with the same plugin system used by the built-ins.</p>
             </div>
-            <div class="agent-brief">
-              <h3>Skill seed</h3>
-              <pre><code>---
-name: scrollylite
-description: Build declarative scrollytelling data stories with ScrollyLite.
-use_when:
-  - user asks for a scroll-driven narrated visualization
-  - user needs a ScrollyLite spec, example, plugin, or docs explanation
-first_read:
-  - ./llms.txt
-  - ./docs/getting-started.md
-  - ./docs/chart-idioms.md
-core_rule: Describe chart end states; do not hand-write transition animation.
-public_api:
-  - story
-  - bar
-  - line
-  - point
-  - unit
-  - createStory
----</code></pre>
+            <div class="feature-card">
+              <div class="feature-icon">🤖</div>
+              <h3>Agent readable</h3>
+              <p>Compact grammar and an llms.txt reference make spec generation reliable with code-generation AI.</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="demo">
-        <div class="section-inner demo-copy">
-          <p class="eyebrow">Live demo</p>
-          <div class="section-heading">
-            <h2>Scroll through a real story</h2>
-            <p>
-              This page embeds the weather example from the repository. It uses
-              the bar idiom, scroll-scrubbed transitions, local CSV data, and the
-              same runtime shipped by the library.
-            </p>
-          </div>
-        </div>
-        <div id="app"></div>
-      </section>
-
-      <section class="section">
-        <div class="section-inner">
-          <div class="section-heading">
-            <h2>Start from the path that fits</h2>
-            <p>
-              Use the complete weather demo to explore the system, or begin with
-              the minimal CDN example when you want the smallest possible page.
-            </p>
-          </div>
-          <div class="link-grid">
-            <a class="link-card" href="./docs/getting-started.md">
-              <h3>Getting started</h3>
-              <p>Install, browser ESM CDN usage, and what `createStory` does.</p>
-              <span>Read the guide</span>
-            </a>
-            <a class="link-card" href="./examples/weather/">
-              <h3>Full weather demo</h3>
-              <p>Try all built-in idioms, layout presets, and action modes.</p>
-              <span>Open the demo</span>
-            </a>
-            <a class="link-card" href="./examples/minimal/">
-              <h3>Minimal example</h3>
-              <p>A compact browser ESM page with inline data and no build tools.</p>
-              <span>View example</span>
-            </a>
-            <a class="link-card" href="./llms.txt">
-              <h3>AI agent reference</h3>
-              <p>A dense machine-oriented guide for generating correct ScrollyLite code.</p>
-              <span>Open llms.txt</span>
-            </a>
           </div>
         </div>
       </section>
     </main>
 
+    <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
     <footer class="site-footer">
-      <div class="section-inner footer-inner">
-        <span>ScrollyLite is MIT licensed.</span>
-        <span>Built for static, lightweight browser scrollytelling.</span>
+      <div class="wrap footer-inner">
+        <span>ScrollyLite · MIT license</span>
+        <div class="footer-links">
+          <a href="./docs/getting-started.md">Docs</a>
+          <a href="./examples/weather/">Demo</a>
+          <a href="./llms.txt">llms.txt</a>
+          <a href="https://github.com/SonghaiFan/scrollylite">GitHub</a>
+        </div>
       </div>
     </footer>
 
+    <!-- ── Runtime deps ───────────────────────────────────────────────────────── -->
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
-    <script type="module">
-      import { createStory } from "./dist/index.js";
-      import { createDemoSpec } from "./examples/weather/specs/demo.js";
 
-      const demoTarget = document.querySelector("#app");
+    <script type="module">
+      import { createChart, createStory, bar, story } from "./dist/index.js";
+
+      const d3 = globalThis.d3;
+      const aq = globalThis.aq;
+
+      // ── Shared data & base spec ───────────────────────────────────────────────
+      const DATA_URL = "./examples/weather/data/weather_days_tidy.csv";
+
+      function makeSpec(steps, height = 420) {
+        const base = bar("weather")
+          .x("decade").y("count")
+          .sort("year").key("decade");
+
+        const s = story()
+          .data("weather", { url: DATA_URL })
+          .view("main", { height });
+
+        steps.forEach(([label, chart, desc]) => s.step(label, chart, { body: desc }));
+        return s.toSpec();
+      }
+
+      // ── Showcase steps definition ─────────────────────────────────────────────
+      const base = bar("weather")
+        .x("decade").y("count")
+        .sort("year").key("decade");
+
+      const SHOWCASE_STEPS = [
+        {
+          label: "Baseline",
+          snippet: `base\n  .where({ type: "Hot days" })`,
+          desc: "One vertical bar per decade — bar height encodes hot days count.",
+          chart: base.where({ type: "Hot days" }),
+        },
+        {
+          label: "Focus — filter",
+          snippet: `base\n  .where({ type: "Hot days", period: "recent" })`,
+          desc: "Focus narrows to recent decades only. Axes rescale; bar positions are preserved by key.",
+          chart: base.where({ type: "Hot days", period: "recent" }),
+        },
+        {
+          label: "Guide — flip axis",
+          snippet: `base\n  .where({ type: "Hot days", period: "recent" })\n  .flip()`,
+          desc: "Guide changes the reading frame — vertical becomes horizontal in a two-stage axis transition.",
+          chart: base.where({ type: "Hot days", period: "recent" }).flip(),
+        },
+        {
+          label: "Focus — swap category",
+          snippet: `base\n  .where({ type: "Cold days" })\n  .flip()`,
+          desc: "Keyed update swaps hot→cold while keeping the flipped orientation. Each bar morphs in place.",
+          chart: base.where({ type: "Cold days" }).flip(),
+        },
+        {
+          label: "Granularity — breakdown",
+          snippet: `base\n  .breakdown("type")`,
+          desc: "Granularity splits each decade bar into hot and cold segments — one aggregate becomes two.",
+          chart: base.breakdown("type"),
+        },
+        {
+          label: "Focus — highlight",
+          snippet: `base\n  .breakdown("type")\n  .highlight({ type: "Cold days" })`,
+          desc: "Focus highlights cold segments by fading hot ones — shape preserved, emphasis shifts.",
+          chart: base.breakdown("type").highlight({ type: "Cold days" }),
+        },
+        {
+          label: "Guide — grouped layout",
+          snippet: `base\n  .breakdown("type")\n  .layout("grouped")\n  .flip()`,
+          desc: "Guide changes stacked → grouped and flips orientation. Three semantic changes, one smooth transition.",
+          chart: base.breakdown("type").layout("grouped").flip(),
+        },
+      ];
+
+      // ── Build showcase code panel ─────────────────────────────────────────────
+      const stepsContainer = document.getElementById("showcase-steps");
+      const dotsContainer  = document.getElementById("showcase-dots");
+      const descEl         = document.getElementById("showcase-desc");
+
+      SHOWCASE_STEPS.forEach((step, i) => {
+        // Step row in code panel
+        const row = document.createElement("div");
+        row.className = "code-step" + (i === 0 ? " is-active" : "");
+        row.dataset.step = i;
+        row.innerHTML = `
+          <div class="code-step-num">${String(i + 1).padStart(2, "0")}</div>
+          <div class="code-step-body">
+            <div class="code-step-label">
+              <span class="code-step-label-dot"></span>
+              ${step.label}
+            </div>
+            <pre class="code-step-snippet"><code>${escapeHtml(step.snippet)}</code></pre>
+            <p class="code-step-desc">${step.desc}</p>
+          </div>
+        `;
+        row.addEventListener("click", () => activateShowcaseStep(i));
+        stepsContainer.appendChild(row);
+
+        // Dot indicator
+        const dot = document.createElement("div");
+        dot.className = "showcase-step-dot" + (i === 0 ? " is-active" : "");
+        dot.id = `showcase-dot-${i}`;
+        dotsContainer.appendChild(dot);
+      });
+
+      function escapeHtml(s) {
+        return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      }
+
+      // ── Mount showcase chart ──────────────────────────────────────────────────
+      let showcaseChart = null;
+      let activeStep = 0;
+
+      const showcaseSpec = makeSpec(
+        SHOWCASE_STEPS.map(s => [s.label, s.chart, s.desc])
+      );
 
       try {
-        if (!globalThis.d3 || !globalThis.aq) {
-          throw new Error("D3 and Arquero must load before the embedded demo can run.");
-        }
-
-        const homepageSpec = withHomepageDataPaths(createDemoSpec({
-          layoutPreset: "floatToText",
-          storyId: "bar",
-          actionMode: "scroll"
-        }));
-
-        window.__scrollyLiteStory = await createStory(homepageSpec, {
-          target: demoTarget,
-          d3: globalThis.d3,
-          aq: globalThis.aq
+        showcaseChart = await createChart(showcaseSpec, {
+          target: "#showcase-chart-view",
+          d3, aq,
+          initialStep: 0
         });
-      } catch (error) {
-        demoTarget.innerHTML = `
-          <section class="demo-fallback" aria-label="Demo unavailable">
-            <div class="demo-fallback-inner">
-              <h3>The live demo could not start in this browser.</h3>
-              <p>
-                The embedded story needs D3 and Arquero from the CDN. You can
-                still explore the source demo in <a href="./examples/weather/">examples/weather</a>
-                or run this repository locally.
-              </p>
-            </div>
-          </section>
-        `;
-        console.warn("ScrollyLite homepage demo did not start:", error);
+
+        descEl.textContent = SHOWCASE_STEPS[0].desc;
+      } catch (e) {
+        console.warn("Showcase chart failed:", e);
       }
 
-      function withHomepageDataPaths(spec) {
-        return {
-          ...spec,
-          data: {
-            ...spec.data,
-            weather: {
-              ...spec.data.weather,
-              url: "./examples/weather/data/weather_sample.csv"
-            },
-            weatherDays: {
-              ...spec.data.weatherDays,
-              url: "./examples/weather/data/weather_days_tidy.csv"
-            }
-          }
-        };
+      function activateShowcaseStep(index) {
+        if (index === activeStep && showcaseChart) return;
+        activeStep = index;
+
+        // Update code panel
+        document.querySelectorAll(".code-step").forEach((el, i) => {
+          el.classList.toggle("is-active", i === index);
+        });
+
+        // Update dots
+        document.querySelectorAll(".showcase-step-dot").forEach((el, i) => {
+          el.classList.toggle("is-active", i === index);
+        });
+
+        // Update description
+        descEl.textContent = SHOWCASE_STEPS[index].desc;
+
+        // Drive the chart
+        showcaseChart?.step(index);
+
+        // Scroll clicked step into center of code panel
+        const row = stepsContainer.children[index];
+        if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
+
+      // IntersectionObserver: auto-advance as steps scroll into view
+      const codePanel = document.getElementById("showcase-code-panel");
+      const obs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const idx = Number(entry.target.dataset.step);
+              if (!isNaN(idx)) activateShowcaseStep(idx);
+            }
+          });
+        },
+        { root: codePanel, threshold: 0.6 }
+      );
+
+      stepsContainer.querySelectorAll(".code-step").forEach(el => obs.observe(el));
+
+      // ── Hero chart — auto-cycles through showcase steps ───────────────────────
+      let heroChart = null;
+      const heroSpec = makeSpec(
+        SHOWCASE_STEPS.map(s => [s.label, s.chart, s.desc]),
+        320
+      );
+
+      try {
+        heroChart = await createChart(heroSpec, {
+          target: "#hero-chart",
+          d3, aq,
+          initialStep: 0
+        });
+
+        let heroStep = 0;
+        setInterval(() => {
+          heroStep = (heroStep + 1) % SHOWCASE_STEPS.length;
+          heroChart.step(heroStep);
+        }, 2400);
+      } catch (e) {
+        console.warn("Hero chart failed:", e);
+      }
+
+      // ── Stepper mode demo ─────────────────────────────────────────────────────
+      const stepperSteps = [
+        ["Baseline",   base.where({ type: "Hot days" }),           "Hot days per decade"],
+        ["Breakdown",  base.breakdown("type"),                      "Split by hot/cold"],
+        ["Highlight",  base.breakdown("type").highlight({ type: "Cold days" }), "Focus: cold days"],
+        ["Grouped",    base.breakdown("type").layout("grouped").flip(), "Grouped horizontal"],
+      ];
+
+      const stepperSpec = makeSpec(stepperSteps, 220);
+      let stepperChart = null;
+      let stepperIdx = 0;
+
+      const prevBtn = document.getElementById("stepper-prev");
+      const nextBtn = document.getElementById("stepper-next");
+      const idxEl   = document.getElementById("stepper-idx");
+      const totalEl = document.getElementById("stepper-total");
+
+      totalEl.textContent = stepperSteps.length;
+
+      try {
+        stepperChart = await createChart(stepperSpec, {
+          target: "#stepper-demo-chart",
+          d3, aq,
+          initialStep: 0
+        });
+      } catch (e) {
+        console.warn("Stepper chart failed:", e);
+      }
+
+      function updateStepperBtns() {
+        idxEl.textContent = stepperIdx + 1;
+        prevBtn.disabled = stepperIdx === 0;
+        nextBtn.disabled = stepperIdx === stepperSteps.length - 1;
+      }
+
+      prevBtn.addEventListener("click", () => {
+        if (stepperIdx > 0) { stepperIdx--; stepperChart?.step(stepperIdx); updateStepperBtns(); }
+      });
+
+      nextBtn.addEventListener("click", () => {
+        if (stepperIdx < stepperSteps.length - 1) { stepperIdx++; stepperChart?.step(stepperIdx); updateStepperBtns(); }
+      });
+
+      updateStepperBtns();
     </script>
   </body>
 </html>
