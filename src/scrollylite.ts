@@ -26,6 +26,7 @@ import {
   bindTooltip,
   channelDomain,
   colorScale,
+  setStoryColorRegistry,
   curveFor,
   drawGrid,
   drawLegend,
@@ -118,6 +119,9 @@ export async function createStory(spec: AnyRecord, options: RuntimeOptions): Pro
   target.innerHTML = "";
 
   const data = await loadData(compiled.data, d3);
+  // Build a stable key→color registry across all scenes so the same category
+  // value always gets the same color throughout the story.
+  setStoryColorRegistry(buildColorRegistry(compiled, data, runtime.aq));
   const shell = renderShell(target, compiled, {
     debug: options.debug === true,
     idioms: BUILT_IN_CHART_IDIOMS
@@ -140,6 +144,7 @@ export async function createStory(spec: AnyRecord, options: RuntimeOptions): Pro
       disposeResize();
       scrollDriver?.destroy?.();
       renderer.destroy();
+      setStoryColorRegistry(null);
       disposeTheme();
     }
   };
@@ -877,6 +882,25 @@ function themeVariables(theme: AnyRecord = {}) {
 
 function themeVariableAliases(theme: AnyRecord = {}) {
   const aliases = {
+    // ── Semantic color roles (DESIGN.md layer) ──────────────────────────────
+    colorPrimary:        "--sl-color-primary",
+    colorSurface:        "--sl-color-surface",
+    colorBg:             "--sl-color-bg",
+    colorOnSurface:      "--sl-color-on-surface",
+    colorMuted:          "--sl-color-muted",
+    colorBorder:         "--sl-color-border",
+    colorOutline:        "--sl-color-outline",
+    colorOutlineVariant: "--sl-color-outline-variant",
+    // ── Semantic shape scale ────────────────────────────────────────────────
+    roundedSm:           "--sl-rounded-sm",
+    roundedMd:           "--sl-rounded-md",
+    roundedLg:           "--sl-rounded-lg",
+    // ── Semantic typography ─────────────────────────────────────────────────
+    typeFamily:          "--sl-type-family",
+    typeLabelSize:       "--sl-type-label-size",
+    typeLabelWeight:     "--sl-type-label-weight",
+    typeBodySize:        "--sl-type-body-size",
+    // ── Component token aliases (kept for backward compatibility) ───────────
     // Color / surface
     background:          "--sl-bg",
     foreground:          "--sl-fg",
@@ -936,6 +960,133 @@ function normalizeThemeVariables(variables: AnyRecord = {}) {
 
 function dash(value) {
   return String(value).replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+}
+
+// Preferred field names for auto-inferred color channel (mirrors defaultColorField in marks.ts).
+const COLOR_INFER_PREFERRED = ['type', 'kind', 'category', 'group', 'series', 'period'];
+
+// Resolve the CSS variable for a series slot (e.g. "var(--sl-series-1)" → actual hex/rgb).
+function resolveSeriesVar(value: string): string {
+  if (!value?.startsWith('var(')) return value;
+  if (typeof document === 'undefined') return value;
+  const name = value.match(/^var\(\s*(--[^,\s)]+)/)?.[1];
+  if (!name) return value;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || value;
+}
+
+// Resolve the current theme palette as an ordered array of concrete color strings.
+function resolveThemePalette(): string[] {
+  if (typeof document === 'undefined') return [];
+  const style = getComputedStyle(document.documentElement);
+  return [
+    '--sl-series-1','--sl-series-2','--sl-series-3','--sl-series-4','--sl-series-5',
+    '--sl-series-6','--sl-series-7','--sl-series-8','--sl-series-9','--sl-series-10'
+  ].map(v => style.getPropertyValue(v).trim() || v);
+}
+
+// Build a story-level Map<field, Map<key, color>> so every categorical key gets
+// the same color across all scenes, regardless of which subset appears in each.
+//
+// Strategy per scene (highest-priority first):
+//   1. Idiom-compiled explicit domain + explicit range → use that ordering directly.
+//   2. Explicit color.field with no range → collect union of values across scenes.
+//   3. No color.field → infer from preferred field names present in the data.
+//
+// Final assignment is always sequential (series-1, series-2, …) in the order
+// keys are first encountered, so the Nth distinct key always maps to series-N —
+// matching the stacked/grouped bar idiom's hardcoded 'var(--sl-series-N)' range.
+function buildColorRegistry(
+  compiled: AnyRecord,
+  datasets: AnyRecord,
+  aq: AnyRecord
+): Map<string, Map<string, string>> {
+  // fieldOrder tracks insertion order; fieldRanges tracks explicit var→color for a domain slot.
+  const fieldOrder  = new Map<string, string[]>();   // field → ordered unique keys
+  const fieldRanges = new Map<string, string[]>();   // field → parallel color array (when explicit)
+
+  const addKey = (field: string, key: string, color?: string) => {
+    if (!fieldOrder.has(field)) { fieldOrder.set(field, []); fieldRanges.set(field, []); }
+    const keys   = fieldOrder.get(field)!;
+    const colors = fieldRanges.get(field)!;
+    const idx = keys.indexOf(key);
+    if (idx === -1) {
+      keys.push(key);
+      colors.push(color ?? '');
+    } else if (color && !colors[idx]) {
+      colors[idx] = color;  // backfill explicit color if we only had inferred before
+    }
+  };
+
+  for (const step of (compiled.steps || [])) {
+    for (const rawViewSpec of Object.values(step.views || {})) {
+      const rawSpec = rawViewSpec as AnyRecord;
+
+      // Run the idiom's prepareSpec to get the same encoding that the renderer sees.
+      const idiom = BUILT_IN_CHART_IDIOMS.get(rawSpec);
+      const spec  = (idiom?.prepareSpec?.(rawSpec) || rawSpec) as AnyRecord;
+
+      const source = viewRows(spec.data ?? rawSpec.data, datasets);
+      if (!source?.length) continue;
+      const rows = applyTransforms(source, domainTransforms((spec.transform as AnyRecord[]) || []), aq);
+      if (!rows.length) continue;
+
+      const colorChannel = (spec.encoding as AnyRecord)?.color as AnyRecord | undefined;
+
+      // Skip quantitative (sequential) and literal-value channels — no categorical keys.
+      if (colorChannel?.type === 'quantitative' || colorChannel?.value) continue;
+      if (colorChannel?.hue || colorChannel?.luminance) continue;
+
+      const field: string | undefined = colorChannel?.field as string | undefined
+        ?? (colorChannel ? undefined : COLOR_INFER_PREFERRED.find(f => rows.some(r => (r as AnyRecord)[f] != null)));
+      if (!field) continue;
+
+      // If the encoding has an explicit domain + parallel range, use that ordering.
+      const explicitDomain = Array.isArray(colorChannel?.domain) ? colorChannel!.domain as string[] : null;
+      const explicitRange  = Array.isArray(colorChannel?.range)  ? colorChannel!.range  as string[] : null;
+
+      if (explicitDomain?.length) {
+        explicitDomain.forEach((key, i) => {
+          const color = explicitRange ? resolveSeriesVar(explicitRange[i] ?? '') : '';
+          addKey(field, String(key), color);
+        });
+      } else {
+        // Collect values from actual data rows.
+        for (const row of rows) {
+          const val = (row as AnyRecord)[field];
+          if (val != null) addKey(field, String(val));
+        }
+      }
+    }
+  }
+
+  // Assign final colors: any key with an explicit resolved color keeps it;
+  // remaining slots get the next available palette entry in order.
+  const palette = resolveThemePalette();
+  const registry = new Map<string, Map<string, string>>();
+
+  for (const [field, keys] of fieldOrder) {
+    if (!keys.length) continue;
+    const explicitColors = fieldRanges.get(field)!;
+    // Determine which palette slots are already claimed by explicit assignments.
+    const usedSlots = new Set(
+      explicitColors.map(c => palette.indexOf(c)).filter(i => i >= 0)
+    );
+    let nextSlot = 0;
+
+    const fieldMap = new Map<string, string>();
+    keys.forEach((key, i) => {
+      if (explicitColors[i]) {
+        fieldMap.set(key, explicitColors[i]);
+      } else {
+        // Skip slots claimed by explicit assignments so sequential keys don't collide.
+        while (usedSlots.has(nextSlot)) nextSlot++;
+        fieldMap.set(key, palette[nextSlot % palette.length]);
+        nextSlot++;
+      }
+    });
+    registry.set(field, fieldMap);
+  }
+  return registry;
 }
 
 function resolveTarget(target) {

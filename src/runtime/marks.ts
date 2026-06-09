@@ -22,6 +22,15 @@ import { clamp, escapeHtml, titleize } from './utils.js';
 //     (no adjacent red+green pair in the hue-maximised assignment order).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Story-level color registry: field → (key → color string).
+// Set once per story so the same semantic key always maps to the same color
+// regardless of which subset of categories appears in a given scene.
+let _storyColorRegistry: Map<string, Map<string, string>> | null = null;
+
+export function setStoryColorRegistry(registry: Map<string, Map<string, string>> | null) {
+  _storyColorRegistry = registry;
+}
+
 // Tableau 10 — widely-adopted, perceptually balanced categorical palette.
 const DEFAULT_PALETTE = [
   ['--sl-series-1',  '#4e79a7'],
@@ -119,10 +128,27 @@ export function pickCategoricalColors(n, colors) {
 // String fallback  → returns the raw trimmed value.
 // Falls back silently when running outside a browser (SSR / tests).
 export function themeValue(cssVar, fallback) {
-  const raw = typeof document !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-    : '';
+  if (typeof document === 'undefined') return fallback;
+  const style = getComputedStyle(document.documentElement);
+  const raw = style.getPropertyValue(cssVar).trim();
   if (!raw) return fallback;
+  // Defensive var() resolution: if the browser returns an unresolved
+  // var() reference (e.g. "var(--sl-rounded-md)"), resolve one level.
+  // Modern browsers should already compute the final value, but this
+  // guards against edge-cases and non-browser environments.
+  if (raw.startsWith('var(')) {
+    const m = raw.match(/^var\(\s*(--[\w-]+)(?:\s*,\s*([^)]*?))?\s*\)$/);
+    if (m) {
+      const resolved = style.getPropertyValue(m[1]).trim() || m[2]?.trim() || '';
+      if (!resolved) return fallback;
+      if (typeof fallback === 'number') {
+        const n = parseFloat(resolved);
+        return isNaN(n) ? fallback : n;
+      }
+      return resolved;
+    }
+    return fallback;
+  }
   if (typeof fallback === 'number') {
     const n = parseFloat(raw);
     return isNaN(n) ? fallback : n;
@@ -295,6 +321,12 @@ export function colorScale(rows, channel, d3) {
   if (channel.hue || channel.luminance) return compositeColorScale(channel, d3);
   if (!channel.field) return () => cssColor('var(--sl-accent)', '#4e79a7');
   if (channel.type === 'quantitative') return luminanceColorScale(rows, channel, d3);
+  // Use story-level registry for consistent key→color mapping across scenes.
+  const fieldRegistry = !channel.range && _storyColorRegistry?.get(channel.field);
+  if (fieldRegistry) {
+    const fallback = cssColor('var(--sl-accent)', '#4e79a7');
+    return (row) => fieldRegistry.get(String(row[channel.field])) ?? fallback;
+  }
   const domain = channelDomain(rows, channel);
   const scale = d3.scaleOrdinal(colorRange(channel.range || categoricalRange(domain))).domain(domain);
   return (row) => scale(row[channel.field]);
@@ -377,11 +409,16 @@ export function drawLegend(chart, rows, channel, d3) {
   const domain = quantitativeLegend
     ? quantitativeLegendDomain(colorRows, legendChannel, d3)
     : channelDomain(colorRows, legendChannel);
+  const fieldRegistry = !channel.range && !channel.hue && !channel.luminance && !quantitativeLegend
+    ? _storyColorRegistry?.get(legendChannel.field)
+    : null;
   const scale = channel.hue || channel.luminance
     ? compositeColorScale(channel, d3)
     : quantitativeLegend
       ? luminanceColorScale(colorRows, legendChannel, d3)
-      : d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
+      : fieldRegistry
+        ? (d) => fieldRegistry.get(String(d)) ?? cssColor('var(--sl-accent)', '#4e79a7')
+        : d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
   const legendRow = (value) => ({ [legendChannel.field]: value });
   const legend = chart.scene.legend.interrupt().style('opacity', 1)
     .attr('transform', `translate(${chart.margin.left},${Math.max(18, chart.margin.top - 32)})`);
@@ -504,7 +541,10 @@ function inferFieldType(rows, field) {
 // colors are as distinct as possible (Rules #4 + #5).
 function categoricalRange(domain) {
   const resolved = DEFAULT_PALETTE.map((entry) => themeColor(entry));
-  return pickCategoricalColors(domain.length, resolved);
+  // Sequential slot assignment: Nth category → series-N. Consistent with the
+  // stacked/grouped bar idiom's explicit 'var(--sl-series-N)' range and with
+  // the story-level registry, so fallback scenes never get mismatched colors.
+  return domain.map((_, i) => resolved[i % resolved.length]);
 }
 
 function luminanceColorScale(rows, channel, d3) {

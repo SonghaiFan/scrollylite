@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ScrollyLite Demo</title>
     <link rel="stylesheet" href="../../src/styles.css" />
-    <link id="demo-theme-style" rel="stylesheet" href="../../src/themes/default.css" />
+    <link id="demo-theme-style" rel="stylesheet" href="../../src/themes/default/index.css" />
     <style>
       /* ── Demo toolbar ─────────────────────────────────────────────────────── */
       .demo-toolbar {
         position: sticky;
-        top: 0;
+        top: 12px;
+        margin: 12px 12px 0;
+        border-radius: 14px;
         z-index: 100;
         display: flex;
         align-items: center;
@@ -149,13 +151,13 @@
         <span class="demo-nav-label">Theme</span>
         <div class="demo-nav-pills">
           <a href="?" data-theme-link="default">
-            <span class="demo-theme-dot" style="background:#4e79a7"></span>Default
+            <span class="demo-theme-dot" style="background:rgb(28,106,228);border-color:rgb(28,106,228)"></span>Default
           </a>
           <a href="?" data-theme-link="dark">
-            <span class="demo-theme-dot" style="background:#1c1f27;border-color:#8490a0"></span>Dark
+            <span class="demo-theme-dot" style="background:#0c0f13;border-color:#4fa3d4"></span>Arch
           </a>
-          <a href="?" data-theme-link="warm">
-            <span class="demo-theme-dot" style="background:#b95c1a"></span>Warm
+          <a href="?" data-theme-link="paper">
+            <span class="demo-theme-dot" style="background:#f4ede0;border-color:#c8b898"></span>Paper
           </a>
         </div>
       </div>
@@ -171,9 +173,10 @@
       import { layoutCopy } from "./specs/shared.js";
 
       const THEMES = {
-        default: { label: "Default", href: "../../src/themes/default.css" },
-        dark:    { label: "Dark",    href: "../../src/themes/dark.css"    },
-        warm:    { label: "Warm",    href: "../../src/themes/warm.css"    }
+        default: { label: "Default", href: "../../src/themes/default/index.css" },
+        dark:    { label: "Arch",    href: "../../src/themes/dark/index.css"    },
+        paper:   { label: "Paper",   href: "../../src/themes/paper/index.css"   },
+        warm:    { label: "Paper",   href: "../../src/themes/paper/index.css"   }  // legacy alias
       };
 
       // ── Resolve URL params ──────────────────────────────────────────────────
