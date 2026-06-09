@@ -1,0 +1,81 @@
+/* ScrollyLite — Warm Theme
+   Semantic token overrides for an earthy, serif editorial character.
+   Component tokens cascade from these. See DESIGN.md for rationale.
+   Load instead of (not in addition to) the default theme.               */
+
+:root {
+  color-scheme: light;
+
+  /* — Color roles — */
+  --sl-color-primary:          #b95c1a;
+  --sl-color-surface:          #fffdf8;
+  --sl-color-bg:               #faf6ef;
+  --sl-color-on-surface:       #2a1f14;
+  --sl-color-muted:            #8a7460;
+  --sl-color-border:           #e4d8c8;
+  --sl-color-outline:          #c0ae98;
+  --sl-color-outline-variant:  #ece3d5;
+  /* Earthy series palette — see DESIGN.md for selection rationale */
+  --sl-color-series-1:  #b95c1a;   /* terracotta */
+  --sl-color-series-2:  #5b8a5a;   /* sage        */
+  --sl-color-series-3:  #4a6e9e;   /* slate blue  */
+  --sl-color-series-4:  #9b5b8e;   /* mauve       */
+  --sl-color-series-5:  #c4963a;   /* warm gold   */
+  --sl-color-series-6:  #6a9e8e;   /* sea green   */
+  --sl-color-series-7:  #c97b6e;   /* dusty rose  */
+  --sl-color-series-8:  #8b7355;   /* umber       */
+  --sl-color-series-9:  #5c7a3e;   /* olive       */
+  --sl-color-series-10: #9e8a6a;   /* sand        */
+
+  /* — Shape scale — slightly more rounded for editorial warmth — */
+  --sl-rounded-sm: 2;
+  --sl-rounded-md: 4;   /* bars: 4px vs default 3px */
+  --sl-rounded-lg: 6;
+
+  /* — Typography: editorial serif — */
+  --sl-type-family:       Georgia, "Palatino Linotype", Palatino,
+                          "Book Antiqua", serif;
+  --sl-type-label-size:   11px;
+  --sl-type-label-weight: 400;   /* Georgia renders better at 400 at 11px */
+
+  /* — Non-cascaded component tokens — */
+  --sl-shadow:      0 1px 3px rgba(80, 40, 10, 0.08);
+  --sl-dim-opacity: 0.2;
+  --sl-line-width:  2.5;  /* slightly thinner for editorial — see DESIGN.md */
+}
+
+.sl-axis text,
+.sl-axis-label {
+  fill: var(--sl-muted);
+  font-size: var(--sl-axis-font-size);
+}
+
+.sl-legend {
+  fill: var(--sl-muted);
+  font-size: var(--sl-legend-font-size);
+}
+
+.sl-grid line {
+  stroke: var(--sl-grid);
+  stroke-width: var(--sl-grid-width);
+}
+
+/* Figures: barely-there rounding — editorial feel, not app */
+.sl-figure,
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-figure {
+  background: var(--sl-surface);
+  border-color: var(--sl-border);
+  border-radius: 2px;
+  box-shadow: var(--sl-shadow);
+}
+
+/* Step cards: warm cream glass */
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card {
+  background: rgba(255, 253, 248, 0.96);
+  border-color: var(--sl-border);
+}
+
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step.is-active .sl-step-card {
+  border-left-color: var(--sl-accent);
+  background: rgba(255, 253, 248, 0.99);
+}
