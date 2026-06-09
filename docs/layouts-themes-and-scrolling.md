@@ -196,7 +196,6 @@ the packaged stylesheets:
 | `muted` | `--sl-muted` |
 | `border` | `--sl-border` |
 | `accent` | `--sl-accent` |
-| `accent2` | `--sl-accent-2` |
 | `grid` | `--sl-grid` |
 | `axis` | `--sl-axis` |
 | `shadow` | `--sl-shadow` |
@@ -206,29 +205,36 @@ Use `theme.variables` for any other `--sl-*` custom property. Keys without a
 leading `--` are normalized to `--sl-*`, so `{ stepGap: "42px" }` becomes
 `--sl-step-gap`.
 
-The default D3 categorical palette reads from `--sl-series-1`,
-`--sl-series-2`, and so on. Set `theme.series` (or `theme.palette`) to replace
-that default color scheme without touching each chart idiom:
+The default categorical palette (`--sl-series-1` through `--sl-series-10`) is
+**Tableau 10** — a perceptually balanced, widely-adopted scheme. Set
+`theme.series` (or `theme.palette`) to replace it without touching each chart
+idiom individually:
 
 ```js
+// Switch to D3 schemeCategory10
 story().theme({
   series: [
-    "rgb(28, 106, 228)",
-    "rgb(250, 77, 29)",
-    "rgb(252, 219, 57)",
-    "rgb(3, 185, 118)",
-    "rgb(250, 195, 211)",
-    "rgb(0, 0, 0)"
-  ],
-  semantic: {
-    hot: "rgb(250, 77, 29)",
-    cold: "rgb(28, 106, 228)"
-  }
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+  ]
 })
+```
+
+Any domain-specific colours (e.g. hot/cold in a temperature dataset) should be
+set via the encoding `range` array on the individual chart idiom, not via the
+theme system:
+
+```js
+bar("weather")
+  .color({ field: "type", domain: ["Hot days", "Cold days"], range: ["#b05d3b", "#536a9e"] })
 ```
 
 Axes, legends, figure titles, and SVG text inherit `--sl-font-family`, so
 theme typography affects the D3-rendered chart as well as the story shell.
+
+For the full color-encoding system — categorical hue selection, sequential
+intensity scales, hue+luminance composition, and colorblind guidance — see
+[Color in ScrollyLite](./color-guide.md).
 
 ### Building a custom theme
 

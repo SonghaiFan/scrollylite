@@ -182,13 +182,13 @@ story()
 :root {
   --sl-bg: #fafafa;
   --sl-fg: #222;
-  --sl-accent: rgb(28, 106, 228);
-  --sl-series-1: rgb(28, 106, 228);
-  --sl-series-2: rgb(250, 77, 29);
-  --sl-series-3: rgb(252, 219, 57);
-  --sl-series-4: rgb(3, 185, 118);
-  --sl-series-5: rgb(250, 195, 211);
-  --sl-series-6: rgb(0, 0, 0);
+  --sl-accent: #4e79a7;
+  /* Tableau 10 — override as many as you need */
+  --sl-series-1: #4e79a7;
+  --sl-series-2: #f28e2b;
+  --sl-series-3: #e15759;
+  --sl-series-4: #76b7b2;
+  --sl-series-5: #59a14f;
   --sl-font-family: Inter, sans-serif;
 }
 ```

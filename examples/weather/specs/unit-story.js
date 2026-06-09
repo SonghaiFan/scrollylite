@@ -1,50 +1,52 @@
 import { unit } from "../../../dist/index.js";
-import { HOT_PERIOD_COLOR, story } from "./shared.js";
+import { story } from "./shared.js";
 
-export function createUnitStory() {
+export function createUnitStory({ actionMode = "stepper" } = {}) {
   const base = unit("weather")
     .x("year")
     .y("hot_days")
-    .color(HOT_PERIOD_COLOR)
+    .color({ field: "period", type: "nominal" })
     .key("decade")
     .value("hot_days")
     .label("decade")
     .sort("year");
 
   return story.demo()
+    .action(actionMode)
     .layout("floatToText")
     .description(
-      "This demo registers a unit chart idiom and demonstrates Focus plus Guide layouts for repeated count units."
+      "Demonstrates Focus and Guide layouts on repeated count units. " +
+      "Each circle is one hot day — guide changes how those circles are arranged."
     )
     .step(
       "Baseline: one unit per hot day",
       base,
       {
-        body: "Start with one keyed circle per hot day. Units inherit semantic identity from decade plus unit index.",
-        authoring: "base"
+        body: "One circle per hot day, keyed by decade plus unit index. Color encodes period.",
+        authoring: 'unit("weather").x("year").y("hot_days")\n  .color({ field: "period", type: "nominal" })\n  .key("decade").value("hot_days").label("decade").sort("year")'
       }
     )
     .step(
-      "Focus: filter to recent decades",
+      "Focus: recent decades only",
       base.where({ period: "recent" }),
       {
-        body: "The focus scene keeps the unit idiom but filters rows before unit expansion.",
+        body: "Focus filters rows before unit expansion — fewer decades, same unit idiom.",
         authoring: 'base.where({ period: "recent" })'
       }
     )
     .step(
       "Guide: group units by period",
-      base.group("period", { color: HOT_PERIOD_COLOR }),
+      base.group("period", { color: { field: "period", type: "nominal" } }),
       {
-        body: "The guide scene changes position and scale to group the same repeated units by period.",
-        authoring: 'base.group("period", { color: HOT_PERIOD_COLOR })'
+        body: "Guide changes the spatial layout — same circles now cluster by period.",
+        authoring: 'base.group("period", { color: { field: "period", type: "nominal" } })'
       }
     )
     .step(
-      "Guide: dodge units along the timeline",
+      "Guide: dodge along timeline",
       base.dodge("year"),
       {
-        body: "The guide scene keeps the hot-day units but changes their reading guide to a collision-dodged timeline.",
+        body: "Guide changes layout again — units spread along a collision-dodged year axis.",
         authoring: 'base.dodge("year")'
       }
     )

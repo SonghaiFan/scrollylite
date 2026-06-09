@@ -1,27 +1,122 @@
 :root {
   color-scheme: light;
-  --sl-bg: #f8f8f7;
-  --sl-surface: #ffffff;
-  --sl-fg: #1f2328;
-  --sl-muted: #66707a;
-  --sl-border: #dde1e6;
-  --sl-accent: rgb(28, 106, 228);
-  --sl-accent-2: rgb(250, 77, 29);
-  --sl-series-1: rgb(28, 106, 228);
-  --sl-series-2: rgb(250, 77, 29);
-  --sl-series-3: rgb(252, 219, 57);
-  --sl-series-4: rgb(3, 185, 118);
-  --sl-series-5: rgb(250, 195, 211);
-  --sl-series-6: rgb(0, 0, 0);
-  --sl-series-7: rgb(102, 112, 122);
-  --sl-series-8: rgb(180, 187, 195);
-  --sl-semantic-hot: rgb(250, 77, 29);
-  --sl-semantic-cold: rgb(28, 106, 228);
-  --sl-grid: #eceff2;
-  --sl-axis: #aeb4bb;
-  --sl-shadow: 0 1px 2px rgba(31, 35, 40, 0.05);
-  --sl-font-family: Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* ════════════════════════════════════════════════════════════════════════
+     SEMANTIC TOKEN LAYER  (DESIGN.md spec)
+     Themes override these.  Component tokens below cascade from them.
+     Default values embody the ScrollyLite editorial light theme.
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* — Color roles ————————————————————————————————————————————————————————— */
+  --sl-color-primary:          #4e79a7;  /* accent, interactive chrome      */
+  --sl-color-surface:          #ffffff;  /* chart SVG background             */
+  --sl-color-bg:               #f8f8f7;  /* page / figure wrapper            */
+  --sl-color-on-surface:       #1f2328;  /* primary text                     */
+  --sl-color-muted:            #66707a;  /* secondary text, axis labels      */
+  --sl-color-border:           #dde1e6;  /* borders, dividers                */
+  --sl-color-outline:          #aeb4bb;  /* axis paths and tick marks        */
+  --sl-color-outline-variant:  #eceff2;  /* grid lines (nearly invisible)    */
+  /* Categorical series palette — Tableau 10 by default */
+  --sl-color-series-1:  #4e79a7;
+  --sl-color-series-2:  #f28e2b;
+  --sl-color-series-3:  #e15759;
+  --sl-color-series-4:  #76b7b2;
+  --sl-color-series-5:  #59a14f;
+  --sl-color-series-6:  #edc948;
+  --sl-color-series-7:  #b07aa1;
+  --sl-color-series-8:  #ff9da7;
+  --sl-color-series-9:  #9c755f;
+  --sl-color-series-10: #bab0ac;
+
+  /* — Shape scale ————————————————————————————————————————————————————————— */
+  --sl-rounded-sm:  2;     /* legend swatches                                 */
+  --sl-rounded-md:  3;     /* bar marks                                       */
+  --sl-rounded-lg:  6;     /* figures, cards (used as px in border-radius)    */
+
+  /* — Typography —————————————————————————————————————————————————————————— */
+  --sl-type-family:        Inter, ui-sans-serif, system-ui, -apple-system,
+                           BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sl-type-label-size:    11px;
+  --sl-type-label-weight:  500;
+  --sl-type-body-size:     14px;
+
+  /* — Spacing (8 px base grid) ———————————————————————————————————————————— */
+  --sl-space-xs:  4px;
+  --sl-space-sm:  8px;
+  --sl-space-md:  16px;
+  --sl-space-lg:  32px;
+  --sl-space-xl:  48px;
+
+  /* ════════════════════════════════════════════════════════════════════════
+     COMPONENT TOKEN LAYER  (cascade from semantic)
+     CSS rules and renderers read these.  Override directly for one-off
+     tweaks, or change the semantic tokens above to retheme in bulk.
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* Color aliases (legacy names kept for CSS-rule compatibility) */
+  --sl-bg:          var(--sl-color-bg);
+  --sl-surface:     var(--sl-color-surface);
+  --sl-fg:          var(--sl-color-on-surface);
+  --sl-muted:       var(--sl-color-muted);
+  --sl-border:      var(--sl-color-border);
+  --sl-accent:      var(--sl-color-primary);
+  --sl-grid:        var(--sl-color-outline-variant);
+  --sl-axis:        var(--sl-color-outline);
+  --sl-font-family: var(--sl-type-family);
+  --sl-shadow:      0 1px 2px rgba(31, 35, 40, 0.05);
+  /* Series aliases */
+  --sl-series-1:    var(--sl-color-series-1);
+  --sl-series-2:    var(--sl-color-series-2);
+  --sl-series-3:    var(--sl-color-series-3);
+  --sl-series-4:    var(--sl-color-series-4);
+  --sl-series-5:    var(--sl-color-series-5);
+  --sl-series-6:    var(--sl-color-series-6);
+  --sl-series-7:    var(--sl-color-series-7);
+  --sl-series-8:    var(--sl-color-series-8);
+  --sl-series-9:    var(--sl-color-series-9);
+  --sl-series-10:   var(--sl-color-series-10);
+
+  /* ── Mark geometry ───────────────────────────────────────────────────────
+     Read at render time via themeValue(). Override via .theme() or CSS.   */
+  --sl-bar-radius:          var(--sl-rounded-md);    /* rx, unitless          */
+  --sl-line-width:          3;                        /* stroke-width, unitless */
+  --sl-mark-stroke:         var(--sl-color-surface); /* circle outline color  */
+  --sl-point-stroke-width:  1.5;                      /* unitless              */
+  --sl-unit-stroke-width:   0.5;                      /* tight packing         */
+  --sl-line-point-size:     4.5;                      /* dot radius, unitless  */
+  --sl-dim-opacity:         0.22;                     /* non-highlighted marks */
+
+  /* ── Axis & grid ─────────────────────────────────────────────────────────*/
+  --sl-axis-font-size:    var(--sl-type-label-size); /* tick + title text     */
+  --sl-axis-label-offset: 48;                         /* px from axis to label */
+  --sl-tick-count:        6;                          /* preferred tick count  */
+  --sl-grid-width:        1px;                        /* grid stroke-width     */
+
+  /* ── Legend ──────────────────────────────────────────────────────────────*/
+  --sl-legend-swatch-size:   9;                       /* swatch w/h, unitless  */
+  --sl-legend-swatch-radius: var(--sl-rounded-sm);   /* swatch rx, unitless   */
+  --sl-legend-font-size:     var(--sl-type-label-size);
+
+  /* ════════════════════════════════════════════════════════════════════════
+     CARD TOKENS  — figure (chart) card and step (text) card are styled
+     separately. Themes give them distinct visual roles.
+     ════════════════════════════════════════════════════════════════════════ */
+
+  /* — Figure (chart) card — */
+  --sl-figure-bg:           var(--sl-color-surface);
+  --sl-figure-blur:         0px;   /* e.g. 24px for glass themes */
+  --sl-figure-radius:       calc(var(--sl-rounded-lg) * 1px);
+  --sl-figure-border:       1px solid var(--sl-color-border);
+  --sl-figure-shadow:       var(--sl-shadow);
+
+  /* — Step (text / narrative) card — */
+  --sl-step-bg:             var(--sl-color-surface);
+  --sl-step-bg-active:      var(--sl-color-surface);
+  --sl-step-blur:           0px;
+  --sl-step-radius:         calc(var(--sl-rounded-lg) * 1px);
+  --sl-step-border:         1px solid var(--sl-color-border);
+  --sl-step-shadow:         var(--sl-shadow);
+
   font-family: var(--sl-font-family);
 }
 
@@ -330,10 +425,12 @@ body {
 }
 
 .sl-figure {
-  background: var(--sl-surface);
-  border: 1px solid var(--sl-border);
-  box-shadow: var(--sl-shadow);
-  border-radius: 4px;
+  background: var(--sl-figure-bg);
+  -webkit-backdrop-filter: blur(var(--sl-figure-blur));
+  backdrop-filter: blur(var(--sl-figure-blur));
+  border: var(--sl-figure-border);
+  box-shadow: var(--sl-figure-shadow);
+  border-radius: var(--sl-figure-radius);
   overflow: hidden;
 }
 
@@ -385,18 +482,18 @@ body {
 
 .sl-axis text {
   fill: var(--sl-muted);
-  font-size: 11px;
+  font-size: var(--sl-axis-font-size);
 }
 
 .sl-axis-label {
   fill: var(--sl-muted);
-  font-size: 11px;
+  font-size: var(--sl-axis-font-size);
   font-weight: 700;
 }
 
 .sl-grid line {
   stroke: var(--sl-grid);
-  stroke-width: 1px;
+  stroke-width: var(--sl-grid-width);
   shape-rendering: crispEdges;
 }
 
@@ -449,7 +546,7 @@ body {
 }
 
 .sl-legend {
-  font-size: 11.5px;
+  font-size: var(--sl-legend-font-size);
   fill: var(--sl-muted);
   font-weight: 500;
 }
@@ -556,10 +653,11 @@ body {
   width: min(1180px, calc(100vw - 48px));
   min-width: 0;
   margin: auto;
-  background: rgba(255, 255, 255, 0.96);
-  border-color: var(--sl-border);
-  box-shadow: var(--sl-shadow);
-  backdrop-filter: none;
+  background: var(--sl-figure-bg);
+  border: var(--sl-figure-border);
+  -webkit-backdrop-filter: blur(var(--sl-figure-blur));
+  backdrop-filter: blur(var(--sl-figure-blur));
+  box-shadow: var(--sl-figure-shadow);
 }
 
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-steps {
@@ -597,22 +695,25 @@ body {
 
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card {
   padding: 18px 20px 18px 28px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid var(--sl-border);
+  background: var(--sl-step-bg);
+  border: var(--sl-step-border);
   border-left: 3px solid transparent;
-  border-radius: 4px;
-  box-shadow: var(--sl-shadow);
-  backdrop-filter: none;
+  border-radius: var(--sl-step-radius);
+  -webkit-backdrop-filter: blur(var(--sl-step-blur));
+  backdrop-filter: blur(var(--sl-step-blur));
+  box-shadow: var(--sl-step-shadow);
   pointer-events: auto;
 }
 
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-transition-inspector {
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--sl-border);
+  background: var(--sl-step-bg);
+  border: var(--sl-step-border);
   border-right: 3px solid var(--sl-accent);
-  border-radius: 4px;
-  box-shadow: var(--sl-shadow);
+  border-radius: var(--sl-step-radius);
+  -webkit-backdrop-filter: blur(var(--sl-step-blur));
+  backdrop-filter: blur(var(--sl-step-blur));
+  box-shadow: var(--sl-step-shadow);
   pointer-events: auto;
 }
 
@@ -643,7 +744,7 @@ body {
 
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step.is-active .sl-step-card {
   border-left-color: var(--sl-accent);
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--sl-step-bg-active);
 }
 
 :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card::before {

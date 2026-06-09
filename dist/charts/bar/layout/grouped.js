@@ -3,7 +3,7 @@ import { applyBarIdentity, barKeyAccessor } from '../keys.js';
 import { barCategoryChannel, barMeasureChannel, barOrientationFromEncoding, barRendererKey } from './index.js';
 import { narrativeState } from '../../../scrolly-meta.js';
 export function createGroupedBarRenderer(deps, kit) {
-    const { bindTooltip, channelDomain, colorScale, drawGrid, drawXAxis, drawYAxis, quantitativeDomain, updateGrid } = deps;
+    const { bindTooltip, channelDomain, colorScale, drawGrid, drawXAxis, drawYAxis, quantitativeDomain, themeValue, updateGrid } = deps;
     return function renderGroupedBar(chart, rows, spec, tooltip, d3, segmentField) {
         const enc = spec.encoding || {};
         const domainRows = chart.domainRows?.length ? chart.domainRows : rows;
@@ -55,7 +55,7 @@ export function createGroupedBarRenderer(deps, kit) {
             chart, rows, spec, tooltip, d3, bindTooltip, key,
             category: (d) => d[categoryField],
             className: 'sl-bar sl-bar-segment sl-bar-grouped',
-            orientation: rendererOrientation, rx: 2,
+            orientation: rendererOrientation, rx: themeValue('--sl-bar-radius', 3),
             fill: (d) => color(d),
             applyIdentity: applyBarIdentity, updatePlan, geometry
         });

@@ -10,17 +10,28 @@ export function setupScroll(spec, shell, renderer) {
         onEnter: ({ index, direction }) => {
             if (!shouldAcceptScrollEvent(shell, index))
                 return;
-            renderer.action({ type: 'enter', step: index, direction });
+            const stepEl = shell.steps[index];
+            const action = hasScrollAction(stepEl) ? 'scroller' : 'stepper';
+            renderer.action({ type: 'enter', step: index, direction, action });
         },
         onExit: ({ index, direction }) => {
             if (!shouldAcceptScrollEvent(shell, index))
                 return;
-            renderer.action({ type: 'exit', step: index, value: direction === 'down' ? 1 : 0, direction });
+            const stepEl = shell.steps[index];
+            // Stepper steps: exit is silent — the adjacent step's onEnter drives the next transition.
+            // Scroller steps: snap transition progress to its terminal value (1 going down, 0 going up).
+            if (!hasScrollAction(stepEl))
+                return;
+            renderer.action({ type: 'exit', step: index, value: direction === 'down' ? 1 : 0, direction, action: 'scroller' });
         },
         onProgress: ({ index, progress, direction }) => {
             if (!shouldAcceptScrollEvent(shell, index))
                 return;
-            renderer.action({ type: 'progress', step: index, value: progress, direction });
+            // Stepper steps are driven by enter/exit events, not scroll position.
+            // Only route progress events for scroll-bound steps.
+            if (!hasScrollAction(shell.steps[index]))
+                return;
+            renderer.action({ type: 'progress', step: index, value: progress, direction, action: 'scroller' });
         }
     });
     shell.story.dataset.scrollDriver = 'native';

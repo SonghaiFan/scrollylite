@@ -3,7 +3,7 @@ import { applyBarIdentity, barKeyAccessor } from '../keys.js';
 import { barCategoryChannel, barMeasureChannel, barOrientationFromEncoding } from './index.js';
 
 export function createSimpleBarRenderer(deps, kit) {
-  const { bandOrLinear, bindTooltip, channelDomain, colorScale, drawGrid, drawXAxis, drawYAxis, position, quantitativeDomain, updateGrid } = deps;
+  const { bandOrLinear, bindTooltip, channelDomain, colorScale, drawGrid, drawXAxis, drawYAxis, position, quantitativeDomain, themeValue, updateGrid } = deps;
 
   return function renderSimpleBar(chart, rows, spec, tooltip, d3) {
     const enc = spec.encoding || {};
@@ -48,7 +48,7 @@ export function createSimpleBarRenderer(deps, kit) {
     kit.renderBarJoin({
       chart, rows, spec, tooltip, d3, bindTooltip, key,
       category: (d) => d[categoryField],
-      className: 'sl-bar', orientation, rx: 3,
+      className: 'sl-bar', orientation, rx: themeValue('--sl-bar-radius', 3),
       fill: (d) => color(d),
       applyIdentity: applyBarIdentity, updatePlan, geometry
     });

@@ -31,4 +31,4 @@ export declare function sourceBaselineExit(selection: any, { horizontal, plan, v
     plan?: null | undefined;
     value?: null | undefined;
 }): any;
-export declare function barFocusOpacity(row: any, spec?: {}): number;
+export declare function barFocusOpacity(row: any, spec?: {}, dimOpacity?: number): number;

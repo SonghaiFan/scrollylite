@@ -1,0 +1,131 @@
+/* ScrollyLite — Default Theme
+   Apple HIG visual language + Vivid color palette.
+     • Background: #f5f7ff — pale blue-tinted page (Vivid)
+     • Figure card: white, generous radius, blue-tinted layered shadow, no border
+     • Step card: frosted glass — rgba(255,255,255,0.72) + blur(20px) saturate(180%)
+     • Accent: vibrant blue rgb(28,106,228) (Vivid primary)
+     • Series: 5-color vivid palette cycled across 10 slots
+     • Font: -apple-system / SF Pro system stack                               */
+
+:root {
+  color-scheme: light;
+
+  /* — Color roles (Vivid palette) — */
+  --sl-color-primary:          rgb(28, 106, 228);   /* vibrant blue             */
+  --sl-color-surface:          #ffffff;
+  --sl-color-bg:               #f5f7ff;   /* very pale blue tint               */
+  --sl-color-on-surface:       #0f1a30;   /* deep navy-black                   */
+  --sl-color-muted:            #5a6a8a;   /* cool blue-gray                    */
+  --sl-color-border:           rgba(28, 106, 228, 0.10);   /* blue-tinted sep  */
+  --sl-color-outline:          #a8b8d8;   /* light blue axis                   */
+  --sl-color-outline-variant:  #edf0fc;   /* faint blue grid                   */
+  /* Series — 5-color vivid palette, cycled for 10 slots */
+  --sl-color-series-1:  rgb(28, 106, 228);    /* vibrant blue      */
+  --sl-color-series-2:  rgb(250, 77, 29);     /* vibrant red-orange */
+  --sl-color-series-3:  rgb(252, 219, 57);    /* bright yellow     */
+  --sl-color-series-4:  rgb(3, 185, 118);     /* vivid green       */
+  --sl-color-series-5:  rgb(250, 195, 211);   /* pastel pink       */
+  --sl-color-series-6:  rgb(28, 106, 228);
+  --sl-color-series-7:  rgb(250, 77, 29);
+  --sl-color-series-8:  rgb(252, 219, 57);
+  --sl-color-series-9:  rgb(3, 185, 118);
+  --sl-color-series-10: rgb(250, 195, 211);
+
+  /* — Shape (Apple HIG radii) — */
+  --sl-rounded-sm:  4;    /* swatches, tags                      */
+  --sl-rounded-md:  8;    /* bars — generous softness            */
+  --sl-rounded-lg:  16;   /* cards — macOS panel radius          */
+
+  /* — Typography: SF Pro via system stack — */
+  --sl-type-family:       -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                          "Helvetica Neue", Arial, sans-serif;
+  --sl-type-label-size:   11px;
+  --sl-type-label-weight: 500;
+
+  /* — Non-cascaded component tokens — */
+  --sl-shadow:      0 0 0 1px rgba(28, 106, 228, 0.06),
+                    0 2px 4px  rgba(28, 106, 228, 0.06),
+                    0 8px 32px rgba(28, 106, 228, 0.10);
+  --sl-dim-opacity: 0.22;
+  --sl-line-width:  2.5;
+
+  /* — Figure (chart) card: white, shadow-defined, no border — */
+  --sl-figure-bg:       #ffffff;
+  --sl-figure-blur:     0px;
+  --sl-figure-radius:   16px;
+  --sl-figure-border:   none;
+  --sl-figure-shadow:   0 0 0 1px rgba(28, 106, 228, 0.06),
+                        0 2px 4px  rgba(28, 106, 228, 0.06),
+                        0 8px 32px rgba(28, 106, 228, 0.10);
+
+  /* — Step (text) card: frosted glass vibrancy — */
+  --sl-step-bg:          rgba(255, 255, 255, 0.72);
+  --sl-step-bg-active:   rgba(255, 255, 255, 0.90);
+  --sl-step-blur:        20px;
+  --sl-step-radius:      14px;
+  --sl-step-border:      none;
+  --sl-step-shadow:      0 0 0 0.5px rgba(28, 106, 228, 0.08),
+                         0 2px 8px   rgba(28, 106, 228, 0.10);
+}
+
+/* ── Page background ─────────────────────────────────────────────────────── */
+body      { background: var(--sl-color-bg); }
+.sl-intro { background: var(--sl-color-bg); border-bottom: none; }
+
+/* ── Axis & grid ─────────────────────────────────────────────────────────── */
+.sl-axis text, .sl-axis-label { fill: var(--sl-muted); font-size: var(--sl-axis-font-size); }
+.sl-legend   { fill: var(--sl-muted); font-size: var(--sl-legend-font-size); }
+.sl-grid line { stroke: var(--sl-grid); stroke-width: var(--sl-grid-width); }
+
+/* ── Figure (chart) card ─────────────────────────────────────────────────── */
+.sl-figure-header {
+  border-bottom: 0.5px solid rgba(28, 106, 228, 0.10);
+  background: transparent;
+}
+.sl-figure-title {
+  color: var(--sl-fg);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+}
+
+/* ── Step card — floatToText ─────────────────────────────────────────────── */
+.sl-step-card { border-left-color: transparent; }
+.sl-step.is-active .sl-step-card { border-left-color: var(--sl-accent); }
+
+/* ── Step card — textOverVis: frosted glass vibrancy ────────────────────── */
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-card {
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-left: 3px solid transparent;
+}
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step.is-active .sl-step-card {
+  border-left-color: var(--sl-accent);
+}
+:is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-transition-inspector {
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* ── Toolbar: glass navbar ───────────────────────────────────────────────── */
+.demo-toolbar {
+  background: rgba(245, 247, 255, 0.82);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 0.5px solid rgba(28, 106, 228, 0.10);
+  box-shadow: none;
+}
+
+/* ── Progress ────────────────────────────────────────────────────────────── */
+.sl-progress { background: rgba(28, 106, 228, 0.08); }
+
+/* ── Nav dots: rounded square — iOS icon corner style ───────────────────── */
+.sl-nav button {
+  border-color: var(--sl-color-primary);
+  border-radius: 3px;
+  width: 10px;
+  height: 10px;
+}
+.sl-nav button.is-active {
+  background: var(--sl-color-primary);
+  border-radius: 3px;
+}

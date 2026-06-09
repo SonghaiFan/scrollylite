@@ -110,7 +110,7 @@ src/
   identity/         semantic-key resolution across steps
   runtime/          action events, scroll-progress easing
   themes/           default theme CSS
-  scrollylite.ts    createStory/createPage/createChart lifecycle and rendering
+  scrollylite.ts    createStory lifecycle and rendering
   index.ts          public exports (ESM + generated declarations)
 ```
 
@@ -153,7 +153,7 @@ http://localhost:5510/examples/weather/      # full demo: 4 idioms, 2 layouts, s
 ```
 
 The weather demo accepts query params for quick exploration, e.g.
-`?layout=textOverVis&story=line&action=scroll` — see
+`?layout=textOverVis&story=line&action=scroller` — see
 [`examples/weather/index.html`](../examples/weather/index.html) for how it
 wires `createStory` to the URL, and
 [`examples/weather/specs/`](../examples/weather/specs/) for real authored

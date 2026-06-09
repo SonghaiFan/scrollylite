@@ -2,7 +2,7 @@
 import { narrativeState } from '../../scrolly-meta.js';
 
 export function createBarRenderKit(deps) {
-  const { easeFor, staggerDelay } = deps;
+  const { easeFor, staggerDelay, themeValue } = deps;
 
   function updateStage(chart, rendererOrientation, d3) {
     const update = chart.transitionPlan?.update;
@@ -91,7 +91,7 @@ export function createBarRenderKit(deps) {
           .each(function(d) { setRectGeometry(d3.select(this), startGeometry(d)); })
           .transition(chart.transition.base)
           .delay((d, i) => staggerDelay(spec, d, i))
-          .style('opacity', (d) => barFocusOpacity(d, spec))
+          .style('opacity', (d) => barFocusOpacity(d, spec, themeValue('--sl-dim-opacity', 0.22)))
           .attr('x', targetGeometry.x)
           .attr('y', targetGeometry.y)
           .attr('width', targetGeometry.width)
@@ -104,12 +104,12 @@ export function createBarRenderKit(deps) {
             .call(bindTooltip, spec, tooltip);
           if (updatePlan) {
             return stagedUpdate(prepared, updatePlan, spec, dimensions,
-              (selection) => selection.style('opacity', (d) => barFocusOpacity(d, spec)).attr('fill', fill));
+              (selection) => selection.style('opacity', (d) => barFocusOpacity(d, spec, themeValue('--sl-dim-opacity', 0.22))).attr('fill', fill));
           }
           return prepared
             .transition(chart.transition.base)
             .delay((d, i) => staggerDelay(spec, d, i))
-            .style('opacity', (d) => barFocusOpacity(d, spec))
+            .style('opacity', (d) => barFocusOpacity(d, spec, themeValue('--sl-dim-opacity', 0.22)))
             .call(applyGeometry)
             .attr('fill', fill);
         },
@@ -212,10 +212,10 @@ function sourceValue(d, value) {
   return Number.isFinite(resolved) ? resolved : 1;
 }
 
-export function barFocusOpacity(row, spec = {}) {
+export function barFocusOpacity(row, spec = {}, dimOpacity = 0.22) {
   const focus = narrativeState(spec).sceneState?.focus || narrativeState(spec).focus || null;
   if (focus?.mode !== 'highlight' || !focus.filter) return 1;
-  return rowMatchesFilter(row?.__row || row, focus.filter) ? 1 : Number(focus.opacity ?? 0.22);
+  return rowMatchesFilter(row?.__row || row, focus.filter) ? 1 : Number(focus.opacity ?? dimOpacity);
 }
 
 function rectGeometry(node) {

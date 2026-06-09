@@ -1,12 +1,10 @@
-// TODO: migrate this file to strict TypeScript (Phase 2)
-/* eslint-disable */
-// @ts-nocheck
+// @ts-nocheck — D3-heavy rendering; strict typing deferred (Phase 3)
 import { applyTransforms } from "./data/transforms.js";
 import { chartModules } from "./charts/manifest.js";
 import { createChartIdiomRegistry, registerChartModules, resolveMarkRendererKey } from "./charts/index.js";
 import { externalizeScrollyViewSpec, narrativeScroll, narrativeState } from "./scrolly-meta.js";
 import { defaultScrollProgress, easeProgress, hasScrollAction, normalizeActionEvent, normalizeActionTokens, normalizeScrollAction } from "./runtime/actions.js";
-import { activeMarkLayer, applyPlotClip, bandOrLinear, bindTooltip, channelDomain, colorScale, curveFor, drawGrid, drawLegend, drawPath, drawTextBoard, drawUnsupported, drawXAxis, drawYAxis, easeFor, effectiveTransitionSpec, fadeLayers, fadeNonBarShapes, fadeNonLineShapes, fadeNonPointShapes, fadeNonUnitShapes, hideTooltip, moveTooltip, niceExtent, position, quantitativeDomain, quantitativeScale, showTooltip, staggerDelay, transitionSpec, updateGrid } from "./runtime/marks.js";
+import { activeMarkLayer, applyPlotClip, bandOrLinear, bindTooltip, channelDomain, colorScale, setStoryColorRegistry, curveFor, drawGrid, drawLegend, drawPath, drawTextBoard, drawUnsupported, drawXAxis, drawYAxis, easeFor, effectiveTransitionSpec, fadeLayers, fadeNonBarShapes, fadeNonLineShapes, fadeNonPointShapes, fadeNonUnitShapes, hideTooltip, moveTooltip, niceExtent, position, quantitativeDomain, quantitativeScale, showTooltip, staggerDelay, themeValue, transitionSpec, updateGrid } from "./runtime/marks.js";
 import { restoreHashPosition, setupNav, setupResize, setupScroll } from "./runtime/navigation.js";
 import { compileSpec, domainTransforms, loadData, storySignature, viewRows } from "./runtime/spec.js";
 import { renderShell } from "./runtime/shell.js";
@@ -33,6 +31,9 @@ export async function createStory(spec, options) {
     const disposeTheme = await applyTheme(compiled.theme);
     target.innerHTML = "";
     const data = await loadData(compiled.data, d3);
+    // Build a stable key→color registry across all scenes so the same category
+    // value always gets the same color throughout the story.
+    setStoryColorRegistry(buildColorRegistry(compiled, data, runtime.aq));
     const shell = renderShell(target, compiled, {
         debug: options.debug === true,
         idioms: BUILT_IN_CHART_IDIOMS
@@ -53,10 +54,23 @@ export async function createStory(spec, options) {
             disposeResize();
             scrollDriver?.destroy?.();
             renderer.destroy();
+            setStoryColorRegistry(null);
             disposeTheme();
         }
     };
 }
+// ─── Decoupled embedding ───────────────────────────────────────────────────────
+//
+// createPage()  — renders only the story shell (header, step sections, figure
+//                 containers, tooltip layer). No data loading, no charts, no
+//                 scroll tracking. Use this to own the layout yourself and
+//                 attach createChart() instances to the view containers it returns.
+//
+// createChart() — renders only the animated chart into any target element.
+//                 chart.step(n) triggers a discrete animated transition to step n.
+//                 chart.action(event) is the full event interface for scrubbing,
+//                 programmatic control, or any non-scroll trigger (button, slider,
+//                 route change, …).
 export async function createPage(spec, options = {}) {
     const target = resolveTarget(options.target || "#app");
     const compiled = compileSpec(spec);
@@ -92,23 +106,52 @@ export async function createChart(spec, options) {
     const shell = renderChartShell(target, compiled, viewId);
     const renderer = createRenderer(shell, compiled, data, runtime);
     const initialStep = clamp(options.initialStep ?? 0, 0, compiled.steps.length - 1);
-    renderer.action({
-        type: "enter",
-        step: initialStep,
-        action: "stepper",
-        force: true
-    });
+    renderer.action({ type: "enter", step: initialStep, action: "stepper", force: true });
     return {
         spec: compiled,
         data,
         view: shell.views[viewId],
         tooltip: shell.tooltip,
         action: renderer.action,
+        step(index) {
+            renderer.action({ type: "click", step: index, action: "stepper", force: true });
+        },
         resize: renderer.resize,
         destroy() {
             renderer.destroy();
             disposeTheme();
         }
+    };
+}
+function renderChartShell(target, spec, viewId = "main") {
+    target.className = ["sl-chart-root", target.className].filter(Boolean).join(" ");
+    const figure = document.createElement("figure");
+    figure.className = "sl-figure sl-chart-figure";
+    figure.innerHTML = `
+    <figcaption class="sl-figure-header">
+      <p class="sl-figure-title"></p>
+      <span class="sl-mark-name"></span>
+    </figcaption>
+  `;
+    const view = document.createElement("div");
+    view.className = "sl-view";
+    view.dataset.viewId = viewId;
+    figure.append(view);
+    target.append(figure);
+    const tooltip = document.createElement("div");
+    tooltip.className = "sl-tooltip";
+    target.append(tooltip);
+    return {
+        root: target,
+        story: null,
+        figure,
+        figureTitle: figure.querySelector(".sl-figure-title"),
+        markName: figure.querySelector(".sl-mark-name"),
+        steps: [],
+        navButtons: [],
+        progressFill: null,
+        views: { [viewId]: view },
+        tooltip
     };
 }
 function createRenderer(shell, spec, datasets, runtime) {
@@ -238,37 +281,6 @@ function createRenderer(shell, spec, datasets, runtime) {
                 window.cancelAnimationFrame(resizeFrame);
             cancelScrollProgress();
         }
-    };
-}
-function renderChartShell(target, spec, viewId = "main") {
-    target.className = ["sl-chart-root", target.className].filter(Boolean).join(" ");
-    const figure = document.createElement("figure");
-    figure.className = "sl-figure sl-chart-figure";
-    figure.innerHTML = `
-    <figcaption class="sl-figure-header">
-      <p class="sl-figure-title"></p>
-      <span class="sl-mark-name"></span>
-    </figcaption>
-  `;
-    const view = document.createElement("div");
-    view.className = "sl-view";
-    view.dataset.viewId = viewId;
-    figure.append(view);
-    target.append(figure);
-    const tooltip = document.createElement("div");
-    tooltip.className = "sl-tooltip";
-    target.append(tooltip);
-    return {
-        root: target,
-        story: null,
-        figure,
-        figureTitle: figure.querySelector(".sl-figure-title"),
-        markName: figure.querySelector(".sl-mark-name"),
-        steps: [],
-        navButtons: [],
-        progressFill: null,
-        views: { [viewId]: view },
-        tooltip
     };
 }
 function drawView(node, viewSpec, viewConfig, datasets, tooltip, d3, aq, stepTransition = {}, stepAction = [], options = {}) {
@@ -654,23 +666,58 @@ function themeVariables(theme = {}) {
     return {
         ...themeVariableAliases(theme),
         ...themeSeriesVariables(theme),
-        ...themeSemanticVariables(theme),
         ...normalizeThemeVariables(theme.variables || theme.customProperties || {})
     };
 }
 function themeVariableAliases(theme = {}) {
     const aliases = {
+        // ── Semantic color roles (DESIGN.md layer) ──────────────────────────────
+        colorPrimary: "--sl-color-primary",
+        colorSurface: "--sl-color-surface",
+        colorBg: "--sl-color-bg",
+        colorOnSurface: "--sl-color-on-surface",
+        colorMuted: "--sl-color-muted",
+        colorBorder: "--sl-color-border",
+        colorOutline: "--sl-color-outline",
+        colorOutlineVariant: "--sl-color-outline-variant",
+        // ── Semantic shape scale ────────────────────────────────────────────────
+        roundedSm: "--sl-rounded-sm",
+        roundedMd: "--sl-rounded-md",
+        roundedLg: "--sl-rounded-lg",
+        // ── Semantic typography ─────────────────────────────────────────────────
+        typeFamily: "--sl-type-family",
+        typeLabelSize: "--sl-type-label-size",
+        typeLabelWeight: "--sl-type-label-weight",
+        typeBodySize: "--sl-type-body-size",
+        // ── Component token aliases (kept for backward compatibility) ───────────
+        // Color / surface
         background: "--sl-bg",
         foreground: "--sl-fg",
         surface: "--sl-surface",
         muted: "--sl-muted",
         border: "--sl-border",
         accent: "--sl-accent",
-        accent2: "--sl-accent-2",
         grid: "--sl-grid",
         axis: "--sl-axis",
         shadow: "--sl-shadow",
-        fontFamily: "--sl-font-family"
+        // Typography
+        fontFamily: "--sl-font-family",
+        axisFontSize: "--sl-axis-font-size",
+        legendFontSize: "--sl-legend-font-size",
+        // Mark geometry
+        barRadius: "--sl-bar-radius",
+        lineWidth: "--sl-line-width",
+        markStroke: "--sl-mark-stroke",
+        pointStrokeWidth: "--sl-point-stroke-width",
+        unitStrokeWidth: "--sl-unit-stroke-width",
+        dimOpacity: "--sl-dim-opacity",
+        // Axis / grid
+        axisLabelOffset: "--sl-axis-label-offset",
+        tickCount: "--sl-tick-count",
+        gridWidth: "--sl-grid-width",
+        // Legend
+        legendSwatchSize: "--sl-legend-swatch-size",
+        legendSwatchRadius: "--sl-legend-swatch-radius"
     };
     return Object.fromEntries(Object.entries(aliases)
         .filter(([key]) => theme[key] != null)
@@ -684,15 +731,6 @@ function themeSeriesVariables(theme = {}) {
         .filter((value) => value != null)
         .map((value, index) => [`--sl-series-${index + 1}`, value]));
 }
-function themeSemanticVariables(theme = {}) {
-    const semantic = theme.semantic || {};
-    return Object.fromEntries(Object.entries({
-        hot: "--sl-semantic-hot",
-        cold: "--sl-semantic-cold"
-    })
-        .filter(([key]) => semantic[key] != null)
-        .map(([key, variable]) => [variable, semantic[key]]));
-}
 function normalizeThemeVariables(variables = {}) {
     return Object.fromEntries(Object.entries(variables)
         .filter(([, value]) => value != null)
@@ -703,6 +741,129 @@ function normalizeThemeVariables(variables = {}) {
 }
 function dash(value) {
     return String(value).replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+}
+// Preferred field names for auto-inferred color channel (mirrors defaultColorField in marks.ts).
+const COLOR_INFER_PREFERRED = ['type', 'kind', 'category', 'group', 'series', 'period'];
+// Resolve the CSS variable for a series slot (e.g. "var(--sl-series-1)" → actual hex/rgb).
+function resolveSeriesVar(value) {
+    if (!value?.startsWith('var('))
+        return value;
+    if (typeof document === 'undefined')
+        return value;
+    const name = value.match(/^var\(\s*(--[^,\s)]+)/)?.[1];
+    if (!name)
+        return value;
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || value;
+}
+// Resolve the current theme palette as an ordered array of concrete color strings.
+function resolveThemePalette() {
+    if (typeof document === 'undefined')
+        return [];
+    const style = getComputedStyle(document.documentElement);
+    return [
+        '--sl-series-1', '--sl-series-2', '--sl-series-3', '--sl-series-4', '--sl-series-5',
+        '--sl-series-6', '--sl-series-7', '--sl-series-8', '--sl-series-9', '--sl-series-10'
+    ].map(v => style.getPropertyValue(v).trim() || v);
+}
+// Build a story-level Map<field, Map<key, color>> so every categorical key gets
+// the same color across all scenes, regardless of which subset appears in each.
+//
+// Strategy per scene (highest-priority first):
+//   1. Idiom-compiled explicit domain + explicit range → use that ordering directly.
+//   2. Explicit color.field with no range → collect union of values across scenes.
+//   3. No color.field → infer from preferred field names present in the data.
+//
+// Final assignment is always sequential (series-1, series-2, …) in the order
+// keys are first encountered, so the Nth distinct key always maps to series-N —
+// matching the stacked/grouped bar idiom's hardcoded 'var(--sl-series-N)' range.
+function buildColorRegistry(compiled, datasets, aq) {
+    // fieldOrder tracks insertion order; fieldRanges tracks explicit var→color for a domain slot.
+    const fieldOrder = new Map(); // field → ordered unique keys
+    const fieldRanges = new Map(); // field → parallel color array (when explicit)
+    const addKey = (field, key, color) => {
+        if (!fieldOrder.has(field)) {
+            fieldOrder.set(field, []);
+            fieldRanges.set(field, []);
+        }
+        const keys = fieldOrder.get(field);
+        const colors = fieldRanges.get(field);
+        const idx = keys.indexOf(key);
+        if (idx === -1) {
+            keys.push(key);
+            colors.push(color ?? '');
+        }
+        else if (color && !colors[idx]) {
+            colors[idx] = color; // backfill explicit color if we only had inferred before
+        }
+    };
+    for (const step of (compiled.steps || [])) {
+        for (const rawViewSpec of Object.values(step.views || {})) {
+            const rawSpec = rawViewSpec;
+            // Run the idiom's prepareSpec to get the same encoding that the renderer sees.
+            const idiom = BUILT_IN_CHART_IDIOMS.get(rawSpec);
+            const spec = (idiom?.prepareSpec?.(rawSpec) || rawSpec);
+            const source = viewRows(spec.data ?? rawSpec.data, datasets);
+            if (!source?.length)
+                continue;
+            const rows = applyTransforms(source, domainTransforms(spec.transform || []), aq);
+            if (!rows.length)
+                continue;
+            const colorChannel = spec.encoding?.color;
+            // Skip quantitative (sequential) and literal-value channels — no categorical keys.
+            if (colorChannel?.type === 'quantitative' || colorChannel?.value)
+                continue;
+            if (colorChannel?.hue || colorChannel?.luminance)
+                continue;
+            const field = colorChannel?.field
+                ?? (colorChannel ? undefined : COLOR_INFER_PREFERRED.find(f => rows.some(r => r[f] != null)));
+            if (!field)
+                continue;
+            // If the encoding has an explicit domain + parallel range, use that ordering.
+            const explicitDomain = Array.isArray(colorChannel?.domain) ? colorChannel.domain : null;
+            const explicitRange = Array.isArray(colorChannel?.range) ? colorChannel.range : null;
+            if (explicitDomain?.length) {
+                explicitDomain.forEach((key, i) => {
+                    const color = explicitRange ? resolveSeriesVar(explicitRange[i] ?? '') : '';
+                    addKey(field, String(key), color);
+                });
+            }
+            else {
+                // Collect values from actual data rows.
+                for (const row of rows) {
+                    const val = row[field];
+                    if (val != null)
+                        addKey(field, String(val));
+                }
+            }
+        }
+    }
+    // Assign final colors: any key with an explicit resolved color keeps it;
+    // remaining slots get the next available palette entry in order.
+    const palette = resolveThemePalette();
+    const registry = new Map();
+    for (const [field, keys] of fieldOrder) {
+        if (!keys.length)
+            continue;
+        const explicitColors = fieldRanges.get(field);
+        // Determine which palette slots are already claimed by explicit assignments.
+        const usedSlots = new Set(explicitColors.map(c => palette.indexOf(c)).filter(i => i >= 0));
+        let nextSlot = 0;
+        const fieldMap = new Map();
+        keys.forEach((key, i) => {
+            if (explicitColors[i]) {
+                fieldMap.set(key, explicitColors[i]);
+            }
+            else {
+                // Skip slots claimed by explicit assignments so sequential keys don't collide.
+                while (usedSlots.has(nextSlot))
+                    nextSlot++;
+                fieldMap.set(key, palette[nextSlot % palette.length]);
+                nextSlot++;
+            }
+        });
+        registry.set(field, fieldMap);
+    }
+    return registry;
 }
 function resolveTarget(target) {
     if (typeof target !== "string")
@@ -749,6 +910,7 @@ const CHART_RUNTIME_DEPS = {
     quantitativeScale,
     showTooltip,
     staggerDelay,
+    themeValue,
     updateGrid
 };
 registerChartModules(BUILT_IN_CHART_IDIOMS, chartModules, CHART_RUNTIME_DEPS);

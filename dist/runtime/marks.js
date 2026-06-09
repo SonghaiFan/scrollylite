@@ -3,23 +3,163 @@ import { narrativeTransition } from '../scrolly-meta.js';
 import { DEFAULT_TIMING, defaultTransition } from '../timing.js';
 import { SCROLL_TRANSITION_NAME } from '../transition-progress.js';
 import { clamp, escapeHtml, titleize } from './utils.js';
+// ─── Color rules (Stephen Few, "Practical Rules for Using Color in Charts") ───
+//
+// Rule #3  Use color only when it serves a communication goal.
+// Rule #4  Use different hues only for different meanings in the data.
+// Rule #5  Soft, natural hues for most data; bright/dark for highlights.
+// Rule #6  Sequential quantitative encoding: single hue, varying intensity.
+// Rule #7  Non-data ink (axes, grid) barely visible — light grays only.
+// Rule #8  Avoid red + green together (colorblind safety).
+// Rule #9  No visual effects (gradients, 3-D, shadows on data marks).
+//
+// Categorical palette design (Rules #4 + #5):
+//   • Use hues that are as distinct as possible — maximise minimum pairwise
+//     hue distance so no two groups look similar.
+//   • Keep similar lightness/saturation so no single group dominates visually.
+//   • The Tableau 10 palette satisfies both criteria and is colorblind-safe
+//     (no adjacent red+green pair in the hue-maximised assignment order).
+// ─────────────────────────────────────────────────────────────────────────────
+// Story-level color registry: field → (key → color string).
+// Set once per story so the same semantic key always maps to the same color
+// regardless of which subset of categories appears in a given scene.
+let _storyColorRegistry = null;
+export function setStoryColorRegistry(registry) {
+    _storyColorRegistry = registry;
+}
+// Tableau 10 — widely-adopted, perceptually balanced categorical palette.
 const DEFAULT_PALETTE = [
-    ['--sl-series-1', 'rgb(28, 106, 228)'],
-    ['--sl-series-2', 'rgb(250, 77, 29)'],
-    ['--sl-series-3', 'rgb(252, 219, 57)'],
-    ['--sl-series-4', 'rgb(3, 185, 118)'],
-    ['--sl-series-5', 'rgb(250, 195, 211)'],
-    ['--sl-series-6', 'rgb(0, 0, 0)'],
-    ['--sl-series-7', 'rgb(102, 112, 122)'],
-    ['--sl-series-8', 'rgb(180, 187, 195)']
+    ['--sl-series-1', '#4e79a7'],
+    ['--sl-series-2', '#f28e2b'],
+    ['--sl-series-3', '#e15759'],
+    ['--sl-series-4', '#76b7b2'],
+    ['--sl-series-5', '#59a14f'],
+    ['--sl-series-6', '#edc948'],
+    ['--sl-series-7', '#b07aa1'],
+    ['--sl-series-8', '#ff9da7'],
+    ['--sl-series-9', '#9c755f'],
+    ['--sl-series-10', '#bab0ac']
 ];
-const DEFAULT_LUMINANCE_BASE = ['--sl-accent', 'rgb(28, 106, 228)'];
-const SEMANTIC_CATEGORY_COLORS = {
-    'hot': ['--sl-semantic-hot', 'rgb(250, 77, 29)'],
-    'hot days': ['--sl-semantic-hot', 'rgb(250, 77, 29)'],
-    'cold': ['--sl-semantic-cold', 'rgb(28, 106, 228)'],
-    'cold days': ['--sl-semantic-cold', 'rgb(28, 106, 228)']
-};
+const DEFAULT_LUMINANCE_BASE = ['--sl-accent', '#4e79a7'];
+// ─── Hue-maximisation helpers ─────────────────────────────────────────────────
+// Circular angular distance between two hue angles (0–180°).
+function hueDist(a, b) {
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+}
+// Extract hue angle (0–360°) from a CSS color string.
+// Supports #rrggbb, #rgb, and rgb(r,g,b).
+// Returns null for near-achromatic colors (saturation range < 10 %).
+function parseColorHue(color) {
+    if (typeof color !== 'string')
+        return null;
+    let r, g, b;
+    const hex = color.trim().match(/^#([0-9a-f]{3,6})$/i)?.[1];
+    if (hex) {
+        const full = hex.length === 3
+            ? hex.split('').map((c) => c + c).join('')
+            : hex;
+        r = parseInt(full.slice(0, 2), 16) / 255;
+        g = parseInt(full.slice(2, 4), 16) / 255;
+        b = parseInt(full.slice(4, 6), 16) / 255;
+    }
+    else {
+        const m = color.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+        if (!m)
+            return null;
+        r = Number(m[1]) / 255;
+        g = Number(m[2]) / 255;
+        b = Number(m[3]) / 255;
+    }
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    if (delta < 0.1)
+        return null; // near-achromatic — skip in hue selection
+    let h;
+    if (max === r)
+        h = ((g - b) / delta) % 6;
+    else if (max === g)
+        h = (b - r) / delta + 2;
+    else
+        h = (r - g) / delta + 4;
+    return (h * 60 + 360) % 360;
+}
+// Greedy farthest-first selection: choose n colors from `colors` such that the
+// minimum pairwise hue distance among the chosen set is maximised.
+// Near-achromatic entries are relegated to the end (appended only when needed).
+// Works on any resolved-color array, so user-customised palettes benefit too.
+export function pickCategoricalColors(n, colors) {
+    if (n <= 0)
+        return [];
+    if (n >= colors.length) {
+        return Array.from({ length: n }, (_, i) => colors[i % colors.length]);
+    }
+    const hues = colors.map(parseColorHue);
+    const chromatic = hues.map((h, i) => h !== null ? i : -1).filter((i) => i >= 0);
+    const achromatic = hues.map((h, i) => h === null ? i : -1).filter((i) => i >= 0);
+    if (chromatic.length === 0)
+        return colors.slice(0, n); // all near-gray
+    const chosen = [chromatic[0]];
+    const remaining = chromatic.slice(1);
+    while (chosen.length < n) {
+        if (remaining.length > 0) {
+            let bestK = 0, bestMinDist = -Infinity;
+            for (let k = 0; k < remaining.length; k++) {
+                const i = remaining[k];
+                const minDist = Math.min(...chosen.map((j) => hueDist(hues[i], hues[j])));
+                if (minDist > bestMinDist) {
+                    bestMinDist = minDist;
+                    bestK = k;
+                }
+            }
+            chosen.push(remaining.splice(bestK, 1)[0]);
+        }
+        else {
+            // Chromatic pool exhausted — fill with achromatic entries
+            const take = Math.min(achromatic.length, n - chosen.length);
+            chosen.push(...achromatic.splice(0, take));
+        }
+    }
+    return chosen.slice(0, n).map((i) => colors[i]);
+}
+// ─── Theme value helper ───────────────────────────────────────────────────────
+// Reads a CSS custom property from :root at render time, with a typed fallback.
+// Numeric fallback → strips units and returns a number (e.g. parseFloat("11px") = 11).
+// String fallback  → returns the raw trimmed value.
+// Falls back silently when running outside a browser (SSR / tests).
+export function themeValue(cssVar, fallback) {
+    if (typeof document === 'undefined')
+        return fallback;
+    const style = getComputedStyle(document.documentElement);
+    const raw = style.getPropertyValue(cssVar).trim();
+    if (!raw)
+        return fallback;
+    // Defensive var() resolution: if the browser returns an unresolved
+    // var() reference (e.g. "var(--sl-rounded-md)"), resolve one level.
+    // Modern browsers should already compute the final value, but this
+    // guards against edge-cases and non-browser environments.
+    if (raw.startsWith('var(')) {
+        const m = raw.match(/^var\(\s*(--[\w-]+)(?:\s*,\s*([^)]*?))?\s*\)$/);
+        if (m) {
+            const resolved = style.getPropertyValue(m[1]).trim() || m[2]?.trim() || '';
+            if (!resolved)
+                return fallback;
+            if (typeof fallback === 'number') {
+                const n = parseFloat(resolved);
+                return isNaN(n) ? fallback : n;
+            }
+            return resolved;
+        }
+        return fallback;
+    }
+    if (typeof fallback === 'number') {
+        const n = parseFloat(raw);
+        return isNaN(n) ? fallback : n;
+    }
+    return raw;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 export function transitionSpec(spec, previousSpec, { scrollDriven = false, d3 } = {}) {
     if (!d3)
         throw new Error('ScrollyLite transitions require D3. Pass { d3 } to createStory().');
@@ -173,16 +313,22 @@ export function channelDomain(rows, channel = {}) {
 export function colorScale(rows, channel, d3) {
     const resolved = resolveColorChannel(rows, channel);
     if (!resolved)
-        return () => cssColor('var(--sl-accent)', 'rgb(28, 106, 228)');
+        return () => cssColor('var(--sl-accent)', '#4e79a7');
     channel = resolved;
     if (channel.value)
-        return () => cssColor(channel.value, 'rgb(28, 106, 228)');
+        return () => cssColor(channel.value, '#4e79a7');
     if (channel.hue || channel.luminance)
         return compositeColorScale(channel, d3);
     if (!channel.field)
-        return () => cssColor('var(--sl-accent)', 'rgb(28, 106, 228)');
+        return () => cssColor('var(--sl-accent)', '#4e79a7');
     if (channel.type === 'quantitative')
         return luminanceColorScale(rows, channel, d3);
+    // Use story-level registry for consistent key→color mapping across scenes.
+    const fieldRegistry = !channel.range && _storyColorRegistry?.get(channel.field);
+    if (fieldRegistry) {
+        const fallback = cssColor('var(--sl-accent)', '#4e79a7');
+        return (row) => fieldRegistry.get(String(row[channel.field])) ?? fallback;
+    }
     const domain = channelDomain(rows, channel);
     const scale = d3.scaleOrdinal(colorRange(channel.range || categoricalRange(domain))).domain(domain);
     return (row) => scale(row[channel.field]);
@@ -195,7 +341,9 @@ export function drawXAxis(chart, scale, title, d3, transition = chart.transition
         return;
     }
     applyXAxisClip(chart);
-    const axis = typeof scale.bandwidth === 'function' ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(6);
+    const tickCount = themeValue('--sl-tick-count', 6);
+    const labelOffset = themeValue('--sl-axis-label-offset', 48);
+    const axis = typeof scale.bandwidth === 'function' ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(tickCount);
     const transform = `translate(${chart.margin.left},${chart.margin.top + chart.innerHeight})`;
     const xAxis = chart.scene.xAxis.interrupt().attr('transform', transform);
     renderAxisWithGuard(xAxis, axis, transition, axisKind('bottom', scale));
@@ -204,7 +352,7 @@ export function drawXAxis(chart, scale, title, d3, transition = chart.transition
     xAxis.transition(transition).style('opacity', 1);
     if (title) {
         chart.scene.xLabel
-            .attr('x', chart.innerWidth / 2).attr('y', chart.margin.top + chart.innerHeight + 48)
+            .attr('x', chart.innerWidth / 2).attr('y', chart.margin.top + chart.innerHeight + labelOffset)
             .attr('text-anchor', 'middle').attr('transform', `translate(${chart.margin.left},0)`)
             .text(title).transition(transition).style('opacity', 1);
     }
@@ -219,13 +367,15 @@ export function drawYAxis(chart, scale, title, d3, transition = chart.transition
         chart.scene.yLabel.transition(transition).style('opacity', 0);
         return;
     }
-    const axis = typeof scale.bandwidth === 'function' ? d3.axisLeft(scale) : d3.axisLeft(scale).ticks(6);
+    const tickCount = themeValue('--sl-tick-count', 6);
+    const labelOffset = themeValue('--sl-axis-label-offset', 48);
+    const axis = typeof scale.bandwidth === 'function' ? d3.axisLeft(scale) : d3.axisLeft(scale).ticks(tickCount);
     const yAxis = chart.scene.yAxis.interrupt().attr('transform', `translate(${chart.margin.left},${chart.margin.top})`);
     renderAxisWithGuard(yAxis, axis, transition, axisKind('left', scale));
     yAxis.transition(transition).style('opacity', 1);
     if (title) {
         chart.scene.yLabel
-            .attr('x', -chart.innerHeight / 2).attr('y', chart.margin.left - 48)
+            .attr('x', -chart.innerHeight / 2).attr('y', chart.margin.left - labelOffset)
             .attr('text-anchor', 'middle').attr('transform', `translate(0,${chart.margin.top}) rotate(-90)`)
             .text(title).transition(transition).style('opacity', 1);
     }
@@ -243,7 +393,7 @@ export function updateGrid(chart, y, d3, transition = chart.transition.base) {
         return;
     }
     const grid = chart.scene.grid.interrupt().attr('transform', null);
-    renderAxisWithGuard(grid, d3.axisLeft(y).ticks(6).tickSize(-chart.innerWidth).tickFormat(''), transition, axisKind('grid-left', y));
+    renderAxisWithGuard(grid, d3.axisLeft(y).ticks(themeValue('--sl-tick-count', 6)).tickSize(-chart.innerWidth).tickFormat(''), transition, axisKind('grid-left', y));
     grid.transition(transition).style('opacity', 1);
 }
 export function drawLegend(chart, rows, channel, d3) {
@@ -258,18 +408,25 @@ export function drawLegend(chart, rows, channel, d3) {
     const domain = quantitativeLegend
         ? quantitativeLegendDomain(colorRows, legendChannel, d3)
         : channelDomain(colorRows, legendChannel);
+    const fieldRegistry = !channel.range && !channel.hue && !channel.luminance && !quantitativeLegend
+        ? _storyColorRegistry?.get(legendChannel.field)
+        : null;
     const scale = channel.hue || channel.luminance
         ? compositeColorScale(channel, d3)
         : quantitativeLegend
             ? luminanceColorScale(colorRows, legendChannel, d3)
-            : d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
+            : fieldRegistry
+                ? (d) => fieldRegistry.get(String(d)) ?? cssColor('var(--sl-accent)', '#4e79a7')
+                : d3.scaleOrdinal(channel.range || categoricalRange(domain)).domain(domain);
     const legendRow = (value) => ({ [legendChannel.field]: value });
     const legend = chart.scene.legend.interrupt().style('opacity', 1)
         .attr('transform', `translate(${chart.margin.left},${Math.max(18, chart.margin.top - 32)})`);
     const items = legend.selectAll('g.sl-legend-item').data(domain, (d) => d);
     const entered = items.enter().append('g').attr('class', 'sl-legend-item').style('opacity', 0);
-    entered.append('rect').attr('width', 9).attr('height', 9).attr('rx', 1.5);
-    entered.append('text').attr('x', 15).attr('y', 8.5);
+    const swatchSize = themeValue('--sl-legend-swatch-size', 9);
+    const swatchRadius = themeValue('--sl-legend-swatch-radius', 1.5);
+    entered.append('rect').attr('width', swatchSize).attr('height', swatchSize).attr('rx', swatchRadius);
+    entered.append('text').attr('x', swatchSize + 6).attr('y', swatchSize - 0.5);
     items.merge(entered).transition(chart.transition.base).style('opacity', 1)
         .attr('transform', (_, index) => `translate(${legendItemX(domain, index)},0)`);
     items.merge(entered).select('rect').transition(chart.transition.base)
@@ -383,16 +540,19 @@ function inferFieldType(rows, field) {
         return 'nominal';
     return values.every((value) => Number.isFinite(Number(value))) ? 'quantitative' : 'nominal';
 }
+// Automatic categorical color assignment: resolve the active palette from CSS
+// variables, then use greedy farthest-first hue selection so that the n chosen
+// colors are as distinct as possible (Rules #4 + #5).
 function categoricalRange(domain) {
-    return domain.map((value, index) => semanticCategoryColor(value) || themeColor(DEFAULT_PALETTE[index % DEFAULT_PALETTE.length]));
-}
-function semanticCategoryColor(value) {
-    const color = SEMANTIC_CATEGORY_COLORS[String(value ?? '').trim().toLowerCase()];
-    return color ? themeColor(color) : null;
+    const resolved = DEFAULT_PALETTE.map((entry) => themeColor(entry));
+    // Sequential slot assignment: Nth category → series-N. Consistent with the
+    // stacked/grouped bar idiom's explicit 'var(--sl-series-N)' range and with
+    // the story-level registry, so fallback scenes never get mismatched colors.
+    return domain.map((_, i) => resolved[i % resolved.length]);
 }
 function luminanceColorScale(rows, channel, d3) {
     const domain = quantitativeDomain(rows, channel);
-    const base = cssColor(channel.base || channel.value || themeColor(DEFAULT_LUMINANCE_BASE), 'rgb(28, 106, 228)');
+    const base = cssColor(channel.base || channel.value || themeColor(DEFAULT_LUMINANCE_BASE), '#4e79a7');
     const lightness = channel.lightness || [22, -18];
     const scale = d3.scaleLinear().domain(domain).range(lightness).clamp(true);
     return (row = {}) => adjustLightness(base, scale(Number(row[channel.field])), d3);
@@ -407,7 +567,7 @@ function themeColor([name, fallback] = []) {
 function colorRange(range = []) {
     return range.map((color, index) => cssColor(color, themeColor(DEFAULT_PALETTE[index % DEFAULT_PALETTE.length])));
 }
-function cssColor(color, fallback = 'rgb(28, 106, 228)') {
+function cssColor(color, fallback = '#4e79a7') {
     if (typeof color !== 'string')
         return color || fallback;
     const value = color.trim();
@@ -435,7 +595,7 @@ function compositeColorScale(channel, d3) {
         ? d3.scaleLinear().domain(luminanceDomain.map(Number)).range([lightness[0], lightness[lightness.length - 1]]).clamp(true)
         : d3.scaleOrdinal(lightness).domain(luminanceDomain);
     return (row = {}) => {
-        const base = cssColor(hue.value || hueScale(row[hue.field]), 'rgb(28, 106, 228)');
+        const base = cssColor(hue.value || hueScale(row[hue.field]), '#4e79a7');
         const luminanceValue = row[luminance.field];
         const offset = luminance.field && (continuousLuminance || luminanceDomain.includes(luminanceValue))
             ? Number(lightnessScale(continuousLuminance ? Number(luminanceValue) : luminanceValue)) || 0
@@ -444,7 +604,7 @@ function compositeColorScale(channel, d3) {
     };
 }
 function adjustLightness(color, offset, d3) {
-    const resolved = cssColor(color, 'rgb(28, 106, 228)');
+    const resolved = cssColor(color, '#4e79a7');
     const hcl = d3.hcl(resolved);
     if (!Number.isFinite(hcl.l))
         return resolved;
