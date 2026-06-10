@@ -52,6 +52,10 @@ export class ViewState<S extends object = Record<string, unknown>> {
   operations(): string[] {
     return [...(this.state.__grammar?.operations ?? [])];
   }
+
+  capabilities(): Record<string, boolean> {
+    return { ...(this.state.__grammar?.capabilities ?? {}) };
+  }
 }
 
 export function cloneState<T>(value: T): T {

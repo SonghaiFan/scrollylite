@@ -236,17 +236,14 @@ export interface ViewSpec {
 
 // ─── Story ───────────────────────────────────────────────────────────────────
 
-export type StepActionAlias = 'stepper' | 'scroller';
 export type StepActionToken = 'step' | 'scroll' | 'tooltip' | 'enter';
-export type StepActionInput = StepActionToken | StepActionAlias | string;
+export type StepActionInput = StepActionToken | string;
 
 export interface StepDefinition {
   title?: string;
   body?: string;
   view?: ViewSpec | { toSpec(): ViewSpec };
   action?: StepActionInput | StepActionInput[];
-  authoringCode?: string;
-  authoring?: string;
   code?: string;
 }
 
@@ -257,7 +254,7 @@ export interface StepSpec {
   transition?: { scene: string[] };
   action?: StepActionToken[];
   views?: Record<string, ViewSpec>;
-  inspector?: { authoringCode: string };
+  inspector?: { code: string };
 }
 
 export interface LayoutSpec {
@@ -334,7 +331,10 @@ export interface BarSemanticState {
 
 export interface GrammarMeta {
   operations?: string[];
-  lastWhere?: { selectors: FilterSpec[]; fields: string[] };
+  /** Per-idiom scene capabilities (e.g. bar opts out of `observation`). */
+  capabilities?: Record<string, boolean>;
+  /** Field declared via bar's `.measure()` — drives identity/title inference in `.where()`. */
+  measureField?: string;
   measureSelector?: { title: string; fields: string[] } | null;
 }
 

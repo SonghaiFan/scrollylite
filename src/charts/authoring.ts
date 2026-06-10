@@ -50,10 +50,7 @@ function isDataUrl(s: string): boolean {
 
 export class IdiomState<S extends ViewSpec = ViewSpec> extends ViewState<S> {
   override toSpec(): Omit<S, '__grammar'> {
-    const spec = super.toSpec() as ViewSpec;
-    return pruneAuthoringSpec(
-      compileViewSpec(externalizeScrollyViewSpec(spec), { scene: [] })
-    ) as Omit<S, '__grammar'>;
+    return compileAuthoredView(super.toSpec() as ViewSpec) as Omit<S, '__grammar'>;
   }
 
   data(data: unknown): this {
@@ -113,12 +110,8 @@ export class IdiomState<S extends ViewSpec = ViewSpec> extends ViewState<S> {
     return this.with({ transition: timing } as Partial<S>);
   }
 
-  filter(selector: string | Record<string, unknown> | FilterSpec): this {
-    return this.with({ focus: selectorFrom(selector) } as Partial<S>, 'focus');
-  }
-
   where(selector: string | Record<string, unknown> | FilterSpec): this {
-    return this.filter(selector);
+    return this.with({ focus: selectorFrom(selector) } as Partial<S>, 'focus');
   }
 
   highlight(

@@ -1,7 +1,7 @@
 import type { Delta, SemanticViewState, ViewSpec } from '../types/index.js';
 import { diffViewStates, sameValue } from './diff.js';
 
-type SpecLike = ViewSpec | { toSpec(): ViewSpec; operations(): string[] } | null | undefined;
+type SpecLike = ViewSpec | { toSpec(): ViewSpec; operations(): string[]; capabilities?(): Record<string, boolean> } | null | undefined;
 
 export function inferTransition(previous: SpecLike, next: SpecLike): string[] {
   if (!previous) return [];
@@ -22,7 +22,7 @@ export function inferTransition(previous: SpecLike, next: SpecLike): string[] {
     scenes.push('focus');
   }
 
-  if (xyObservationChanged(diff)) {
+  if (supportsScene(previous, 'observation') && supportsScene(next, 'observation') && xyObservationChanged(diff)) {
     scenes.push('observation');
   }
 
@@ -56,6 +56,17 @@ function getOperations(value: SpecLike): string[] {
     : [];
 }
 
+// Idiom builders declare scene capabilities (ViewState.capabilities()); a raw
+// hand-written spec supports every scene by default.
+function supportsScene(value: SpecLike, scene: string): boolean {
+  if (!value) return true;
+  const capabilities =
+    typeof (value as { capabilities?(): Record<string, boolean> }).capabilities === 'function'
+      ? (value as { capabilities(): Record<string, boolean> }).capabilities()
+      : null;
+  return capabilities?.[scene] !== false;
+}
+
 function filterTransformChanged(previous: ViewSpec, next: ViewSpec): boolean {
   return !sameValue(filterTransforms(previous.transform), filterTransforms(next.transform));
 }
@@ -79,10 +90,6 @@ function onlyGranularityLayoutChanged(delta: Delta | null): boolean {
 
 function xyObservationChanged(diff: ReturnType<typeof diffViewStates>): boolean {
   if (diff.has('transform') || diff.has('filter') || diff.hasDelta('focus')) return false;
-
-  const prevMark = String((diff.previous as { mark?: unknown })?.mark ?? '').toLowerCase();
-  const nextMark = String((diff.next as { mark?: unknown })?.mark ?? '').toLowerCase();
-  if (prevMark === 'bar' || nextMark === 'bar') return false;
 
   return (['x', 'y'] as const).some((channel) => {
     const prev = diff.previous?.encoding?.[channel];

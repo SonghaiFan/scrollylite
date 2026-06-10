@@ -4,6 +4,7 @@ import { inferTransition } from './infer-transition.js';
 import type {
   LayoutSpec,
   StepActionInput,
+  StepActionToken,
   StepDefinition,
   StepSpec,
   StorySpec,
@@ -92,7 +93,6 @@ export class StoryBuilder {
 
   action(actions: StepActionInput | StepActionInput[]): this {
     this._stepAction = normalizeStepActions(actions);
-    this._compileSteps();
     return this;
   }
 
@@ -105,7 +105,7 @@ export class StoryBuilder {
     return this;
   }
 
-  step(
+  add(
     titleOrDefinition: string | StepDefinition,
     view?: ViewLike,
     options: Partial<StepDefinition> | string = {}
@@ -117,22 +117,15 @@ export class StoryBuilder {
         : { title: titleOrDefinition, view, ...normalizedOptions };
 
     this._stepDefinitions.push(definition);
-    this._compileSteps();
-    return this;
-  }
-
-  steps(definitions: StepDefinition[]): this {
-    this._stepDefinitions = [...definitions];
-    this._compileSteps();
     return this;
   }
 
   toSpec(): StorySpec {
-    return cloneState(this._spec) as StorySpec;
-  }
-
-  private _compileSteps(): void {
-    this._spec.steps = authoredSteps(this._stepDefinitions, { action: this._stepAction });
+    const spec = cloneState(this._spec) as StorySpec;
+    if (this._stepDefinitions.length) {
+      spec.steps = authoredSteps(this._stepDefinitions, { action: this._stepAction });
+    }
+    return spec;
   }
 }
 
@@ -145,7 +138,7 @@ function compileStep(
   isFirst: boolean,
   action: StepActionInput[]
 ): StepSpec {
-  const authoringCode = definition.authoringCode ?? definition.authoring ?? definition.code;
+  const code = definition.code;
   const stepAction = normalizeStepActions(definition.action ?? action);
   const compiledView = withNarrative(compileView(view), {
     annotation: {
@@ -157,9 +150,9 @@ function compileStep(
   return {
     title: definition.title,
     body: definition.body,
-    ...(authoringCode ? { inspector: { authoringCode } } : {}),
+    ...(code ? { inspector: { code } } : {}),
     transition: scenes.length ? { scene: scenes } : undefined,
-    action: (isFirst ? withEnterAction(stepAction) : stepAction) as import('../types/index.js').StepActionToken[],
+    action: (isFirst ? withEnterAction(stepAction) : stepAction) as StepActionToken[],
     views: { main: compiledView }
   };
 }
@@ -168,13 +161,7 @@ function normalizeStepActions(
   actions: StepActionInput | StepActionInput[] = ['step', 'tooltip']
 ): StepActionInput[] {
   const values = Array.isArray(actions) ? actions : [actions];
-  return uniqueActions(values.flatMap(expandActionAlias));
-}
-
-function expandActionAlias(action: StepActionInput): StepActionInput[] {
-  if (action === 'stepper') return ['step', 'tooltip'];
-  if (action === 'scroller') return ['scroll', 'tooltip'];
-  return [action];
+  return uniqueActions(values);
 }
 
 function withEnterAction(actions: StepActionInput[]): StepActionInput[] {
