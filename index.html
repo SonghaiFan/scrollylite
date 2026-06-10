@@ -966,11 +966,13 @@ btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span>
   target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
 <span class="tok-p">});</span>
 
-<span class="tok-c">// Map [0 → 1] to step index</span>
+<span class="tok-c">// Scrub transition with 0→1 progress</span>
 slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
-  chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span>Math<span class="tok-p">.</span><span class="tok-fn">round</span><span class="tok-p">(</span>
-    <span class="tok-p">+</span>slider<span class="tok-p">.</span>value      <span class="tok-c">// 0.00 → 1.00</span>
-  <span class="tok-p">));</span></code></pre>
+  chart<span class="tok-p">.</span><span class="tok-fn">action</span><span class="tok-p">({</span>
+    type<span class="tok-p">:</span>  <span class="tok-s">"progress"</span><span class="tok-p">,</span>
+    index<span class="tok-p">:</span> <span class="tok-s">1</span><span class="tok-p">,</span>         <span class="tok-c">// target state</span>
+    value<span class="tok-p">:</span> <span class="tok-p">+</span>slider<span class="tok-p">.</span>value <span class="tok-c">// 0.00 → 1.00</span>
+  <span class="tok-p">});</span></code></pre>
               <div class="mode-demo">
                 <div class="mode-demo-chart" id="slider-demo-chart"></div>
                 <div class="slider-control">
@@ -978,6 +980,7 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
                     <span class="slider-end-label">State 0</span>
                     <input class="slider-input" type="range" id="slider-demo-input"
                            min="0" max="1" step="0.01" value="0"
+                           autocomplete="off"
                            aria-label="Progress 0 to 1">
                     <span class="slider-end-label">State 1</span>
                   </div>
@@ -1284,11 +1287,13 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
       sliderInput.value = "0";
 
       sliderInput.addEventListener("input", () => {
-        const val  = parseFloat(sliderInput.value);
-        const step = Math.round(val * (DEMO_STATES.length - 1));
-        sliderDemoChart?.step(step);
+        const val = parseFloat(sliderInput.value);
+        // chart.action() with type:'progress' triggers applyProgressStep →
+        // applyVirtualScrollSequence — scrubs the transition frame-by-frame
+        // instead of playing the full D3 tween that chart.step() would fire.
+        sliderDemoChart?.action({ type: "progress", index: 1, value: val });
         sliderValEl.textContent   = val.toFixed(2);
-        sliderStateEl.textContent = DEMO_STATES[step].label;
+        sliderStateEl.textContent = DEMO_STATES[Math.round(val)].label;
       });
     </script>
   </body>
