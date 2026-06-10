@@ -1,13 +1,13 @@
 import type { StageSpec, ViewSpec } from '../../types/index.js';
-import { IdiomState } from '../authoring.js';
+import { IdiomState, normalizeDataSource } from '../authoring.js';
 
 export interface PointViewState extends ViewSpec {
   mark: 'point';
   size?: number;
 }
 
-export function point(data: ViewSpec['data']): PointState {
-  return new PointState({ data, mark: 'point', encoding: {} });
+export function point(data: unknown): PointState {
+  return new PointState({ data: normalizeDataSource(data) as PointViewState['data'], mark: 'point', encoding: {} });
 }
 
 export class PointState extends IdiomState<PointViewState> {

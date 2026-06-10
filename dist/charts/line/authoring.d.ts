@@ -6,7 +6,7 @@ export interface LineViewState extends ViewSpec {
     strokeWidth?: number;
     pointSize?: number;
 }
-export declare function line(data: ViewSpec['data']): LineState;
+export declare function line(data: unknown): LineState;
 export declare class LineState extends IdiomState<LineViewState> {
     x(field: string | import('../../types/index.js').ChannelSpec, options?: Partial<import('../../types/index.js').ChannelSpec>): this;
     y(field: string | import('../../types/index.js').ChannelSpec, options?: Partial<import('../../types/index.js').ChannelSpec>): this;

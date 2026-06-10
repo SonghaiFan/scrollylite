@@ -1,13 +1,13 @@
 import type { ChannelSpec, ViewSpec } from '../../types/index.js';
-import { IdiomState, colorFrom } from '../authoring.js';
+import { IdiomState, colorFrom, normalizeDataSource } from '../authoring.js';
 
 export interface UnitViewState extends ViewSpec {
   mark: 'unit';
   unit?: Record<string, unknown>;
 }
 
-export function unit(data: ViewSpec['data']): UnitState {
-  return new UnitState({ data, mark: 'unit', encoding: {}, unit: {} });
+export function unit(data: unknown): UnitState {
+  return new UnitState({ data: normalizeDataSource(data) as UnitViewState['data'], mark: 'unit', encoding: {}, unit: {} });
 }
 
 export class UnitState extends IdiomState<UnitViewState> {

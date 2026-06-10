@@ -2,6 +2,7 @@ import { ViewState } from '../grammar/view-state.js';
 import { titleize } from '../labels.js';
 import type { ChannelSpec, FilterSpec, FocusSpec, GuideSpec, SortOrder, TransitionSpec, ViewSpec } from '../types/index.js';
 export { titleize };
+export declare function normalizeDataSource(data: unknown): unknown;
 export declare class IdiomState<S extends ViewSpec = ViewSpec> extends ViewState<S> {
     toSpec(): Omit<S, '__grammar'>;
     data(data: unknown): this;

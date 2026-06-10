@@ -8,7 +8,7 @@ import { clamp } from './utils.js';
 export function getScene(node, viewConfig, d3) {
     if (node.__scrollyLiteScene)
         return node.__scrollyLiteScene;
-    const width = Math.max(320, node.clientWidth || 720);
+    const width = Math.max(60, node.clientWidth || 720);
     const height = viewConfig.height || 500;
     node.innerHTML = '';
     const svg = d3.select(node).append('svg').attr('viewBox', `0 0 ${width} ${height}`).attr('role', 'img');

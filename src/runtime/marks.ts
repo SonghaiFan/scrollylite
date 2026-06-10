@@ -342,7 +342,18 @@ export function drawXAxis(chart, scale, title, d3, transition = chart.transition
   applyXAxisClip(chart);
   const tickCount = themeValue('--sl-tick-count', 6);
   const labelOffset = themeValue('--sl-axis-label-offset', 48);
-  const axis = typeof scale.bandwidth === 'function' ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(tickCount);
+  let axis = typeof scale.bandwidth === 'function' ? d3.axisBottom(scale) : d3.axisBottom(scale).ticks(tickCount);
+  // Adaptive label thinning for band (categorical) x-axes:
+  // when available px-per-band < threshold, skip every Nth label so they never overlap.
+  if (typeof scale.bandwidth === 'function') {
+    const domain = scale.domain();
+    const minPxPerLabel = 44; // ~5 chars × 7px + 9px padding
+    const pxPerBand = domain.length > 0 ? chart.innerWidth / domain.length : Infinity;
+    if (pxPerBand < minPxPerLabel) {
+      const step = Math.ceil(minPxPerLabel / pxPerBand);
+      axis = axis.tickValues(domain.filter((_, i) => i % step === 0));
+    }
+  }
   const transform = `translate(${chart.margin.left},${chart.margin.top + chart.innerHeight})`;
   const xAxis = chart.scene.xAxis.interrupt().attr('transform', transform);
   renderAxisWithGuard(xAxis, axis, transition, axisKind('bottom', scale));
@@ -368,7 +379,17 @@ export function drawYAxis(chart, scale, title, d3, transition = chart.transition
   }
   const tickCount = themeValue('--sl-tick-count', 6);
   const labelOffset = themeValue('--sl-axis-label-offset', 48);
-  const axis = typeof scale.bandwidth === 'function' ? d3.axisLeft(scale) : d3.axisLeft(scale).ticks(tickCount);
+  let axis = typeof scale.bandwidth === 'function' ? d3.axisLeft(scale) : d3.axisLeft(scale).ticks(tickCount);
+  // Adaptive label thinning for band (categorical) y-axes (horizontal bar charts):
+  if (typeof scale.bandwidth === 'function') {
+    const domain = scale.domain();
+    const minPxPerLabel = 22; // vertical: ~1 line height
+    const pxPerBand = domain.length > 0 ? chart.innerHeight / domain.length : Infinity;
+    if (pxPerBand < minPxPerLabel) {
+      const step = Math.ceil(minPxPerLabel / pxPerBand);
+      axis = axis.tickValues(domain.filter((_, i) => i % step === 0));
+    }
+  }
   const yAxis = chart.scene.yAxis.interrupt().attr('transform', `translate(${chart.margin.left},${chart.margin.top})`);
   renderAxisWithGuard(yAxis, axis, transition, axisKind('left', scale));
   yAxis.transition(transition).style('opacity', 1);

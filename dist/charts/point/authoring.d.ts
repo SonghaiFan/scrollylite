@@ -4,7 +4,7 @@ export interface PointViewState extends ViewSpec {
     mark: 'point';
     size?: number;
 }
-export declare function point(data: ViewSpec['data']): PointState;
+export declare function point(data: unknown): PointState;
 export declare class PointState extends IdiomState<PointViewState> {
     x(field: string | import('../../types/index.js').ChannelSpec, options?: Partial<import('../../types/index.js').ChannelSpec>): this;
     y(field: string | import('../../types/index.js').ChannelSpec, options?: Partial<import('../../types/index.js').ChannelSpec>): this;

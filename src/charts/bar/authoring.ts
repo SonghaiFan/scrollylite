@@ -2,7 +2,7 @@ import { compileViewSpec } from '../../transitions/index.js';
 import { externalizeScrollyViewSpec } from '../../scrolly-meta.js';
 import { cloneState } from '../../grammar/view-state.js';
 import { labelFromValue, titleize } from '../../labels.js';
-import { IdiomState, channelFrom, colorFrom } from '../authoring.js';
+import { IdiomState, channelFrom, colorFrom, normalizeDataSource } from '../authoring.js';
 import type {
   BarLayout,
   ChannelSpec,
@@ -24,7 +24,7 @@ export interface BarViewState extends ViewSpec {
 }
 
 export function bar(data: unknown): BarState {
-  return new BarState({ data, mark: 'bar', encoding: {} } as BarViewState);
+  return new BarState({ data: normalizeDataSource(data), mark: 'bar', encoding: {} } as BarViewState);
 }
 
 export class BarState extends IdiomState<BarViewState> {

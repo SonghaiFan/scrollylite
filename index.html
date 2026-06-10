@@ -276,7 +276,7 @@
 
       /* ── Standalone chart: override story-level min-height ──────────────────── */
       /* styles.css sets .sl-view { min-height: 420px } for story layouts.
-         For createChart() embeds we zero it so the chart sizes to spec height. */
+         For sl.chart() embeds we zero it so the chart sizes to spec height. */
       #hero-chart .sl-view,
       #showcase-chart-view .sl-view,
       #btn-demo-chart .sl-view,
@@ -513,6 +513,14 @@
         border: 1px solid rgba(28,106,228,0.10);
         background: #fff;
         box-shadow: 0 0 0 1px rgba(28,106,228,0.04), 0 4px 20px rgba(28,106,228,0.07);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Code (left) + Demo chart (right) side-by-side */
+      .mode-card-body {
+        display: flex;
+        flex: 1;
       }
 
       .mode-card-header {
@@ -550,10 +558,13 @@
       }
 
       .mode-code {
+        flex: 0 0 50%;
         background: #0f1a30;
         margin: 0;
-        padding: 1.1rem 1.25rem;
+        padding: 1rem 1.1rem;
         overflow-x: auto;
+        overflow-y: hidden;
+        border-right: 0.5px solid rgba(28,106,228,0.10);
       }
 
       .mode-code code {
@@ -562,13 +573,12 @@
         white-space: pre;
       }
 
-      /* ── Mode demo — vertical: chart on top, control below ─────────────────── */
+      /* ── Mode demo — right column: chart fills width, control below ─────────── */
       .mode-demo {
-        padding: 1.1rem 1.25rem;
-        border-top: 0.5px solid rgba(28,106,228,0.08);
+        flex: 1;
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 0.9rem;
       }
 
       .mode-demo-chart {
@@ -576,13 +586,24 @@
         overflow: hidden;
       }
 
+      /* Demo chart figures: flush to edges, no inner chrome */
+      #btn-demo-chart .sl-figure,
+      #slider-demo-chart .sl-figure {
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #btn-demo-chart .sl-figure-header,
+      #slider-demo-chart .sl-figure-header {
+        display: none;
+      }
+
       /* ── Button control ──────────────────────────────────────────────────────── */
       .btn-control {
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        background: rgba(28,106,228,0.04);
-        border-radius: 12px;
+        background: rgba(28,106,228,0.03);
+        border-top: 0.5px solid rgba(28,106,228,0.10);
         padding: 0.65rem 1rem;
       }
 
@@ -638,8 +659,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.45rem;
-        background: rgba(28,106,228,0.04);
-        border-radius: 12px;
+        background: rgba(28,106,228,0.03);
+        border-top: 0.5px solid rgba(28,106,228,0.10);
         padding: 0.75rem 1rem;
       }
 
@@ -769,31 +790,203 @@
 
       .footer-links a:hover { color: var(--sl-color-primary); }
 
+      /* ── API section ────────────────────────────────────────────────────────── */
+      .api-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.75rem;
+        margin-top: 2.5rem;
+        align-items: start;
+      }
+
+      .api-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+      }
+
+      .api-card {
+        padding: 0.95rem 1.2rem;
+        background: #fff;
+        border: 1px solid rgba(28,106,228,0.10);
+        border-radius: 10px;
+        font-size: 0.88rem;
+        color: var(--sl-color-muted);
+        line-height: 1.5;
+        box-shadow: 0 1px 4px rgba(28,106,228,0.04);
+      }
+
+      .api-card code {
+        color: var(--sl-color-on-surface);
+        font-weight: 650;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.84em;
+      }
+
+      .api-example {
+        background: #0f1a30;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.06);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      }
+
+      .api-example-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.65rem 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+      }
+
+      .api-example-bar span {
+        width: 9px; height: 9px; border-radius: 50%;
+      }
+      .api-example-bar span:nth-child(1) { background: #ff5f57; }
+      .api-example-bar span:nth-child(2) { background: #febc2e; }
+      .api-example-bar span:nth-child(3) { background: #28c840; }
+
+      .api-example pre {
+        margin: 0;
+        padding: 1.2rem 1.4rem 1.5rem;
+        overflow-x: auto;
+      }
+
+      .api-example code {
+        font: 0.82rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: #c9d8f5;
+        white-space: pre;
+      }
+
+      /* ── Agent section ──────────────────────────────────────────────────────── */
+      .agent-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.75rem;
+        margin-top: 2.5rem;
+        align-items: start;
+      }
+
+      .agent-card {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(28,106,228,0.10);
+        box-shadow: 0 1px 4px rgba(28,106,228,0.04);
+      }
+
+      .agent-card-header {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(28,106,228,0.08);
+        color: var(--sl-color-muted);
+        background: #fff;
+      }
+
+      .task-map .agent-card-header { background: #fff; }
+
+      .task-map ol {
+        margin: 0;
+        padding: 1.15rem 1.4rem 1.15rem 2rem;
+        background: #fff;
+        color: var(--sl-color-muted);
+        font-size: 0.88rem;
+        line-height: 1.75;
+        list-style: decimal;
+      }
+
+      .task-map li { padding-left: 0.3em; }
+
+      .task-map code {
+        color: var(--sl-color-on-surface);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.84em;
+        font-weight: 600;
+      }
+
+      .skill-seed {
+        background: #0f1a30;
+        border-color: rgba(255,255,255,0.07);
+      }
+
+      .skill-seed .agent-card-header {
+        background: transparent;
+        border-bottom-color: rgba(255,255,255,0.08);
+        color: rgba(201,216,245,0.55);
+      }
+
+      .skill-seed pre {
+        margin: 0;
+        padding: 1.15rem 1.4rem;
+        overflow-x: auto;
+        color: #c9d8f5;
+        font: 0.79rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        white-space: pre;
+      }
+
       /* ── Responsive ─────────────────────────────────────────────────────────── */
       @media (max-width: 860px) {
-        .hero, .modes-grid, .showcase-inner {
+        /* API + Agent sections: single column */
+        .api-grid, .agent-grid {
           grid-template-columns: 1fr;
+        }
+
+        /* Hero: single column, hide the chart panel */
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero-panel { display: none; }
+
+        /* Showcase: code panel stacks above chart */
+        .showcase-inner {
+          grid-template-columns: 1fr;
+        }
+        .showcase-code {
+          max-height: 280px;
+          border-radius: 20px 20px 0 0;
+          overflow-y: auto;
+        }
+        .showcase-chart {
+          border-radius: 0 0 20px 20px;
+        }
+        #showcase-chart-view {
+          min-height: 280px;
+        }
+
+        /* Modes: cards stack, and inside each card code stacks above chart */
+        .modes-grid {
+          grid-template-columns: 1fr;
+        }
+        .mode-card-body {
+          flex-direction: column;
+        }
+        .mode-code {
+          flex: 0 0 auto;
+          max-height: 160px;
+          overflow-y: auto;
+          border-right: none;
+          border-bottom: 0.5px solid rgba(28,106,228,0.10);
+        }
+        .mode-demo {
+          flex: 1;
+          min-height: 220px;
         }
 
         .features-grid {
           grid-template-columns: repeat(2, 1fr);
         }
-
-        .showcase-code {
-          max-height: 320px;
-          border-radius: 20px 20px 0 0;
-        }
-
-        .showcase-chart {
-          border-radius: 0 0 20px 20px;
-        }
-
-        .hero-panel { display: none; }
       }
 
       @media (max-width: 560px) {
         .features-grid { grid-template-columns: 1fr; }
         .nav-links { display: none; }
+        .nav-btn { font-size: 0.82rem; padding: 0 12px; }
+
+        /* Tighten section spacing on small phones */
+        .section { padding: 48px 16px; }
+        .wrap { padding-left: 16px; padding-right: 16px; }
       }
     </style>
   </head>
@@ -810,11 +1003,12 @@
         ScrollyLite
       </a>
       <div class="nav-links">
-        <a href="#showcase">Showcase</a>
-        <a href="#modes">Modes</a>
         <a href="#features">Features</a>
+        <a href="#api">API</a>
+        <a href="#agent">Agent brief</a>
         <a href="./examples/weather/">Demo</a>
         <a href="./docs/getting-started.md">Docs</a>
+        <a href="./llms.txt">llms.txt</a>
         <a href="https://github.com/SonghaiFan/scrollylite">GitHub</a>
       </div>
       <a class="nav-btn" href="./examples/weather/">Try demo →</a>
@@ -843,7 +1037,7 @@
             </div>
             <div class="install-block">
               <div class="install-header"><span>CDN / browser ESM</span></div>
-              <pre><code><span class="tok-k">import</span> <span class="tok-p">{</span> createStory <span class="tok-p">}</span> <span class="tok-k">from</span>
+              <pre><code><span class="tok-k">import</span> <span class="tok-p">*</span> <span class="tok-k">as</span> sl <span class="tok-k">from</span>
   <span class="tok-s">"https://cdn.jsdelivr.net/npm/scrollylite@0.1.1/+esm"</span>;</code></pre>
             </div>
           </div>
@@ -862,15 +1056,123 @@
         </div>
       </section>
 
+      <!-- ── API reference ─────────────────────────────────────────────────────── -->
+      <section class="section" id="api">
+        <div class="wrap">
+          <p class="section-label">API</p>
+          <h2 class="section-title">API</h2>
+          <p class="section-lede">
+            The package surface is intentionally compact: build specs,
+            create stories, and register idioms when you need to extend the grammar.
+          </p>
+
+          <div class="api-grid">
+            <!-- Left: four API cards -->
+            <div class="api-cards">
+              <div class="api-card">
+                <code>sl.bar("./data.csv")</code> — data URL inline.
+                Chain <code>.x()</code>, <code>.y()</code>, <code>.where()</code>, <code>.key()</code> to build a state.
+              </div>
+              <div class="api-card">
+                <code>sl.seq()</code> orders states into a navigable sequence.
+                <code>.add(state, text)</code> appends; <code>.next()</code> / <code>.goto(n)</code> navigate.
+              </div>
+              <div class="api-card">
+                <code>sl.chart(seq, { target, d3, aq })</code> mounts a standalone animated chart.
+                Returns <code>{ to(n), resize, destroy }</code>.
+              </div>
+              <div class="api-card">
+                <code>seq.bind({ chart, text })</code> wires chart + caption element.
+                After binding, <code>seq.next()</code> drives both in one call.
+              </div>
+            </div>
+
+            <!-- Right: full code example -->
+            <div class="api-example">
+              <div class="api-example-bar">
+                <span></span><span></span><span></span>
+              </div>
+              <pre><code><span class="tok-k">import</span> <span class="tok-p">*</span> <span class="tok-k">as</span> sl <span class="tok-k">from</span> <span class="tok-s">"scrollylite"</span><span class="tok-p">;</span>
+
+<span class="tok-c">// 1. Build states — data URL inline, no registration</span>
+<span class="tok-k">const</span> base <span class="tok-p">=</span> sl<span class="tok-p">.</span><span class="tok-fn">bar</span><span class="tok-p">(</span><span class="tok-s">"./data.csv"</span><span class="tok-p">)</span>
+  <span class="tok-p">.</span><span class="tok-fn">x</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">).</span><span class="tok-fn">y</span><span class="tok-p">(</span><span class="tok-s">"count"</span><span class="tok-p">).</span><span class="tok-fn">key</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">);</span>
+
+<span class="tok-c">// 2. Sequence — ordered states with narrative text</span>
+<span class="tok-k">const</span> sq <span class="tok-p">=</span> sl<span class="tok-p">.</span><span class="tok-fn">seq</span><span class="tok-p">()</span>
+  <span class="tok-p">.</span><span class="tok-fn">add</span><span class="tok-p">(</span>base<span class="tok-p">,</span>                          <span class="tok-s">"All decades"</span><span class="tok-p">)</span>
+  <span class="tok-p">.</span><span class="tok-fn">add</span><span class="tok-p">(</span>base<span class="tok-p">.</span><span class="tok-fn">where</span><span class="tok-p">({</span> type<span class="tok-p">:</span> <span class="tok-s">"Hot days"</span> <span class="tok-p">}),</span> <span class="tok-s">"Filter to hot"</span><span class="tok-p">)</span>
+  <span class="tok-p">.</span><span class="tok-fn">add</span><span class="tok-p">(</span>base<span class="tok-p">.</span><span class="tok-fn">breakdown</span><span class="tok-p">(</span><span class="tok-s">"type"</span><span class="tok-p">),</span>          <span class="tok-s">"Split by type"</span><span class="tok-p">);</span>
+
+<span class="tok-c">// 3. Mount + bind — seq.next() drives chart &amp; caption together</span>
+<span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> sl<span class="tok-p">.</span><span class="tok-fn">chart</span><span class="tok-p">(</span>sq<span class="tok-p">, {</span> target<span class="tok-p">:</span> <span class="tok-s">"#vis"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq <span class="tok-p">});</span>
+sq<span class="tok-p">.</span><span class="tok-fn">bind</span><span class="tok-p">({</span> chart<span class="tok-p">,</span> text<span class="tok-p">:</span> <span class="tok-s">"#caption"</span> <span class="tok-p">});</span>
+btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span> sq<span class="tok-p">.</span><span class="tok-fn">next</span><span class="tok-p">();</span>   <span class="tok-c">// one line drives everything</span></code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Agent-readable ─────────────────────────────────────────────────────── -->
+      <section class="section" id="agent">
+        <div class="wrap">
+          <p class="section-label">Agent brief</p>
+          <h2 class="section-title">Agent-readable by design.</h2>
+          <p class="section-lede">
+            This page includes a compact brief for AI agents, plus a dense
+            <a href="./llms.txt">llms.txt</a> reference that can become the seed
+            for a future ScrollyLite skill.
+          </p>
+
+          <div class="agent-grid">
+            <!-- Left: Task map -->
+            <div class="agent-card task-map">
+              <div class="agent-card-header">Task map</div>
+              <ol>
+                <li>Use ScrollyLite when the user wants a narrated scrolling data story.</li>
+                <li>Build states with <code>seq().add(state, text)</code>; avoid hand-writing animation code.</li>
+                <li>Choose one built-in idiom: <code>bar</code>, <code>line</code>, <code>point</code>, or <code>unit</code>.</li>
+                <li>Use <code>import * as sl from "scrollylite"</code>; call <code>sl.render()</code> for the full story or <code>sl.chart()</code> for a standalone embed.</li>
+                <li>Use <code>.key()</code> for stable semantic identity across transitions.</li>
+              </ol>
+            </div>
+
+            <!-- Right: Skill seed -->
+            <div class="agent-card skill-seed">
+              <div class="agent-card-header">Skill seed</div>
+              <pre>---
+name: scrollylite
+description: Build declarative scrollytelling data
+  stories with ScrollyLite.
+use_when:
+  - user asks for a scroll-driven narrated visualization
+  - user needs a ScrollyLite spec, example, plugin,
+    or docs explanation
+first_read:
+  - ./llms.txt
+  - ./docs/getting-started.md
+  - ./docs/chart-idioms.md
+core_rule: Describe chart end states; do not
+  hand-write transition animation.
+public_api:
+  - sl.seq / sl.bar / sl.line / sl.point / sl.unit
+  - sl.seq (state sequence builder)
+  - sl.render (full scrollytelling runtime)
+  - sl.chart (standalone animated chart)
+  - chart.to(n|state) / chart.progress(n, t)</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── Interactive code showcase ─────────────────────────────────────────── -->
       <section class="section" id="showcase">
         <div class="wrap">
           <p class="section-label">Interactive showcase</p>
           <h2 class="section-title">Write states. Get transitions.</h2>
           <p class="section-lede">
-            Click any step on the left — or scroll through them — to see the
-            chart animate in real time. Each step is a declarative spec, not
-            imperative animation code.
+            Click any step on the left to see the chart animate in real time.
+            Each step is a declarative spec — ScrollyLite infers the transition.
           </p>
 
           <div class="showcase">
@@ -880,8 +1182,8 @@
               <div class="showcase-code" id="showcase-code-panel">
 
                 <div class="code-preamble">
-                  <pre><code><span class="tok-c">// Build the base chart once</span>
-<span class="tok-k">const</span> base <span class="tok-p">=</span> <span class="tok-fn">bar</span><span class="tok-p">(</span><span class="tok-s">"weather"</span><span class="tok-p">)</span>
+                  <pre><code><span class="tok-c">// Data URL inline — no separate registration</span>
+<span class="tok-k">const</span> base <span class="tok-p">=</span> <span class="tok-fn">bar</span><span class="tok-p">(</span><span class="tok-s">"./data/weather.csv"</span><span class="tok-p">)</span>
   <span class="tok-p">.</span><span class="tok-fn">x</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">).</span><span class="tok-fn">y</span><span class="tok-p">(</span><span class="tok-s">"count"</span><span class="tok-p">)</span>
   <span class="tok-p">.</span><span class="tok-fn">sort</span><span class="tok-p">(</span><span class="tok-s">"year"</span><span class="tok-p">).</span><span class="tok-fn">key</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">);</span></code></pre>
                 </div>
@@ -911,11 +1213,11 @@
       <section class="section" id="modes">
         <div class="wrap">
           <p class="section-label">Control modes</p>
-          <h2 class="section-title">Two ways to drive transitions.</h2>
+          <h2 class="section-title">Wire any input to any chart.</h2>
           <p class="section-lede">
-            Same spec, same API — <code>chart.step(n)</code>. Wire it to a
-            button, a slider, a scroll offset, or a timer. The chart handles
-            the animation either way.
+            <code>chart.to(n)</code> is the single public API for driving
+            transitions. Wire it to a button, slider, scroll offset, keyboard
+            shortcut, or timer — the same call, the same animated transition.
           </p>
 
           <div class="modes-grid">
@@ -923,31 +1225,39 @@
             <!-- Button control -->
             <div class="mode-card">
               <div class="mode-card-header">
-                <span class="mode-badge stepper">Button</span>
-                <h3>chart.step(n) on click</h3>
+                <span class="mode-badge stepper">Discrete</span>
+                <h3>chart.to(n)</h3>
                 <p>
-                  Attach <code>chart.step(n)</code> to any event — a button,
+                  Snap to any step index from any event — button click,
                   keyboard shortcut, route change, or timer.
                 </p>
               </div>
-              <pre class="mode-code"><code><span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createChart</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
-  target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
-<span class="tok-p">});</span>
+              <div class="mode-card-body">
+                <pre class="mode-code"><code><span class="tok-k">const</span> base <span class="tok-p">=</span> sl<span class="tok-p">.</span><span class="tok-fn">bar</span><span class="tok-p">(</span><span class="tok-s">"./data.csv"</span><span class="tok-p">)</span>
+  <span class="tok-p">.</span><span class="tok-fn">x</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">).</span><span class="tok-fn">y</span><span class="tok-p">(</span><span class="tok-s">"count"</span><span class="tok-p">).</span><span class="tok-fn">key</span><span class="tok-p">(</span><span class="tok-s">"decade"</span><span class="tok-p">);</span>
 
-<span class="tok-c">// Toggle between two states</span>
+<span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> sl<span class="tok-p">.</span><span class="tok-fn">chart</span><span class="tok-p">(</span>
+  sl<span class="tok-p">.</span><span class="tok-fn">story</span><span class="tok-p">()</span>
+    <span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">"Hot days"</span><span class="tok-p">,</span>  base<span class="tok-p">.</span><span class="tok-fn">where</span><span class="tok-p">({</span> type<span class="tok-p">:</span> <span class="tok-s">"Hot days"</span> <span class="tok-p">}))</span>
+    <span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span><span class="tok-s">"Breakdown"</span><span class="tok-p">,</span> base<span class="tok-p">.</span><span class="tok-fn">breakdown</span><span class="tok-p">(</span><span class="tok-s">"type"</span><span class="tok-p">))</span>
+    <span class="tok-p">.</span><span class="tok-fn">toSpec</span><span class="tok-p">(),</span>
+  <span class="tok-p">{</span> target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq <span class="tok-p">}</span>
+<span class="tok-p">);</span>
+
+<span class="tok-c">// Button click → snap to next step</span>
 <span class="tok-k">let</span> n <span class="tok-p">=</span> <span class="tok-s">0</span><span class="tok-p">;</span>
-btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span>
-  chart<span class="tok-p">.</span><span class="tok-fn">step</span><span class="tok-p">(</span>n <span class="tok-p">^=</span> <span class="tok-s">1</span><span class="tok-p">);</span>   <span class="tok-c">// 0 ↔ 1</span></code></pre>
-              <div class="mode-demo">
-                <div class="mode-demo-chart" id="btn-demo-chart"></div>
-                <div class="btn-control">
-                  <span class="state-chip is-active" id="btn-state-0">
-                    <span class="state-dot"></span>Hot days
-                  </span>
-                  <button class="state-advance-btn" id="btn-demo-btn" aria-label="Toggle state">→</button>
-                  <span class="state-chip" id="btn-state-1">
-                    <span class="state-dot"></span>Breakdown
-                  </span>
+btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span> chart<span class="tok-p">.</span><span class="tok-fn">to</span><span class="tok-p">(</span>n <span class="tok-p">^=</span> <span class="tok-s">1</span><span class="tok-p">);</span></code></pre>
+                <div class="mode-demo">
+                  <div class="mode-demo-chart" id="btn-demo-chart"></div>
+                  <div class="btn-control">
+                    <span class="state-chip is-active" id="btn-state-0">
+                      <span class="state-dot"></span>Hot days
+                    </span>
+                    <button class="state-advance-btn" id="btn-demo-btn" aria-label="Toggle state">→</button>
+                    <span class="state-chip" id="btn-state-1">
+                      <span class="state-dot"></span>Breakdown
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -956,37 +1266,36 @@ btn<span class="tok-p">.</span>onclick <span class="tok-p">= () =></span>
             <div class="mode-card">
               <div class="mode-card-header">
                 <span class="mode-badge scroller">Slider</span>
-                <h3>progress [0 → 1] → step</h3>
+                <h3>chart.to(n) from any input</h3>
                 <p>
-                  Map a continuous 0–1 value to a step index. Works identically
-                  with a range input, scroll progress, or any interpolated value.
+                  Wire <code>chart.to(n)</code> to a range input, scroll offset,
+                  or any continuous value — same API, same animated transitions.
                 </p>
               </div>
-              <pre class="mode-code"><code><span class="tok-k">const</span> chart <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-fn">createChart</span><span class="tok-p">(</span>spec<span class="tok-p">, {</span>
-  target<span class="tok-p">:</span> <span class="tok-s">"#chart"</span><span class="tok-p">,</span> d3<span class="tok-p">,</span> aq
-<span class="tok-p">});</span>
+              <div class="mode-card-body">
+                <pre class="mode-code"><code><span class="tok-c">// Same chart, same states — driven by a slider</span>
+<span class="tok-k">const</span> STEPS <span class="tok-p">=</span> <span class="tok-p">[</span>
+  base<span class="tok-p">.</span><span class="tok-fn">where</span><span class="tok-p">({</span> type<span class="tok-p">:</span> <span class="tok-s">"Hot days"</span> <span class="tok-p">}),</span>
+  base<span class="tok-p">.</span><span class="tok-fn">where</span><span class="tok-p">({</span> type<span class="tok-p">:</span> <span class="tok-s">"Hot days"</span><span class="tok-p">,</span> period<span class="tok-p">:</span> <span class="tok-s">"recent"</span> <span class="tok-p">}),</span>
+  base<span class="tok-p">.</span><span class="tok-fn">breakdown</span><span class="tok-p">(</span><span class="tok-s">"type"</span><span class="tok-p">),</span>
+<span class="tok-p">];</span>
 
-<span class="tok-c">// Scrub transition with 0→1 progress</span>
+<span class="tok-c">// slider min=0, max=STEPS.length-1, step=1</span>
 slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
-  chart<span class="tok-p">.</span><span class="tok-fn">action</span><span class="tok-p">({</span>
-    type<span class="tok-p">:</span>  <span class="tok-s">"progress"</span><span class="tok-p">,</span>
-    index<span class="tok-p">:</span> <span class="tok-s">1</span><span class="tok-p">,</span>         <span class="tok-c">// target state</span>
-    value<span class="tok-p">:</span> <span class="tok-p">+</span>slider<span class="tok-p">.</span>value <span class="tok-c">// 0.00 → 1.00</span>
-  <span class="tok-p">});</span></code></pre>
-              <div class="mode-demo">
-                <div class="mode-demo-chart" id="slider-demo-chart"></div>
-                <div class="slider-control">
-                  <div class="slider-track-row">
-                    <span class="slider-end-label">State 0</span>
-                    <input class="slider-input" type="range" id="slider-demo-input"
-                           min="0" max="1" step="0.01" value="0"
-                           autocomplete="off"
-                           aria-label="Progress 0 to 1">
-                    <span class="slider-end-label">State 1</span>
-                  </div>
-                  <div class="slider-value-row">
-                    <span id="slider-state-name">Hot days</span>
-                    <span id="slider-val-display">0.00</span>
+  chart<span class="tok-p">.</span><span class="tok-fn">to</span><span class="tok-p">(+</span>slider<span class="tok-p">.</span>value<span class="tok-p">);</span></code></pre>
+                <div class="mode-demo">
+                  <div class="mode-demo-chart" id="slider-demo-chart"></div>
+                  <div class="slider-control">
+                    <div class="slider-track-row">
+                      <input class="slider-input" type="range" id="slider-demo-input"
+                             min="0" max="2" step="1" value="0"
+                             autocomplete="off"
+                             aria-label="Select step 0 to 2">
+                    </div>
+                    <div class="slider-value-row">
+                      <span id="slider-state-name">Hot days</span>
+                      <span id="slider-val-display">step 0</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1060,29 +1369,28 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
     <script src="https://cdn.jsdelivr.net/npm/arquero@8/dist/arquero.min.js"></script>
 
     <script type="module">
-      import { createChart, createStory, bar, story } from "./dist/index.js";
+      // Cache-busting import so Vite dev server always serves the latest dist.
+      // The ?t= param is stripped by the module system but makes each page load fetch fresh.
+      const sl = await import("./dist/index.js?t=" + Date.now());
+      const { bar, seq, chart: slChart, render: slRender } = sl;
 
       const d3 = globalThis.d3;
       const aq = globalThis.aq;
 
       // ── Shared data & base spec ───────────────────────────────────────────────
+      // Observable-Plot style: data URL inline in bar(), no separate .data() call.
       const DATA_URL = "./examples/weather/data/weather_days_tidy.csv";
 
-      function makeSpec(steps, height = 420) {
-        const base = bar("weather")
-          .x("decade").y("count")
-          .sort("year").key("decade");
-
-        const s = story()
-          .data("weather", { url: DATA_URL })
-          .view("main", { height });
-
-        steps.forEach(([label, chart, desc]) => s.step(label, chart, { body: desc }));
-        return s.toSpec();
+      function makeSeq(steps, height = 420) {
+        const sq = seq();
+        sq.view({ height });
+        steps.forEach(([, chart, desc]) => sq.add(chart, desc));
+        return sq;
       }
 
       // ── Showcase steps definition ─────────────────────────────────────────────
-      const base = bar("weather")
+      // bar(URL) — data source is inline, no registration step needed.
+      const base = bar(DATA_URL)
         .x("decade").y("count")
         .sort("year").key("decade");
 
@@ -1170,12 +1478,16 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
       let showcaseChart = null;
       let activeStep = 0;
 
-      const showcaseSpec = makeSpec(
-        SHOWCASE_STEPS.map(s => [s.label, s.chart, s.desc])
+      // Square figure: spec height = container width - figcaption (58px), capped
+      // so the figure fills the panel without overflowing the 600px min-height.
+      const showcaseContainerW = document.getElementById("showcase-chart-view").clientWidth;
+      const showcaseSq = makeSeq(
+        SHOWCASE_STEPS.map(s => [s.label, s.chart, s.desc]),
+        Math.min(showcaseContainerW - 58, 460)
       );
 
       try {
-        showcaseChart = await createChart(showcaseSpec, {
+        showcaseChart = await slChart(showcaseSq, {
           target: "#showcase-chart-view",
           d3, aq,
           initialStep: 0
@@ -1204,38 +1516,27 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
         descEl.textContent = SHOWCASE_STEPS[index].desc;
 
         // Drive the chart
-        showcaseChart?.step(index);
+        showcaseChart?.to(index);
 
         // Scroll clicked step into center of code panel
         const row = stepsContainer.children[index];
         if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
 
-      // IntersectionObserver: auto-advance as steps scroll into view
-      const codePanel = document.getElementById("showcase-code-panel");
-      const obs = new IntersectionObserver(
-        (entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              const idx = Number(entry.target.dataset.step);
-              if (!isNaN(idx)) activateShowcaseStep(idx);
-            }
-          });
-        },
-        { root: codePanel, threshold: 0.6 }
-      );
-
-      stepsContainer.querySelectorAll(".code-step").forEach(el => obs.observe(el));
+      // Click-only: no scroll-triggered auto-advance
 
       // ── Hero chart — auto-cycles through showcase steps ───────────────────────
       let heroChart = null;
-      const heroSpec = makeSpec(
+      // Square figure: spec height = container width - figcaption (58px).
+      // hero-chart width = hero-panel inner width (right column of hero grid).
+      const heroContainerW = document.getElementById("hero-chart").clientWidth;
+      const heroSq = makeSeq(
         SHOWCASE_STEPS.map(s => [s.label, s.chart, s.desc]),
-        320
+        Math.max(heroContainerW - 58, 280)
       );
 
       try {
-        heroChart = await createChart(heroSpec, {
+        heroChart = await slChart(heroSq, {
           target: "#hero-chart",
           d3, aq,
           initialStep: 0
@@ -1244,30 +1545,48 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
         let heroStep = 0;
         setInterval(() => {
           heroStep = (heroStep + 1) % SHOWCASE_STEPS.length;
-          heroChart.step(heroStep);
+          heroChart.to(heroStep);
         }, 2400);
       } catch (e) {
         console.warn("Hero chart failed:", e);
       }
 
-      // ── Two-state spec shared by both mode demos ──────────────────────────────
-      const DEMO_STATES = [
-        { label: "Hot days",  chart: base.where({ type: "Hot days" }),  desc: "Baseline — one bar per decade" },
-        { label: "Breakdown", chart: base.breakdown("type"),            desc: "Split into Hot & Cold" },
+      // ── Demo states: button (2 states) vs slider (3 states) ─────────────────
+      const BTN_STATES = [
+        { label: "Hot days",
+          chart: base.where({ type: "Hot days", period: "recent" }),
+          desc:  "Recent decades — bar height = hot days count" },
+        { label: "Breakdown",
+          chart: base.where({ period: "recent" }).breakdown("type"),
+          desc:  "Same decades split into Hot & Cold — stacked" },
       ];
-      const demoSpec = makeSpec(DEMO_STATES.map(s => [s.label, s.chart, s.desc]), 220);
+      const SLIDER_STATES = [
+        { label: "Hot days",
+          chart: base.where({ type: "Hot days", period: "recent" }),
+          desc:  "Recent decades — vertical bars" },
+        { label: "Flip axis",
+          chart: base.where({ type: "Hot days", period: "recent" }).flip(),
+          desc:  "Same data, horizontal orientation" },
+        { label: "Breakdown",
+          chart: base.where({ period: "recent" }).breakdown("type"),
+          desc:  "Split into Hot & Cold — stacked" },
+      ];
+
+      const demoContainerW = document.getElementById("btn-demo-chart").clientWidth;
+      const btnSq    = makeSeq(BTN_STATES.map(s => [s.label, s.chart, s.desc]), demoContainerW);
+      const sliderSq = makeSeq(SLIDER_STATES.map(s => [s.label, s.chart, s.desc]), demoContainerW);
 
       // ── Button demo ───────────────────────────────────────────────────────────
       let btnDemoChart = null;
       let btnState = 0;
 
       try {
-        btnDemoChart = await createChart(demoSpec, { target: "#btn-demo-chart", d3, aq, initialStep: 0 });
+        btnDemoChart = await slChart(btnSq, { target: "#btn-demo-chart", d3, aq, initialStep: 0 });
       } catch (e) { console.warn("Btn demo chart failed:", e); }
 
       document.getElementById("btn-demo-btn").addEventListener("click", () => {
         btnState ^= 1;
-        btnDemoChart?.step(btnState);
+        btnDemoChart?.to(btnState);
         document.getElementById("btn-state-0").classList.toggle("is-active", btnState === 0);
         document.getElementById("btn-state-1").classList.toggle("is-active", btnState === 1);
       });
@@ -1276,24 +1595,21 @@ slider<span class="tok-p">.</span>oninput <span class="tok-p">= () =></span>
       let sliderDemoChart = null;
 
       try {
-        sliderDemoChart = await createChart(demoSpec, { target: "#slider-demo-chart", d3, aq, initialStep: 0 });
+        sliderDemoChart = await slChart(sliderSq, { target: "#slider-demo-chart", d3, aq, initialStep: 0 });
       } catch (e) { console.warn("Slider demo chart failed:", e); }
 
       const sliderInput    = document.getElementById("slider-demo-input");
       const sliderValEl    = document.getElementById("slider-val-display");
       const sliderStateEl  = document.getElementById("slider-state-name");
 
-      // Reset to 0 on load (browser may persist last value across reloads)
+      // Reset to 0 on load
       sliderInput.value = "0";
 
       sliderInput.addEventListener("input", () => {
-        const val = parseFloat(sliderInput.value);
-        // chart.action() with type:'progress' triggers applyProgressStep →
-        // applyVirtualScrollSequence — scrubs the transition frame-by-frame
-        // instead of playing the full D3 tween that chart.step() would fire.
-        sliderDemoChart?.action({ type: "progress", index: 1, value: val });
-        sliderValEl.textContent   = val.toFixed(2);
-        sliderStateEl.textContent = DEMO_STATES[Math.round(val)].label;
+        const step = parseInt(sliderInput.value, 10);
+        sliderDemoChart?.to(step);
+        sliderValEl.textContent   = `step ${step}`;
+        sliderStateEl.textContent = SLIDER_STATES[step].label;
       });
     </script>
   </body>

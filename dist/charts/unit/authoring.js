@@ -1,6 +1,6 @@
-import { IdiomState, colorFrom } from '../authoring.js';
+import { IdiomState, colorFrom, normalizeDataSource } from '../authoring.js';
 export function unit(data) {
-    return new UnitState({ data, mark: 'unit', encoding: {}, unit: {} });
+    return new UnitState({ data: normalizeDataSource(data), mark: 'unit', encoding: {}, unit: {} });
 }
 export class UnitState extends IdiomState {
     value(field, options = {}) {

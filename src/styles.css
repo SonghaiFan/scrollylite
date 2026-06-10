@@ -778,66 +778,123 @@ body {
     min-height: 72vh;
   }
 
+  /* ── Both layouts switch to text-over-vis on mobile ─────────────────────── *
+   * Chart fills ~52 vh at the top (sticky), text cards scroll over it.        *
+   * This matches the text-over-vis idiom so all layouts feel consistent on    *
+   * small screens regardless of what the author configured for desktop.        */
   .sl-story {
-    width: min(100% - 28px, 680px);
-    display: flex;
-    flex-direction: column-reverse;
-    padding-top: 28px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0;
   }
 
   .sl-steps,
   .sl-figure-wrap {
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .sl-step-stack {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  .sl-step-card,
-  .sl-transition-inspector {
-    grid-column: 1;
-  }
-
-  .sl-transition-inspector {
-    position: static;
-    width: auto;
-    transform: none;
+    grid-area: 1 / 1;
   }
 
   .sl-figure-wrap {
     position: sticky;
-    top: 10px;
-    min-height: auto;
-    z-index: 5;
+    top: 0;
+    height: 52vh;
+    min-height: 220px;
+    max-height: 360px;
+    z-index: 1;
+    padding: clamp(8px, 2vw, 16px);
+    align-items: stretch;
+    pointer-events: auto;
+  }
+
+  .sl-figure {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sl-view {
+    min-height: 0 !important;
+    flex: 1;
+  }
+
+  .sl-steps {
+    --sl-step-min-height: 60vh;
+    position: relative;
+    z-index: 2;
+    width: min(52ch, calc(100% - 28px));
+    margin: 52vh auto 0;
+    min-height: 0;
+    padding-bottom: 30vh;
+    pointer-events: none;
   }
 
   .sl-step {
-    min-height: 68vh;
+    min-height: var(--sl-step-min-height);
+    opacity: 0.18;
+    transform: none;
+  }
+
+  .sl-step.is-active {
+    opacity: 1;
+    transform: none;
+  }
+
+  .sl-step-stack {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .sl-step-card {
+    grid-column: 1;
+    pointer-events: auto;
+    padding: 16px 18px 16px 22px;
+    background: var(--sl-step-bg);
+    border: var(--sl-step-border);
+    border-left: 3px solid transparent;
+    border-radius: var(--sl-step-radius);
+    -webkit-backdrop-filter: blur(var(--sl-step-blur));
+    backdrop-filter: blur(var(--sl-step-blur));
+    box-shadow: var(--sl-step-shadow);
+  }
+
+  .sl-step.is-active .sl-step-card {
+    border-left-color: var(--sl-accent);
+  }
+
+  .sl-transition-inspector {
+    grid-column: 1;
+    position: static;
+    width: auto;
+    transform: none;
+    pointer-events: auto;
+    background: var(--sl-step-bg);
+    border: var(--sl-step-border);
+    border-right: 3px solid var(--sl-accent);
+    border-radius: var(--sl-step-radius);
+    box-shadow: var(--sl-step-shadow);
   }
 
   .sl-nav {
     display: none;
   }
 
-  .sl-view {
-    min-height: 360px;
-  }
-
   .sl-text-board ul {
     grid-template-columns: 1fr;
   }
 
+  /* text-over-vis preset: same overlay behaviour, no changes needed on mobile */
   :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-story {
-    display: flex;
-    flex-direction: column-reverse;
-    padding-top: 28px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 0;
   }
 
   :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-steps {
-    width: min(48ch, calc(100% - 36px));
+    width: min(52ch, calc(100% - 28px));
+    margin: 52vh auto 0;
+    padding-bottom: 30vh;
   }
 
   :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-step-stack {
@@ -845,19 +902,19 @@ body {
   }
 
   :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-figure-wrap {
-    height: auto;
-    min-height: auto;
-    padding: 0;
+    height: 52vh;
+    min-height: 220px;
+    max-height: 360px;
+    padding: clamp(8px, 2vw, 16px);
   }
 
   :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-figure {
     width: 100%;
     min-width: 0;
+    height: 100%;
   }
 
   :is(.sl-layering-text-over-vis, .sl-layout-preset-text-over-vis) .sl-steps {
-    width: 100%;
-    margin-left: 0;
-    padding: 0 0 24vh;
+    padding: 0 0 30vh;
   }
 }

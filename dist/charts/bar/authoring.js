@@ -2,9 +2,9 @@ import { compileViewSpec } from '../../transitions/index.js';
 import { externalizeScrollyViewSpec } from '../../scrolly-meta.js';
 import { cloneState } from '../../grammar/view-state.js';
 import { labelFromValue, titleize } from '../../labels.js';
-import { IdiomState, channelFrom, colorFrom } from '../authoring.js';
+import { IdiomState, channelFrom, colorFrom, normalizeDataSource } from '../authoring.js';
 export function bar(data) {
-    return new BarState({ data, mark: 'bar', encoding: {} });
+    return new BarState({ data: normalizeDataSource(data), mark: 'bar', encoding: {} });
 }
 export class BarState extends IdiomState {
     toSpec() {

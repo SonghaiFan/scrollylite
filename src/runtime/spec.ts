@@ -125,12 +125,28 @@ function normalizeStepViews(step: AnyRecord): Record<string, unknown> {
 
 function collectViewDataSources(steps: StepSpec[]): { data: Record<string, unknown>; steps: StepSpec[] } {
   const data: Record<string, unknown> = {};
+  // Deduplicate: same URL → same generated name, loaded only once
+  const urlToName = new Map<string, string>();
+
   const normalizedSteps = steps.map((step, stepIndex) => ({
     ...step,
     views: Object.fromEntries(
       Object.entries((step as AnyRecord)['views'] as Record<string, AnyRecord> || {}).map(([viewId, viewSpec]) => {
         if (!(viewSpec?.['data'] as AnyRecord)?.['url']) return [viewId, viewSpec];
-        const name = (viewSpec['data'] as AnyRecord)['name'] as string || `__step_${stepIndex + 1}_${viewId}`;
+
+        const url = (viewSpec['data'] as AnyRecord)['url'] as string;
+        const explicitName = (viewSpec['data'] as AnyRecord)['name'] as string | undefined;
+
+        let name: string;
+        if (explicitName) {
+          name = explicitName;
+        } else if (urlToName.has(url)) {
+          name = urlToName.get(url)!;          // reuse existing name for same URL
+        } else {
+          name = `__data_${stepIndex + 1}_${viewId}`;
+          urlToName.set(url, name);
+        }
+
         data[name] = normalizeUrlDataSource(viewSpec['data'] as AnyRecord);
         return [viewId, { ...viewSpec, data: { name } }];
       })

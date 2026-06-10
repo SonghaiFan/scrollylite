@@ -138,7 +138,9 @@ export async function createStory(spec: AnyRecord, options: RuntimeOptions): Pro
     spec: compiled,
     data,
     signature: storySignature(compiled),
-    action: renderer.action,
+    to(index: number) {
+      renderer.action({ type: "click", step: index, action: "stepper", force: true });
+    },
     scrollDriver,
     destroy() {
       disposeResize();
@@ -158,10 +160,8 @@ export async function createStory(spec: AnyRecord, options: RuntimeOptions): Pro
 //                 attach createChart() instances to the view containers it returns.
 //
 // createChart() — renders only the animated chart into any target element.
-//                 chart.step(n) triggers a discrete animated transition to step n.
-//                 chart.action(event) is the full event interface for scrubbing,
-//                 programmatic control, or any non-scroll trigger (button, slider,
-//                 route change, …).
+//                 chart.to(n)             discrete animated transition to step n.
+//                 chart.progress(n, t)    scrub transition toward step n at 0→1.
 
 export async function createPage(spec: AnyRecord, options: PageOptions = {}): Promise<PageRuntime> {
   const target = resolveTarget(options.target || "#app");
@@ -209,9 +209,12 @@ export async function createChart(spec: AnyRecord, options: ChartOptions): Promi
     data,
     view: shell.views[viewId],
     tooltip: shell.tooltip,
-    action: renderer.action,
-    step(index) {
-      renderer.action({ type: "click", step: index, action: "stepper", force: true });
+    to(target: number | { index: number }) {
+      const step = typeof target === "number" ? target : target.index;
+      renderer.action({ type: "click", step, action: "stepper", force: true });
+    },
+    progress(index: number, value: number) {
+      renderer.action({ type: "progress", index, value, action: "stepper" });
     },
     resize: renderer.resize,
     destroy() {
@@ -502,7 +505,7 @@ function renderCompiledView(node: any, effectiveViewSpec: AnyRecord, viewConfig:
     return;
   }
 
-  const width = Math.max(320, node.clientWidth || 720);
+  const width = Math.max(60, node.clientWidth || 720);
   const height = viewConfig.height || effectiveViewSpec.height || 500;
   resizeScene(scene, width, height);
 
@@ -514,7 +517,7 @@ function renderCompiledView(node: any, effectiveViewSpec: AnyRecord, viewConfig:
     height,
     margin: {
       top: 58,
-      right: 34,
+      right: 44,   // extra breathing room prevents last-bar clipping at narrow widths
       bottom: 64,
       left: 68,
       ...(idiom?.defaultMargin?.(renderSpec) || {}),

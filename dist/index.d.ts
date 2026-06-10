@@ -1,4 +1,11 @@
 export { availableChartIdioms, createChart, createPage, createStory, registerChartIdiom, registerChartModule } from "./scrollylite.js";
 export { bar, line, point, story, unit } from "./grammar/index.js";
 export { defineChartIdiom } from "./charts/plugin.js";
+export { seq, Seq } from "./seq.js";
+export type { SeqState } from "./seq.js";
+import { Seq as SeqClass } from "./seq.js";
+type AnyRecord = Record<string, unknown>;
+export declare function chart(specOrSeq: SeqClass | AnyRecord, options?: AnyRecord): Promise<import("./types.js").ChartRuntime>;
+export declare function render(specOrSeq: SeqClass | AnyRecord, options?: AnyRecord): Promise<import("./types.js").StoryRuntime>;
+export declare function page(specOrSeq: SeqClass | AnyRecord, options?: AnyRecord): Promise<import("./types.js").PageRuntime>;
 export type { ActionEvent, ChartOptions, ChartRuntime, PageOptions, PageRuntime, RuntimeOptions, StoryRuntime } from "./types.js";

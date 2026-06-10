@@ -99,12 +99,26 @@ function normalizeStepViews(step) {
 }
 function collectViewDataSources(steps) {
     const data = {};
+    // Deduplicate: same URL → same generated name, loaded only once
+    const urlToName = new Map();
     const normalizedSteps = steps.map((step, stepIndex) => ({
         ...step,
         views: Object.fromEntries(Object.entries(step['views'] || {}).map(([viewId, viewSpec]) => {
             if (!viewSpec?.['data']?.['url'])
                 return [viewId, viewSpec];
-            const name = viewSpec['data']['name'] || `__step_${stepIndex + 1}_${viewId}`;
+            const url = viewSpec['data']['url'];
+            const explicitName = viewSpec['data']['name'];
+            let name;
+            if (explicitName) {
+                name = explicitName;
+            }
+            else if (urlToName.has(url)) {
+                name = urlToName.get(url); // reuse existing name for same URL
+            }
+            else {
+                name = `__data_${stepIndex + 1}_${viewId}`;
+                urlToName.set(url, name);
+            }
             data[name] = normalizeUrlDataSource(viewSpec['data']);
             return [viewId, { ...viewSpec, data: { name } }];
         }))

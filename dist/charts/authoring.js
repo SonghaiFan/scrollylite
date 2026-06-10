@@ -3,6 +3,31 @@ import { externalizeScrollyViewSpec } from '../scrolly-meta.js';
 import { ViewState, cloneState } from '../grammar/view-state.js';
 import { titleize } from '../labels.js';
 export { titleize };
+// ─── Data source normalisation ────────────────────────────────────────────────
+//
+// Observable-Plot style: pass a URL (string or { url }) directly to bar() etc.
+//
+//   sl.bar('/data/weather.csv').x('decade').y('count')
+//   sl.bar({ url: '/data/weather.csv', type: 'csv' }).x(...).y(...)
+//
+// A plain non-URL string is treated as a named dataset reference (existing
+// behavior).  The runtime's collectViewDataSources() automatically hoists
+// inline { url } objects into the top-level data registry, so seq().data()
+// is no longer needed when using inline URLs.
+export function normalizeDataSource(data) {
+    if (typeof data === 'string' && isDataUrl(data)) {
+        return { url: data };
+    }
+    return data;
+}
+function isDataUrl(s) {
+    return (s.startsWith('http://') ||
+        s.startsWith('https://') ||
+        s.startsWith('./') ||
+        s.startsWith('../') ||
+        s.startsWith('/') ||
+        /\.(csv|json|tsv|arrow)(\?.*)?$/i.test(s));
+}
 // ─── IdiomState ───────────────────────────────────────────────────────────────
 export class IdiomState extends ViewState {
     toSpec() {

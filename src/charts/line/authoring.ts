@@ -1,5 +1,5 @@
 import type { StageSpec, ViewSpec } from '../../types/index.js';
-import { IdiomState, colorFrom } from '../authoring.js';
+import { IdiomState, colorFrom, normalizeDataSource } from '../authoring.js';
 
 export interface LineViewState extends ViewSpec {
   mark: 'line';
@@ -8,8 +8,8 @@ export interface LineViewState extends ViewSpec {
   pointSize?: number;
 }
 
-export function line(data: ViewSpec['data']): LineState {
-  return new LineState({ data, mark: 'line', encoding: {} });
+export function line(data: unknown): LineState {
+  return new LineState({ data: normalizeDataSource(data) as LineViewState['data'], mark: 'line', encoding: {} });
 }
 
 export class LineState extends IdiomState<LineViewState> {

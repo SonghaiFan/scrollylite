@@ -507,7 +507,8 @@ export interface StoryRuntime {
     spec: StorySpec;
     data: Record<string, unknown>;
     signature: Record<string, unknown>[];
-    action(event: RawActionEvent, options?: Record<string, unknown>): void;
+    /** Programmatically jump to step `index` with a natural animated transition. */
+    to(index: number): void;
     scrollDriver: Record<string, unknown>;
     destroy(): void;
 }
@@ -521,15 +522,39 @@ export interface PageRuntime {
     tooltip: Element;
     destroy(): void;
 }
+/** A state returned by Seq navigation methods */
+export interface SeqState {
+    spec: ViewSpec;
+    text: string;
+    title?: string;
+    index: number;
+}
 export interface ChartRuntime {
     spec: StorySpec;
     data: Record<string, unknown>;
     view: Element;
     tooltip: Element;
-    /** Animate to step `index` with a natural (non-scroll-bound) transition. */
-    step(index: number): void;
-    /** Full event interface — for scrubbing, programmatic control, or custom triggers. */
-    action(event: RawActionEvent, options?: Record<string, unknown>): void;
+    /**
+     * Animate to a step with a full animated transition.
+     * Accepts a step index, or a SeqState object from `seq.next()` / `seq.at(n)`.
+     * Works with any event trigger — button click, route change, hover, timer, etc.
+     *
+     * @example
+     * chart.to(1);
+     * chart.to(seq.next());  // SeqState — index is extracted automatically
+     * el.addEventListener('mouseenter', () => chart.to(1));
+     */
+    to(target: number | SeqState | {
+        index: number;
+    }): void;
+    /**
+     * Scrub the transition toward step `index` at a continuous `value` (0 → 1).
+     * Use with sliders, scroll offsets, or any gesture-driven input.
+     *
+     * @example
+     * slider.oninput = () => chart.progress(1, +slider.value);
+     */
+    progress(index: number, value: number): void;
     resize(): void;
     destroy(): void;
 }

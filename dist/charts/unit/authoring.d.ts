@@ -4,7 +4,7 @@ export interface UnitViewState extends ViewSpec {
     mark: 'unit';
     unit?: Record<string, unknown>;
 }
-export declare function unit(data: ViewSpec['data']): UnitState;
+export declare function unit(data: unknown): UnitState;
 export declare class UnitState extends IdiomState<UnitViewState> {
     value(field: string, options?: {
         maxUnits?: number;

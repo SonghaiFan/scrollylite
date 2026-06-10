@@ -1,6 +1,6 @@
-import { IdiomState, colorFrom } from '../authoring.js';
+import { IdiomState, colorFrom, normalizeDataSource } from '../authoring.js';
 export function line(data) {
-    return new LineState({ data, mark: 'line', encoding: {} });
+    return new LineState({ data: normalizeDataSource(data), mark: 'line', encoding: {} });
 }
 export class LineState extends IdiomState {
     x(field, options = {}) {

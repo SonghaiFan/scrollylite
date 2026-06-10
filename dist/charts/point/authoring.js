@@ -1,6 +1,6 @@
-import { IdiomState } from '../authoring.js';
+import { IdiomState, normalizeDataSource } from '../authoring.js';
 export function point(data) {
-    return new PointState({ data, mark: 'point', encoding: {} });
+    return new PointState({ data: normalizeDataSource(data), mark: 'point', encoding: {} });
 }
 export class PointState extends IdiomState {
     x(field, options = {}) {
